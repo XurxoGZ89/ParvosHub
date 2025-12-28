@@ -1,0 +1,17 @@
+{
+  "name": "parvoshub",
+  "version": "1.0.0",
+  "description": "Gestor de gastos familiares",
+  "main": "backend/index.js",
+  "scripts": {
+    "dev": "cd backend && npm start",
+    "build": "npm --prefix frontend install && npm run build --prefix frontend",
+    "start": "npx serve -s frontend/build -l 3000"
+  },
+  "dependencies": {
+    "serve": "^14.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
