@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: parvoshub-web
+    env: node
+    buildCommand: "cd frontend && npm install && npm run build"
+    startCommand: "npx serve -s frontend/build -l 3000"
+    envVars:
+      - key: NODE_ENV
+        value: production
