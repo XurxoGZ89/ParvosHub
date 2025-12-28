@@ -89,7 +89,7 @@ const Home = ({ onNavigate }) => {
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         {/* Header */}
         <div style={{ textAlign: 'center', color: '#fff', marginBottom: 60 }}>
-          <h1 style={{ fontSize: '3rem', fontWeight: 700, margin: 0, marginBottom: 10 }}>Familia</h1>
+          <h1 style={{ fontSize: '3rem', fontWeight: 700, margin: 0, marginBottom: 10 }}>Parvos Hub</h1>
           <p style={{ fontSize: '1.2rem', opacity: 0.9, margin: 0 }}>Dashboard de Control Familiar</p>
         </div>
 
