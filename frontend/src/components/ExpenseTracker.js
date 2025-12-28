@@ -140,6 +140,11 @@ function ExpenseTracker({ onBack }) {
     setOperaciones(filtradas);
   };
 
+  // Cargar operaciones al montar el componente
+  useEffect(() => {
+    cargarOperaciones();
+  }, []);
+
   // Actualizar fecha del formulario cuando cambien mes/año
   useEffect(() => {
     if (form.fecha) {
