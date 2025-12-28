@@ -1,0 +1,38 @@
+/* Global Responsive */
+* {
+  box-sizing: border-box;
+}
+
+/* Mobile First - Base Styles */
+@media (max-width: 480px) {
+  select, input, button {
+    font-size: 16px !important; /* Previene zoom en iOS */
+  }
+  
+  table {
+    font-size: 12px !important;
+  }
+}
+
+/* Tablets */
+@media (min-width: 481px) and (max-width: 768px) {
+  select, input, button {
+    font-size: 14px !important;
+  }
+}
+
+/* Desktop */
+@media (min-width: 769px) {
+  select, input, button {
+    font-size: 16px !important;
+  }
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
