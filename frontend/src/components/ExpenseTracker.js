@@ -356,9 +356,25 @@ function ExpenseTracker({ onBack }) {
   const huchaDiferencia = huchaNeta - huchaMesAnterior;
   const huchaPercentaje = huchaMesAnterior !== 0 ? ((huchaDiferencia / huchaMesAnterior) * 100).toFixed(1) : 0;
 
+  // Calcular saldo del mes anterior por cuenta
+  const saldoMesAnteriorPorCuenta = cuentas.reduce((acc, cuenta) => {
+    const operacionesMesAnterior = operaciones.filter(op => {
+      if (!op.fecha) return false;
+      const fecha = new Date(op.fecha);
+      return fecha.getMonth() === mesAnterior && fecha.getFullYear() === anioAnterior && op.tipo !== 'hucha' && op.cuenta === cuenta;
+    });
+    
+    acc[cuenta] = operacionesMesAnterior.reduce((saldo, op) => {
+      if (op.tipo === 'ingreso' || op.tipo === 'retirada-hucha') return saldo + Number(op.cantidad);
+      if (op.tipo === 'gasto') return saldo - Number(op.cantidad);
+      return saldo;
+    }, 0);
+    return acc;
+  }, {});
+
   const situacionPorCuenta = cuentas.map(cuenta => ({
     cuenta,
-    saldo: operacionesMes
+    saldo: (saldoMesAnteriorPorCuenta[cuenta] || 0) + operacionesMes
       .filter(op => op.tipo !== 'hucha' && op.cuenta === cuenta)
       .reduce((acc, op) => {
         if (op.tipo === 'ingreso' || op.tipo === 'retirada-hucha') return acc + Number(op.cantidad);
@@ -417,6 +433,19 @@ function ExpenseTracker({ onBack }) {
 
         {/* Selector de mes y año */}
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: isMobile ? 8 : 12, marginBottom: isMobile ? 16 : 24, flexWrap: 'wrap' }}>
+          <button 
+            onClick={() => {
+              if (mesSeleccionado === 0) {
+                setMesSeleccionado(11);
+                setAnioSeleccionado(anioSeleccionado - 1);
+              } else {
+                setMesSeleccionado(mesSeleccionado - 1);
+              }
+            }}
+            style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', padding: '4px 8px', color: '#007aff' }}
+          >
+            ◀
+          </button>
           <select value={mesSeleccionado} onChange={e => setMesSeleccionado(Number(e.target.value))} style={{ fontSize: 16, padding: '8px 12px', borderRadius: 8, border: '1px solid #e0e0e0' }}>
             {meses.map((mes, idx) => (
               <option key={mes} value={idx}>{mes}</option>
@@ -427,6 +456,19 @@ function ExpenseTracker({ onBack }) {
               <option key={anio} value={anio}>{anio}</option>
             ))}
           </select>
+          <button 
+            onClick={() => {
+              if (mesSeleccionado === 11) {
+                setMesSeleccionado(0);
+                setAnioSeleccionado(anioSeleccionado + 1);
+              } else {
+                setMesSeleccionado(mesSeleccionado + 1);
+              }
+            }}
+            style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', padding: '4px 8px', color: '#007aff' }}
+          >
+            ▶
+          </button>
         </div>
 
         <h2 style={{ textAlign: 'center', fontWeight: 700, color: '#222', letterSpacing: 0.5, marginBottom: 32 }}>

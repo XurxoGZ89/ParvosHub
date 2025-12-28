@@ -168,22 +168,46 @@ const Home = ({ onNavigate }) => {
         <div style={{ background: '#fff', borderRadius: 16, padding: 32, boxShadow: '0 8px 24px rgba(0,0,0,0.1)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0, color: '#222' }}>📈 Resumen del Año</h2>
-            <select 
-              value={anioSeleccionado} 
-              onChange={(e) => setAnioSeleccionado(Number(e.target.value))}
-              style={{ 
-                fontSize: 16, 
-                padding: '8px 12px', 
-                borderRadius: 8, 
-                border: '1px solid #e0e0e0',
-                background: '#fff',
-                cursor: 'pointer'
-              }}
-            >
-              {aniosDisponibles.map(anio => (
-                <option key={anio} value={anio}>{anio}</option>
-              ))}
-            </select>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button 
+                onClick={() => {
+                  const currentIndex = aniosDisponibles.indexOf(anioSeleccionado);
+                  if (currentIndex < aniosDisponibles.length - 1) {
+                    setAnioSeleccionado(aniosDisponibles[currentIndex + 1]);
+                  }
+                }}
+                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', padding: '4px 8px', color: '#007aff' }}
+              >
+                ◀
+              </button>
+              <select 
+                value={anioSeleccionado} 
+                onChange={(e) => setAnioSeleccionado(Number(e.target.value))}
+                style={{ 
+                  fontSize: 16, 
+                  padding: '8px 12px', 
+                  borderRadius: 8, 
+                  border: '1px solid #e0e0e0',
+                  background: '#fff',
+                  cursor: 'pointer'
+                }}
+              >
+                {aniosDisponibles.map(anio => (
+                  <option key={anio} value={anio}>{anio}</option>
+                ))}
+              </select>
+              <button 
+                onClick={() => {
+                  const currentIndex = aniosDisponibles.indexOf(anioSeleccionado);
+                  if (currentIndex > 0) {
+                    setAnioSeleccionado(aniosDisponibles[currentIndex - 1]);
+                  }
+                }}
+                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', padding: '4px 8px', color: '#007aff' }}
+              >
+                ▶
+              </button>
+            </div>
           </div>
 
           {datosMensuales.length > 0 ? (
