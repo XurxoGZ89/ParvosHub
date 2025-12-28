@@ -17,6 +17,15 @@ code {
     monospace;
 }
 
+/* Modo oscuro automático según preferencia del sistema */
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #181818;
+    color: #f1f1f1;
+  }
+  /* Puedes personalizar más elementos aquí */
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   body {

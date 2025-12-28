@@ -1,35 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { useLanguage } from '../contexts/LanguageContext';
+import Header from './Header';
 
-const meses = [
-  'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-  'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
-];
+const mesKeys = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+// Helper para convertir categoría español a clave de traducción
+const categoriaToKey = {
+  'Vacaciones': 'vacaciones',
+  'Ocio': 'ocio',
+  'Hogar': 'hogar',
+  'Vehículos': 'vehiculos',
+  'Extra': 'extra',
+  'Alimentación': 'alimentacion'
+};
 
 const colorsPorCategoria = {
-  'Vacaciones': '#b8a5d6',    // Lila
-  'Ocio': '#a64a5c',          // Granate
-  'Hogar': '#d9a07e',         // Naranja
-  'Vehículos': '#7ec9e8',     // Azul
-  'Extra': '#f4e4a1',         // Amarillo
-  'Alimentación': '#a8d4a3'   // Verde
+  'Vacaciones': '#FF9500',     // Naranja Apple
+  'Ocio': '#FF3B30',           // Rojo Apple
+  'Hogar': '#34C759',          // Verde Apple
+  'Vehículos': '#007AFF',      // Azul Apple
+  'Extra': '#AF52DE',          // Púrpura Apple
+  'Alimentación': '#FFB400'    // Amarillo Apple
 };
 
 const Home = ({ onNavigate }) => {
+  const { t } = useLanguage();
   const [operaciones, setOperaciones] = useState([]);
   const [anioSeleccionado, setAnioSeleccionado] = useState(new Date().getFullYear());
   const [datosMensuales, setDatosMensuales] = useState([]);
 
-  useEffect(() => {
-    cargarOperaciones();
-  }, []);
-
-  useEffect(() => {
-    procesarDatos();
-  }, [operaciones, anioSeleccionado]);
-
-  const cargarOperaciones = async () => {
+  const cargarOperaciones = useCallback(async () => {
     try {
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
       const res = await axios.get(`${API_URL}/operaciones`);
@@ -42,23 +44,23 @@ const Home = ({ onNavigate }) => {
     } catch (err) {
       console.error('Error al cargar operaciones:', err);
     }
-  };
+  }, []);
 
-  const procesarDatos = () => {
+  const procesarDatos = useCallback(() => {
     const datos = Array(12).fill(null).map((_, mesIndex) => ({
-      mes: meses[mesIndex],
+      mes: mesIndex + 1,
       'Vacaciones': 0,
       'Ocio': 0,
       'Hogar': 0,
       'Vehículos': 0,
       'Extra': 0,
       'Alimentación': 0,
-      'Ingresos': 0,
+      'ingreso': 0,
       'Total': 0
     }));
 
     operaciones.forEach(op => {
-      if (!op.fecha || op.tipo === 'hucha' || op.tipo === 'retirada-hucha') return; // Excluir Hucha
+      if (!op.fecha || op.tipo === 'hucha' || op.tipo === 'retirada-hucha') return;
       const fecha = new Date(op.fecha);
       if (fecha.getFullYear() !== anioSeleccionado) return;
 
@@ -66,7 +68,7 @@ const Home = ({ onNavigate }) => {
       const cantidad = Number(op.cantidad);
 
       if (op.tipo === 'ingreso') {
-        datos[mesIndex]['Ingresos'] += cantidad;
+        datos[mesIndex]['ingreso'] += cantidad;
       } else if (op.tipo === 'gasto' && op.categoria) {
         datos[mesIndex][op.categoria] = (datos[mesIndex][op.categoria] || 0) + cantidad;
         datos[mesIndex]['Total'] += cantidad;
@@ -74,7 +76,15 @@ const Home = ({ onNavigate }) => {
     });
 
     setDatosMensuales(datos);
-  };
+  }, [operaciones, anioSeleccionado]);
+
+  useEffect(() => {
+    cargarOperaciones();
+  }, [cargarOperaciones]);
+
+  useEffect(() => {
+    procesarDatos();
+  }, [procesarDatos]);
 
   const aniosDisponibles = Array.from(
     new Set(
@@ -85,40 +95,37 @@ const Home = ({ onNavigate }) => {
   ).sort((a, b) => b - a);
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '40px 20px', fontFamily: 'SF Pro Display, Arial, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#f5f5f7', padding: '20px 20px 40px 20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', color: '#fff', marginBottom: 60 }}>
-          <h1 style={{ fontSize: '3rem', fontWeight: 700, margin: 0, marginBottom: 10 }}>Parvos Hub</h1>
-          <p style={{ fontSize: '1.2rem', opacity: 0.9, margin: 0 }}>Dashboard de Control Familiar</p>
-        </div>
+        <Header title={t('parvosHub')} subtitle={t('homeSubtitle')} />
 
         {/* Cards Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, marginBottom: 40 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth < 768 ? '1fr' : 'repeat(3, 1fr)', gap: 24, marginBottom: 32 }}>
           {/* Card Gastos */}
           <div
             onClick={() => onNavigate('gastos')}
             style={{
               background: '#fff',
               borderRadius: 16,
-              padding: 32,
+              padding: '20px 16px',
               textAlign: 'center',
               cursor: 'pointer',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
-              transition: 'transform 0.3s, boxShadow 0.3s',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+              transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+              border: '1px solid #f0f0f0'
             }}
             onMouseOver={(e) => {
-              e.currentTarget.style.transform = 'translateY(-8px)';
-              e.currentTarget.style.boxShadow = '0 16px 48px rgba(0,0,0,0.15)';
+              e.currentTarget.style.transform = 'translateY(-6px)';
+              e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.1)';
             }}
             onMouseOut={(e) => {
               e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.1)';
+              e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.05)';
             }}
           >
-            <div style={{ fontSize: '3rem', marginBottom: 16 }}>💰</div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 600, margin: 0, marginBottom: 8, color: '#222' }}>Registro de Gastos</h2>
-            <p style={{ fontSize: '0.95rem', color: '#666', margin: 0 }}>Controla y registra todos los gastos familiares</p>
+            <div style={{ fontSize: '2rem', marginBottom: 10 }}>💰</div>
+            <h2 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0, marginBottom: 6, color: '#1d1d1f' }}>{t('registro')}</h2>
+            <p style={{ fontSize: '0.8rem', color: '#86868b', margin: 0, lineHeight: 1.4 }}>{t('registroDesc')}</p>
           </div>
 
           {/* Card Estadísticas */}
@@ -127,24 +134,25 @@ const Home = ({ onNavigate }) => {
             style={{
               background: '#fff',
               borderRadius: 16,
-              padding: 32,
+              padding: '20px 16px',
               textAlign: 'center',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
-              transition: 'transform 0.3s, boxShadow 0.3s',
-              cursor: 'pointer'
+              boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+              transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+              cursor: 'pointer',
+              border: '1px solid #f0f0f0'
             }}
             onMouseOver={(e) => {
-              e.currentTarget.style.transform = 'translateY(-8px)';
-              e.currentTarget.style.boxShadow = '0 16px 48px rgba(0,0,0,0.15)';
+              e.currentTarget.style.transform = 'translateY(-6px)';
+              e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.1)';
             }}
             onMouseOut={(e) => {
               e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.1)';
+              e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.05)';
             }}
           >
-            <div style={{ fontSize: '3rem', marginBottom: 16 }}>📊</div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 600, margin: 0, marginBottom: 8, color: '#222' }}>Resumen Anual</h2>
-            <p style={{ fontSize: '0.95rem', color: '#666', margin: 0 }}>Ver el resumen anual en tabla</p>
+            <div style={{ fontSize: '2rem', marginBottom: 10 }}>📊</div>
+            <h2 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0, marginBottom: 6, color: '#1d1d1f' }}>{t('resumen')}</h2>
+            <p style={{ fontSize: '0.8rem', color: '#86868b', margin: 0, lineHeight: 1.4 }}>{t('resumenDesc')}</p>
           </div>
 
           {/* Card Presupuestos (Future) */}
@@ -152,23 +160,25 @@ const Home = ({ onNavigate }) => {
             style={{
               background: '#fff',
               borderRadius: 16,
-              padding: 32,
+              padding: '20px 16px',
               textAlign: 'center',
-              opacity: 0.5,
-              cursor: 'not-allowed'
+              cursor: 'not-allowed',
+              opacity: 0.6,
+              boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+              border: '1px solid #f0f0f0'
             }}
           >
-            <div style={{ fontSize: '3rem', marginBottom: 16 }}>📋</div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 600, margin: 0, marginBottom: 8, color: '#222' }}>Presupuestos</h2>
-            <p style={{ fontSize: '0.95rem', color: '#666', margin: 0 }}>Próximamente</p>
+            <div style={{ fontSize: '2rem', marginBottom: 10 }}>📋</div>
+            <h2 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0, marginBottom: 6, color: '#1d1d1f' }}>{t('presupuestos')}</h2>
+            <p style={{ fontSize: '0.8rem', color: '#86868b', margin: 0, lineHeight: 1.4 }}>{t('proximamente')}</p>
           </div>
         </div>
 
         {/* Gráfico de Resumen Anual */}
-        <div style={{ background: '#fff', borderRadius: 16, padding: 32, boxShadow: '0 8px 24px rgba(0,0,0,0.1)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0, color: '#222' }}>📈 Resumen del Año</h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ background: '#fff', borderRadius: 20, padding: 40, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40, flexWrap: 'wrap', gap: 16 }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0, color: '#1d1d1f' }}>📈 {t('resumenDelAno')}</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <button 
                 onClick={() => {
                   const currentIndex = aniosDisponibles.indexOf(anioSeleccionado);
@@ -176,7 +186,9 @@ const Home = ({ onNavigate }) => {
                     setAnioSeleccionado(aniosDisponibles[currentIndex + 1]);
                   }
                 }}
-                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', padding: '4px 8px', color: '#007aff' }}
+                style={{ background: '#f5f5f7', border: 'none', fontSize: 16, cursor: 'pointer', padding: '8px 12px', color: '#007aff', borderRadius: 8, fontWeight: 600, transition: 'background 0.2s' }}
+                onMouseOver={(e) => e.target.style.background = '#efefef'}
+                onMouseOut={(e) => e.target.style.background = '#f5f5f7'}
               >
                 ◀
               </button>
@@ -184,12 +196,14 @@ const Home = ({ onNavigate }) => {
                 value={anioSeleccionado} 
                 onChange={(e) => setAnioSeleccionado(Number(e.target.value))}
                 style={{ 
-                  fontSize: 16, 
+                  fontSize: 15, 
                   padding: '8px 12px', 
                   borderRadius: 8, 
-                  border: '1px solid #e0e0e0',
+                  border: '1px solid #e5e5e7',
                   background: '#fff',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  color: '#1d1d1f',
+                  fontWeight: 500
                 }}
               >
                 {aniosDisponibles.map(anio => (
@@ -203,7 +217,9 @@ const Home = ({ onNavigate }) => {
                     setAnioSeleccionado(aniosDisponibles[currentIndex - 1]);
                   }
                 }}
-                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', padding: '4px 8px', color: '#007aff' }}
+                style={{ background: '#f5f5f7', border: 'none', fontSize: 16, cursor: 'pointer', padding: '8px 12px', color: '#007aff', borderRadius: 8, fontWeight: 600, transition: 'background 0.2s' }}
+                onMouseOver={(e) => e.target.style.background = '#efefef'}
+                onMouseOut={(e) => e.target.style.background = '#f5f5f7'}
               >
                 ▶
               </button>
@@ -212,41 +228,53 @@ const Home = ({ onNavigate }) => {
 
           {datosMensuales.length > 0 ? (
             <>
-              <ResponsiveContainer width="100%" height={400}>
+              <ResponsiveContainer width="100%" height={380}>
                 <BarChart
-                  data={datosMensuales}
+                  data={datosMensuales.map(d => ({
+                    ...d,
+                    mes: `${t(mesKeys[d.mes - 1]).substring(0, 3)}`
+                  }))}
                   margin={{ top: 20, right: 30, bottom: 20, left: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                  <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip formatter={v => `${v.toFixed(2)} €`} contentStyle={{ borderRadius: 8 }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="mes" tick={{ fontSize: 13, fill: '#666' }} />
+                  <YAxis tick={{ fontSize: 13, fill: '#666' }} />
+                  <Tooltip formatter={v => `${v.toFixed(2)} €`} contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
                   <Legend />
-                  <Bar dataKey="Vacaciones" stackId="a" fill={colorsPorCategoria['Vacaciones']} radius={[8, 8, 0, 0]} />
-                  <Bar dataKey="Ocio" stackId="a" fill={colorsPorCategoria['Ocio']} />
-                  <Bar dataKey="Hogar" stackId="a" fill={colorsPorCategoria['Hogar']} />
-                  <Bar dataKey="Vehículos" stackId="a" fill={colorsPorCategoria['Vehículos']} />
-                  <Bar dataKey="Extra" stackId="a" fill={colorsPorCategoria['Extra']} />
-                  <Bar dataKey="Alimentación" stackId="a" fill={colorsPorCategoria['Alimentación']} />
+                  <Bar dataKey="Vacaciones" stackId="a" fill={colorsPorCategoria['Vacaciones']} radius={[8, 8, 0, 0]} name={t('vacaciones')} />
+                  <Bar dataKey="Ocio" stackId="a" fill={colorsPorCategoria['Ocio']} name={t('ocio')} />
+                  <Bar dataKey="Hogar" stackId="a" fill={colorsPorCategoria['Hogar']} name={t('hogar')} />
+                  <Bar dataKey="Vehículos" stackId="a" fill={colorsPorCategoria['Vehículos']} name={t('vehiculos')} />
+                  <Bar dataKey="Extra" stackId="a" fill={colorsPorCategoria['Extra']} name={t('extra')} />
+                  <Bar dataKey="Alimentación" stackId="a" fill={colorsPorCategoria['Alimentación']} name={t('alimentacion')} />
                 </BarChart>
               </ResponsiveContainer>
 
               {/* Resumen de totales */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 16, marginTop: 32 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth < 768 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 16, marginTop: 40 }}>
                 {['Vacaciones', 'Ocio', 'Hogar', 'Vehículos', 'Extra', 'Alimentación'].map(categoria => {
                   const total = datosMensuales.reduce((sum, mes) => sum + mes[categoria], 0);
                   return (
-                    <div key={categoria} style={{ background: `${colorsPorCategoria[categoria]}15`, borderRadius: 12, padding: 16, textAlign: 'center', borderLeft: `4px solid ${colorsPorCategoria[categoria]}` }}>
-                      <div style={{ fontSize: 14, color: '#666', marginBottom: 8, fontWeight: 600 }}>{categoria}</div>
-                      <div style={{ fontSize: 24, fontWeight: 700, color: colorsPorCategoria[categoria] }}>{total.toFixed(2)} €</div>
+                    <div key={categoria} style={{ background: '#f5f5f7', borderRadius: 16, padding: 20, textAlign: 'center', borderLeft: `3px solid ${colorsPorCategoria[categoria]}`, transition: 'all 0.3s' }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.background = '#efefef';
+                        e.currentTarget.style.transform = 'translateY(-4px)';
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.background = '#f5f5f7';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      <div style={{ fontSize: 13, color: '#666', marginBottom: 10, fontWeight: 600, letterSpacing: '0.3px' }}>{t(categoriaToKey[categoria])}</div>
+                      <div style={{ fontSize: 28, fontWeight: 700, color: colorsPorCategoria[categoria] }}>{total.toFixed(2)} €</div>
                     </div>
                   );
                 })}
               </div>
             </>
           ) : (
-            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#999' }}>
-              Sin datos disponibles para este año
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}>
+              <p style={{ fontSize: '1rem', margin: 0 }}>Sin datos disponibles para este año</p>
             </div>
           )}
         </div>

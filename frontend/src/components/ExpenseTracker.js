@@ -1,36 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import ReactPaginate from 'react-paginate';
+import { useLanguage } from '../contexts/LanguageContext';
+import Header from './Header';
 import bbvaLogo from '../assets/BBVA_2019.svg.png';
 import imaginLogoWebp from '../assets/imagin.webp';
 import '../styles/pagination.css';
 
-const meses = [
-  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-];
+const mesKeys = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const categorias = ['Vacaciones', 'Ocio', 'Hogar', 'Vehículos', 'Extra', 'Alimentación'];
 
-const categorias = [
-  'Vacaciones', 'Ocio', 'Hogar', 'Vehículos', 'Extra', 'Alimentación'
-];
+// Helper para convertir categoría español a clave de traducción
+const categoriaToKey = {
+  'Vacaciones': 'vacaciones',
+  'Ocio': 'ocio',
+  'Hogar': 'hogar',
+  'Vehículos': 'vehiculos',
+  'Extra': 'extra',
+  'Alimentación': 'alimentacion'
+};
 
 const usuarios = ['Xurxo', 'Sonia'];
 const cuentas = ['Imagin', 'BBVA'];
 
-// Colores por categoría
 const colorsPorCategoria = {
-  'Vacaciones': '#b8a5d6',    // Lila
-  'Ocio': '#a64a5c',          // Granate
-  'Hogar': '#d9a07e',         // Naranja
-  'Vehículos': '#7ec9e8',     // Azul
-  'Extra': '#f4e4a1',         // Amarillo
-  'Alimentación': '#a8d4a3'   // Verde
-};
-
-const colorTipos = {
-  'Retirada Hucha': '#a64a5c',  // Granate
-  'Gasto': '#ef4444'            // Rojo para gastos
+  'Vacaciones': '#FF9500',     // Naranja Apple
+  'Ocio': '#FF3B30',           // Rojo Apple
+  'Hogar': '#34C759',          // Verde Apple
+  'Vehículos': '#007AFF',      // Azul Apple
+  'Extra': '#AF52DE',          // Púrpura Apple
+  'Alimentación': '#FFB400'    // Amarillo Apple
 };
 
 const editBtnStyle = {
@@ -39,19 +39,19 @@ const editBtnStyle = {
   cursor: 'pointer',
   fontSize: 18,
   marginRight: 8,
-  color: '#222',
+  color: '#1d1d1f',
 };
 const deleteBtnStyle = {
   background: 'none',
   border: 'none',
   cursor: 'pointer',
   fontSize: 18,
-  color: '#222',
+  color: '#1d1d1f',
 };
 const inputStyle = {
   padding: '12px 16px',
   borderRadius: 12,
-  border: '1px solid #e0e0e0',
+  border: '1px solid #e5e5e7',
   fontSize: 16,
   background: '#fff',
   outline: 'none',
@@ -76,7 +76,7 @@ const thStyle = {
   padding: '10px 8px',
   fontWeight: 600,
   fontSize: 15,
-  borderBottom: '2px solid #e0e0e0',
+  borderBottom: '2px solid #e5e5e7',
   textAlign: 'center',
   background: '#f1f3f4',
   cursor: 'pointer',
@@ -91,6 +91,7 @@ const tdStyle = {
 };
 
 function ExpenseTracker({ onBack }) {
+  const { t } = useLanguage();
   const hoy = new Date();
   const [mesSeleccionado, setMesSeleccionado] = useState(hoy.getMonth());
   const [anioSeleccionado, setAnioSeleccionado] = useState(hoy.getFullYear());
@@ -103,6 +104,7 @@ function ExpenseTracker({ onBack }) {
     usuario: '',
     cuenta: ''
   });
+  
   const [operaciones, setOperaciones] = useState([]);
   const [mensaje, setMensaje] = useState('');
   const [editandoId, setEditandoId] = useState(null);
@@ -113,9 +115,10 @@ function ExpenseTracker({ onBack }) {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(0);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [formVisible, setFormVisible] = useState(window.innerWidth >= 768); // Oculto en móvil, visible en desktop
 
   // Obtener presupuestos del mes actual
-  const keyMesActual = `${anioSeleccionado}-${mesSeleccionado}`;
+  const keyMesActual = `${anioSeleccionado}-${String(mesSeleccionado + 1).padStart(2, '0')}`;
   const presupuestosBase = {
     'Vacaciones': 0,
     'Ocio': 0,
@@ -129,7 +132,9 @@ function ExpenseTracker({ onBack }) {
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) setFormVisible(true); // Mostrar formulario cuando vuelve a desktop
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -146,7 +151,7 @@ function ExpenseTracker({ onBack }) {
     setOperaciones(filtradas);
   };
 
-  const cargarPresupuestos = async () => {
+  const cargarPresupuestos = useCallback(async () => {
     const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
     try {
       const res = await axios.get(`${API_URL}/presupuestos/${anioSeleccionado}/${mesSeleccionado}`);
@@ -160,18 +165,17 @@ function ExpenseTracker({ onBack }) {
     } catch (err) {
       console.log('No hay presupuestos guardados para este mes aún');
     }
-  };
+  }, [anioSeleccionado, mesSeleccionado]);
 
   // Cargar operaciones y presupuestos al montar el componente
   useEffect(() => {
     cargarOperaciones();
-    cargarPresupuestos();
   }, []);
 
   // Cargar presupuestos cuando cambien mes o año
   useEffect(() => {
     cargarPresupuestos();
-  }, [mesSeleccionado, anioSeleccionado]);
+  }, [mesSeleccionado, anioSeleccionado, cargarPresupuestos]);
 
   // Actualizar fecha del formulario cuando cambien mes/año
   useEffect(() => {
@@ -182,7 +186,7 @@ function ExpenseTracker({ onBack }) {
         setForm(f => ({...f, fecha: `${anioSeleccionado}-${nuevoMes}-${String(day || '01').padStart(2, '0')}`}));
       }
     }
-  }, [mesSeleccionado, anioSeleccionado]);
+  }, [mesSeleccionado, anioSeleccionado, form.fecha]);
 
   const operacionesMes = operaciones.filter(op => {
     if (!op.fecha) return false;
@@ -224,9 +228,9 @@ function ExpenseTracker({ onBack }) {
     if (form.tipo === 'gasto') {
       return categorias;
     } else if (form.tipo === 'hucha') {
-      return ['Hucha'];
+      return ['hucha'];
     } else if (form.tipo === 'ingreso' || form.tipo === 'retirada-hucha') {
-      return ['Ingreso'];
+      return ['ingreso'];
     }
     return [];
   };
@@ -244,21 +248,21 @@ function ExpenseTracker({ onBack }) {
 
       // Si es hucha, seleccionar automáticamente
       if (value === 'hucha') {
-        newForm.categoria = 'Hucha';
+        newForm.categoria = 'hucha';
         newForm.cuenta = '';
       }
       // Si es ingreso, seleccionar automáticamente
       else if (value === 'ingreso' || value === 'retirada-hucha') {
-        newForm.categoria = 'Ingreso';
+        newForm.categoria = 'ingreso';
       }
     }
 
     // Si cambia categoría y es hucha o ingreso, reseteamos
     if (name === 'categoria') {
-      if (form.tipo === 'hucha' && value !== 'Hucha') {
-        newForm.categoria = 'Hucha';
-      } else if ((form.tipo === 'ingreso' || form.tipo === 'retirada-hucha') && value !== 'Ingreso') {
-        newForm.categoria = 'Ingreso';
+      if (form.tipo === 'hucha' && value !== 'hucha') {
+        newForm.categoria = 'hucha';
+      } else if ((form.tipo === 'ingreso' || form.tipo === 'retirada-hucha') && value !== 'ingreso') {
+        newForm.categoria = 'ingreso';
       }
     }
 
@@ -281,7 +285,7 @@ function ExpenseTracker({ onBack }) {
     const incompleto = requiredFields.some(field => !form[field]);
     
     if (incompleto) {
-      setMensaje('Por favor, completa todos los campos obligatorios.');
+      setMensaje(t('camposObligatorios'));
       return;
     }
     
@@ -293,29 +297,29 @@ function ExpenseTracker({ onBack }) {
       
       if (editandoId) {
         await axios.put(`${API_URL}/operaciones/${editandoId}`, dataToSave);
-        setMensaje('Operación actualizada correctamente.');
+        setMensaje(t('actualizacion'));
       } else {
         await axios.post(`${API_URL}/operaciones`, dataToSave);
-        setMensaje('Operación añadida correctamente.');
+        setMensaje(t('exito'));
       }
       setForm({ fecha: '', tipo: 'gasto', cantidad: '', concepto: '', categoria: '', usuario: '', cuenta: '' });
       setEditandoId(null);
       cargarOperaciones();
       setCurrentPage(0);
     } catch (err) {
-      setMensaje('Error al guardar la operación.');
+      setMensaje(t('error'));
     }
   };
 
   async function handleBorrar(id) {
-    if (window.confirm('¿Seguro que quieres borrar este movimiento?')) {
+    if (window.confirm(t('seguro'))) {
       try {
         const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
         await axios.delete(`${API_URL}/operaciones/${id}`);
-        setMensaje('Movimiento borrado.');
+        setMensaje(t('borrado'));
         cargarOperaciones();
       } catch (err) {
-        alert('Error al borrar el movimiento');
+        alert(t('errorBorrar'));
       }
     }
   }
@@ -333,7 +337,7 @@ function ExpenseTracker({ onBack }) {
       cuenta: op.cuenta || ''
     });
     setEditandoId(op.id);
-    setMensaje('Editando movimiento. Haz los cambios y pulsa "Guardar cambios".');
+    setMensaje(`${t('editando')}. ${t('guardarCambios')}.`);
     setTimeout(() => {
       if (formRef.current) {
         formRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -342,7 +346,7 @@ function ExpenseTracker({ onBack }) {
   }
 
   const handlePresupuestoChange = async (cat, value) => {
-    const keyMesActual = `${anioSeleccionado}-${mesSeleccionado}`;
+    const keyMesActual = `${anioSeleccionado}-${String(mesSeleccionado + 1).padStart(2, '0')}`;
     const nuevoValor = Number(value);
     
     setPresupuestosPorMes(prev => ({
@@ -388,9 +392,6 @@ function ExpenseTracker({ onBack }) {
     .reduce((acc, op) => acc + Number(op.cantidad), 0);
 
   // Calcular situación global ACUMULADA del mes anterior
-  const mesAnterior = mesSeleccionado === 0 ? 11 : mesSeleccionado - 1;
-  const anioAnterior = mesSeleccionado === 0 ? anioSeleccionado - 1 : anioSeleccionado;
-  
   // Calcular TODA la situación acumulada hasta antes del mes actual
   const operacionesAnteriores = operaciones.filter(op => {
     if (!op.fecha || op.tipo === 'hucha') return false;
@@ -443,12 +444,15 @@ function ExpenseTracker({ onBack }) {
   const huchaDiferencia = huchaTotal - retiradaHuchaTotal;
   const huchaPercentaje = huchaMesAnterior !== 0 ? ((huchaDiferencia / huchaMesAnterior) * 100).toFixed(1) : 0;
 
-  // Calcular saldo del mes anterior por cuenta
+  // Calcular saldo ACUMULADO de todos los meses anteriores por cuenta
   const saldoMesAnteriorPorCuenta = cuentas.reduce((acc, cuenta) => {
     const operacionesMesAnterior = operaciones.filter(op => {
       if (!op.fecha) return false;
       const fecha = new Date(op.fecha);
-      return fecha.getMonth() === mesAnterior && fecha.getFullYear() === anioAnterior && op.tipo !== 'hucha' && op.cuenta === cuenta;
+      const anioOp = fecha.getFullYear();
+      const mesOp = fecha.getMonth();
+      // Incluir TODO lo anterior al mes/año actual
+      return ((anioOp < anioSeleccionado) || (anioOp === anioSeleccionado && mesOp < mesSeleccionado)) && op.tipo !== 'hucha' && op.cuenta === cuenta;
     });
     
     acc[cuenta] = operacionesMesAnterior.reduce((saldo, op) => {
@@ -496,30 +500,41 @@ function ExpenseTracker({ onBack }) {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8f9fa', padding: isMobile ? '12px' : '20px', fontFamily: 'SF Pro Display, Arial, sans-serif' }}>
-      <div style={{ maxWidth: isMobile ? '100%' : 1200, margin: '0 auto' }}>
-        {/* Header con botón atrás */}
+    <div style={{ minHeight: '100vh', background: '#f5f5f7', padding: '40px 20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+      <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+        {/* Header con Fecha/Hora e Idioma */}
+        <Header title={t('registroDeGastos')} />
+
+        {/* Botón atrás */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
           <button
             onClick={onBack}
             style={{
-              background: 'none',
-              border: '1px solid #e0e0e0',
+              background: '#fff',
+              border: '1px solid #e5e5e7',
               padding: '10px 16px',
-              borderRadius: 8,
+              borderRadius: 12,
               cursor: 'pointer',
               fontSize: 16,
-              fontWeight: 600,
-              color: '#222'
+              fontWeight: 500,
+              color: '#007AFF',
+              transition: 'all 0.2s'
+            }}
+            onMouseOver={(e) => {
+              e.target.style.background = '#f5f5f7';
+              e.target.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
+            }}
+            onMouseOut={(e) => {
+              e.target.style.background = '#fff';
+              e.target.style.boxShadow = 'none';
             }}
           >
-            ← Volver
+            ← {t('volver')}
           </button>
-          <h1 style={{ margin: 0, fontSize: '2rem', fontWeight: 700, color: '#222' }}>Registro de Gastos</h1>
         </div>
 
         {/* Selector de mes y año */}
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: isMobile ? 8 : 12, marginBottom: isMobile ? 16 : 24, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginBottom: 24 }}>
           <button 
             onClick={() => {
               if (mesSeleccionado === 0) {
@@ -529,16 +544,18 @@ function ExpenseTracker({ onBack }) {
                 setMesSeleccionado(mesSeleccionado - 1);
               }
             }}
-            style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', padding: '4px 8px', color: '#007aff' }}
+            style={{ background: '#f5f5f7', border: 'none', fontSize: 16, cursor: 'pointer', padding: '8px 12px', color: '#007AFF', borderRadius: 8, fontWeight: 600, transition: 'background 0.2s' }}
+            onMouseOver={(e) => e.target.style.background = '#efefef'}
+            onMouseOut={(e) => e.target.style.background = '#f5f5f7'}
           >
             ◀
           </button>
-          <select value={mesSeleccionado} onChange={e => setMesSeleccionado(Number(e.target.value))} style={{ fontSize: 16, padding: '8px 12px', borderRadius: 8, border: '1px solid #e0e0e0' }}>
-            {meses.map((mes, idx) => (
-              <option key={mes} value={idx}>{mes}</option>
+          <select value={mesSeleccionado} onChange={e => setMesSeleccionado(Number(e.target.value))} style={{ fontSize: 15, padding: '8px 12px', borderRadius: 8, border: '1px solid #e5e5e7', background: '#fff', cursor: 'pointer', color: '#1d1d1f', fontWeight: 500 }}>
+            {mesKeys.map((mesKey, idx) => (
+              <option key={mesKey} value={idx}>{t(mesKey)}</option>
             ))}
           </select>
-          <select value={anioSeleccionado} onChange={e => setAnioSeleccionado(Number(e.target.value))} style={{ fontSize: 16, padding: '8px 12px', borderRadius: 8, border: '1px solid #e0e0e0' }}>
+          <select value={anioSeleccionado} onChange={e => setAnioSeleccionado(Number(e.target.value))} style={{ fontSize: 15, padding: '8px 12px', borderRadius: 8, border: '1px solid #e5e5e7', background: '#fff', cursor: 'pointer', color: '#1d1d1f', fontWeight: 500 }}>
             {Array.from({length: 2}, (_, i) => 2025 + i).map(anio => (
               <option key={anio} value={anio}>{anio}</option>
             ))}
@@ -552,14 +569,16 @@ function ExpenseTracker({ onBack }) {
                 setMesSeleccionado(mesSeleccionado + 1);
               }
             }}
-            style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', padding: '4px 8px', color: '#007aff' }}
+            style={{ background: '#f5f5f7', border: 'none', fontSize: 16, cursor: 'pointer', padding: '8px 12px', color: '#007AFF', borderRadius: 8, fontWeight: 600, transition: 'background 0.2s' }}
+            onMouseOver={(e) => e.target.style.background = '#efefef'}
+            onMouseOut={(e) => e.target.style.background = '#f5f5f7'}
           >
             ▶
           </button>
         </div>
 
-        <h2 style={{ textAlign: 'center', fontWeight: 700, color: '#222', letterSpacing: 0.5, marginBottom: 32 }}>
-          {meses[mesSeleccionado]} {anioSeleccionado}
+        <h2 style={{ textAlign: 'center', fontWeight: 700, color: '#1d1d1f', letterSpacing: '-0.5px', marginBottom: 40, fontSize: '1.5rem' }}>
+          {t(mesKeys[mesSeleccionado])} {anioSeleccionado}
         </h2>
 
         {/* Formulario + Tarjetas (Situación Global + Hucha) en una fila */}
@@ -567,17 +586,40 @@ function ExpenseTracker({ onBack }) {
           {/* Formulario - izquierda (2/3) */}
           <div style={{ 
             background: editandoId ? '#f0f0f0' : '#fff', 
-            borderRadius: 16, 
-            boxShadow: '0 2px 8px #0001', 
+            borderRadius: 20, 
+            boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', 
             padding: isMobile ? 16 : 24, 
             transition: 'background 0.3s'
           }}>
-            {editandoId && (
-              <div style={{ padding: '12px', background: '#fff3cd', borderRadius: 8, marginBottom: 16, fontSize: 14, color: '#666' }}>
-                ✏️ Editando movimiento
-              </div>
+            {/* Botón para mostrar/ocultar formulario en móvil */}
+            {isMobile && (
+              <button
+                onClick={() => setFormVisible(!formVisible)}
+                style={{
+                  width: '100%',
+                  marginBottom: 12,
+                  background: '#007aff',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  padding: '10px 0',
+                  fontWeight: 600,
+                  fontSize: 16,
+                  cursor: 'pointer',
+                  letterSpacing: 0.5
+                }}
+              >
+                {formVisible ? '▲ Ocultar formulario' : '▼ Mostrar formulario'}
+              </button>
             )}
-            <form ref={formRef} onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {(!isMobile || formVisible) && (
+              <>
+                {editandoId && (
+                  <div style={{ padding: '12px', background: '#fff3cd', borderRadius: 8, marginBottom: 16, fontSize: 14, color: '#86868b' }}>
+                    ✏️ Editando movimiento
+                  </div>
+                )}
+                <form ref={formRef} onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <input 
                 type="date" 
                 name="fecha" 
@@ -587,23 +629,24 @@ function ExpenseTracker({ onBack }) {
                 style={{...inputStyle, fontSize: 14, padding: '10px 12px'}}
                 min={`${anioSeleccionado}-${String(mesSeleccionado + 1).padStart(2, '0')}-01`}
                 max={`${anioSeleccionado}-${String(mesSeleccionado + 1).padStart(2, '0')}-31`}
+                onFocus={(e) => e.target.showPicker?.()}
               />
-              <select name="tipo" value={form.tipo} onChange={handleChange} required style={{...inputStyle, fontSize: 14, padding: '10px 12px'}}>
-                <option value="gasto">Gasto</option>
-                <option value="ingreso">Ingreso</option>
-                <option value="hucha">Hucha (Ahorro)</option>
-                <option value="retirada-hucha">Retirada Hucha</option>
+              <select name="tipo" value={form.tipo} onChange={handleChange} required style={{...inputStyle, fontSize: 14, padding: '10px 12px', paddingRight: 32}}>
+                <option value="gasto">{t('gasto')}</option>
+                <option value="ingreso">{t('ingreso')}</option>
+                <option value="hucha">{t('hucha')}</option>
+                <option value="retirada-hucha">{t('retiradahucha')}</option>
               </select>
-              <input type="number" name="cantidad" value={form.cantidad} onChange={handleChange} placeholder="Cantidad" required step="0.01" style={{...inputStyle, fontSize: 14, padding: '10px 12px'}} />
-              <input type="text" name="concepto" value={form.concepto} onChange={handleChange} placeholder="Descripción o información (opcional)" style={{...inputStyle, fontSize: 14, padding: '10px 12px'}} />
-              <select name="categoria" value={form.categoria} onChange={handleChange} required style={{...inputStyle, fontSize: 14, padding: '10px 12px'}}>
-                <option value="">Selecciona categoría</option>
+              <input type="number" name="cantidad" value={form.cantidad} onChange={handleChange} placeholder={t('cantidad')} required step="0.01" style={{...inputStyle, fontSize: 14, padding: '10px 12px'}} />
+              <input type="text" name="concepto" value={form.concepto} onChange={handleChange} placeholder={t('descripcion')} style={{...inputStyle, fontSize: 14, padding: '10px 12px'}} />
+              <select name="categoria" value={form.categoria} onChange={handleChange} required style={{...inputStyle, fontSize: 14, padding: '10px 12px', paddingRight: 32}}>
+                <option value="">{t('selectCategoria')}</option>
                 {getCategoriasDisponibles().map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
+                  <option key={cat} value={cat}>{t(categoriaToKey[cat] || cat.toLowerCase())}</option>
                 ))}
               </select>
-              <select name="usuario" value={form.usuario} onChange={handleChange} required style={{...inputStyle, fontSize: 14, padding: '10px 12px'}}>
-                <option value="">Selecciona usuario</option>
+              <select name="usuario" value={form.usuario} onChange={handleChange} required style={{...inputStyle, fontSize: 14, padding: '10px 12px', paddingRight: 32}}>
+                <option value="">{t('selectUsuario')}</option>
                 {usuarios.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
               <select 
@@ -612,36 +655,38 @@ function ExpenseTracker({ onBack }) {
                 onChange={handleChange} 
                 disabled={form.tipo === 'hucha'}
                 required={form.tipo !== 'hucha'}
-                style={{...inputStyle, fontSize: 14, padding: '10px 12px', background: form.tipo === 'hucha' ? '#f0f0f0' : '#fff', opacity: form.tipo === 'hucha' ? 0.6 : 1}}
+                style={{...inputStyle, fontSize: 14, padding: '10px 12px', paddingRight: 32, background: form.tipo === 'hucha' ? '#f0f0f0' : '#fff', opacity: form.tipo === 'hucha' ? 0.6 : 1}}
               >
-                <option value="">Selecciona cuenta</option>
+                <option value="">{t('selectCuenta')}</option>
                 {cuentas.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <button type="submit" style={{...buttonStyle, padding: '12px 0', fontSize: 16, marginTop: 4}}>{editandoId ? 'Guardar cambios' : 'Añadir'}</button>
+              <button type="submit" style={{...buttonStyle, padding: '12px 0', fontSize: 16, marginTop: 4}}>{editandoId ? t('guardarCambios') : t('anadir')}</button>
               {editandoId && (
-                <button type="button" style={{...buttonStyle, padding: '12px 0', fontSize: 16, background: '#e0e0e0', color: '#222'}} onClick={() => { setEditandoId(null); setForm({ fecha: '', tipo: 'gasto', cantidad: '', concepto: '', categoria: '', usuario: '', cuenta: '' }); setMensaje('Edición cancelada.'); }}>
-                  Cancelar
+                <button type="button" style={{...buttonStyle, padding: '12px 0', fontSize: 16, background: '#e5e5e7', color: '#1d1d1f'}} onClick={() => { setEditandoId(null); setForm({ fecha: '', tipo: 'gasto', cantidad: '', concepto: '', categoria: '', usuario: '', cuenta: '' }); setMensaje(t('cancelar')); }}>
+                  {t('cancelar')}
                 </button>
               )}
             </form>
             {mensaje && <p style={{ textAlign: 'center', color: '#007aff', marginTop: 12, fontSize: 13 }}>{mensaje}</p>}
+              </>
+            )}
           </div>
 
-          {/* Tarjetas apiladas: Situación Global + Hucha */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Tarjetas derecha (1/3) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 16 : 24 }}>
             {/* Situación Global */}
-            <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 8px #0001', padding: 18, textAlign: 'center' }}>
-              <div style={{ fontSize: 12, color: '#888', marginBottom: 14, fontWeight: 700 }}>💰 SITUACIÓN GLOBAL</div>
+            <div style={{ background: '#fff', borderRadius: 20, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', padding: 18, textAlign: 'center' }}>
+              <div style={{ fontSize: 12, color: '#888', marginBottom: 14, fontWeight: 700 }}>{t('situacionGlobal')}</div>
               <div style={{ fontSize: 36, fontWeight: 700, color: situacionGlobal >= 0 ? '#007aff' : '#ff6961', marginBottom: 16 }}>{situacionGlobal.toFixed(2)} €</div>
               
               {/* Cuentas */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid #e0e0e0' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid #e5e5e7' }}>
                 {situacionPorCuenta.map(c => {
                   const logo = c.cuenta.toLowerCase() === 'bbva' ? bbvaLogo : imaginLogoWebp;
                   return (
-                    <div key={c.cuenta} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px', background: '#f8f9fa', borderRadius: 10 }}>
+                    <div key={c.cuenta} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px', background: '#f5f5f7', borderRadius: 10 }}>
                       <img src={logo} alt={c.cuenta} style={{ height: 28, objectFit: 'contain' }} />
-                      <div style={{ fontSize: 12, color: '#222', fontWeight: 700 }}>{c.saldo.toFixed(2)} €</div>
+                      <div style={{ fontSize: 12, color: '#1d1d1f', fontWeight: 700 }}>{c.saldo.toFixed(2)} €</div>
                     </div>
                   );
                 })}
@@ -650,19 +695,19 @@ function ExpenseTracker({ onBack }) {
               {/* Ingresos y Gastos */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div style={{ padding: '10px', background: '#e8f5e9', borderRadius: 10 }}>
-                  <div style={{ fontSize: 11, color: '#2e7d32', fontWeight: 600, marginBottom: 4 }}>Ingresos</div>
+                  <div style={{ fontSize: 11, color: '#2e7d32', fontWeight: 600, marginBottom: 4 }}>{t('ingresos')}</div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: '#22c55e' }}>+{ingresosTotales.toFixed(2)} €</div>
                 </div>
                 <div style={{ padding: '10px', background: '#ffebee', borderRadius: 10 }}>
-                  <div style={{ fontSize: 11, color: '#b71c1c', fontWeight: 600, marginBottom: 4 }}>Gastos</div>
+                  <div style={{ fontSize: 11, color: '#b71c1c', fontWeight: 600, marginBottom: 4 }}>{t('gastos')}</div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: '#ef4444' }}>-{gastosTotales.toFixed(2)} €</div>
                 </div>
               </div>
             </div>
 
             {/* Hucha */}
-            <div style={{ background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)', borderRadius: 16, boxShadow: '0 2px 8px #0001', padding: 18, textAlign: 'center' }}>
-              <div style={{ fontSize: 12, color: '#2e7d32', marginBottom: 12, fontWeight: 700 }}>🐷 TOTAL HUCHA</div>
+            <div style={{ background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)', borderRadius: 20, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', padding: 18, textAlign: 'center' }}>
+              <div style={{ fontSize: 12, color: '#2e7d32', marginBottom: 12, fontWeight: 700 }}>🐷 {t('huchaTotal')}</div>
               <div style={{ fontSize: 36, fontWeight: 700, color: '#1b5e20', marginBottom: 16 }}>{huchaNeta.toFixed(2)} €</div>
               <div style={{ background: 'rgba(255,255,255,0.6)', borderRadius: 10, padding: 10, marginTop: 10 }}>
                 <div style={{ fontSize: 11, color: '#558b2f', fontWeight: 600, marginBottom: 6 }}>vs mes anterior</div>
@@ -678,16 +723,16 @@ function ExpenseTracker({ onBack }) {
         </div>
 
         {/* Resumen mensual */}
-        <h3 style={{ textAlign: 'center', color: '#222', fontWeight: 600, marginBottom: 24 }}>Resumen mensual</h3>
+        <h3 style={{ textAlign: 'center', color: '#1d1d1f', fontWeight: 600, marginBottom: 24 }}>Resumen mensual</h3>
 
         {/* Gráfico + Presupuesto vs Real en una fila */}
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 16 : 24, marginBottom: 32 }}>
           {/* Gráfico de Gastos por Categoría */}
-          <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 8px #0001', padding: isMobile ? 14 : 20, minHeight: isMobile ? 280 : 350 }}>
-            <div style={{ fontSize: 16, color: '#888', marginBottom: 16, fontWeight: 600, textAlign: 'center' }}>📊 Gastos por Categoría</div>
-            <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
+          <div style={{ background: '#fff', borderRadius: 20, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', padding: isMobile ? 12 : 16, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ fontSize: 16, color: '#888', marginBottom: 12, fontWeight: 600, textAlign: 'center' }}>📊 Gastos por Categoría</div>
+            <ResponsiveContainer width="100%" height={isMobile ? 300 : 380} style={{ flex: 1 }}>
               <BarChart data={gastosPorCategoria} margin={{ top: 20, right: 30, bottom: 80, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e7" />
                 <XAxis 
                   dataKey="name" 
                   angle={-45} 
@@ -704,15 +749,15 @@ function ExpenseTracker({ onBack }) {
           </div>
 
           {/* Presupuesto vs Real */}
-          <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 8px #0001', padding: isMobile ? 14 : 20 }}>
-            <div style={{ fontSize: 16, color: '#222', marginBottom: 16, fontWeight: 700, textAlign: 'center' }}>📋 Presupuesto vs Real</div>
+          <div style={{ background: '#fff', borderRadius: 20, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', padding: isMobile ? 12 : 16, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ fontSize: 16, color: '#1d1d1f', marginBottom: 16, fontWeight: 700, textAlign: 'center' }}>📋 Presupuesto vs Real</div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 'auto' }}>
               <thead>
                 <tr style={{ background: '#f1f3f4' }}>
-                  <th style={{ padding: '8px 6px', borderBottom: '2px solid #e0e0e0', fontWeight: 700, fontSize: 13, textAlign: 'left' }}>Categoría</th>
-                  <th style={{ padding: '8px 6px', borderBottom: '2px solid #e0e0e0', fontWeight: 700, fontSize: 13, textAlign: 'right' }}>Presupuesto</th>
-                  <th style={{ padding: '8px 6px', borderBottom: '2px solid #e0e0e0', fontWeight: 700, fontSize: 13, textAlign: 'right' }}>Real</th>
-                  <th style={{ padding: '8px 6px', borderBottom: '2px solid #e0e0e0', fontWeight: 700, fontSize: 13, textAlign: 'right' }}>Diferencia</th>
+                  <th style={{ padding: '8px 6px', borderBottom: '2px solid #e5e5e7', fontWeight: 700, fontSize: 13, textAlign: 'left', color: '#1d1d1f' }}>Categoría</th>
+                  <th style={{ padding: '8px 6px', borderBottom: '2px solid #e5e5e7', fontWeight: 700, fontSize: 13, textAlign: 'right', color: '#1d1d1f' }}>Presupuesto</th>
+                  <th style={{ padding: '8px 6px', borderBottom: '2px solid #e5e5e7', fontWeight: 700, fontSize: 13, textAlign: 'right', color: '#1d1d1f' }}>Real</th>
+                  <th style={{ padding: '8px 6px', borderBottom: '2px solid #e5e5e7', fontWeight: 700, fontSize: 13, textAlign: 'right', color: '#1d1d1f' }}>Diferencia</th>
                 </tr>
               </thead>
               <tbody>
@@ -724,7 +769,7 @@ function ExpenseTracker({ onBack }) {
                   
                   return (
                     <tr key={cat} style={{ background: '#fff', borderBottom: '1px solid #f1f3f4' }}>
-                      <td style={{ padding: '8px 6px', fontWeight: 600, textAlign: 'left', fontSize: 13 }}>{cat}</td>
+                      <td style={{ padding: '8px 6px', fontWeight: 600, textAlign: 'left', fontSize: 13, color: '#1d1d1f' }}>{t(categoriaToKey[cat])}</td>
                       <td style={{ padding: '8px 6px', textAlign: 'right', fontSize: 13 }}>
                         {isEditing ? (
                           <input
@@ -750,7 +795,7 @@ function ExpenseTracker({ onBack }) {
                               borderRadius: 6, 
                               background: '#f6f6f6', 
                               border: '1px solid transparent', 
-                              color: '#222', 
+                              color: '#1d1d1f', 
                               fontSize: 13
                             }}
                             title="Haz click para editar"
@@ -762,23 +807,42 @@ function ExpenseTracker({ onBack }) {
                           </span>
                         )}
                       </td>
-                      <td style={{ padding: '8px 6px', color: '#007aff', fontWeight: 600, textAlign: 'right', fontSize: 13 }}>{real.toFixed(2)} €</td>
-                      <td style={{ padding: '8px 6px', color: diferencia < 0 ? '#ef4444' : '#22c55e', fontWeight: 700, textAlign: 'right', fontSize: 13 }}>{diferencia.toFixed(2)} €</td>
+                      <td style={{ padding: '8px 6px', color: 'rgb(0, 122, 255)', fontWeight: 600, textAlign: 'right', fontSize: 13 }}>{real.toFixed(2)} €</td>
+                      <td style={{ padding: '8px 6px', color: diferencia < 0 ? '#d32f2f' : '#22c55e', fontWeight: 700, textAlign: 'right', fontSize: 13 }}>{diferencia.toFixed(2)} €</td>
                     </tr>
                   );
                 })}
+                {/* Fila TOTAL */}
+                <tr style={{ background: '#e8eef7', borderTop: '2px solid #007aff', fontWeight: 700 }}>
+                  <td style={{ padding: '10px 6px', fontWeight: 700, textAlign: 'left', fontSize: 13, color: '#1d1d1f' }}>TOTAL</td>
+                  <td style={{ padding: '10px 6px', color: '#1d1d1f', fontWeight: 700, textAlign: 'right', fontSize: 13 }}>{categorias.reduce((acc, cat) => acc + (presupuestos[cat] || 0), 0).toFixed(2)} €</td>
+                  <td style={{ padding: '10px 6px', color: 'rgb(0, 122, 255)', fontWeight: 700, textAlign: 'right', fontSize: 13 }}>{categorias.reduce((acc, cat) => acc + (gastosPorCategoria.find(g => g.name === cat)?.value || 0), 0).toFixed(2)} €</td>
+                  <td style={{ padding: '10px 6px', fontWeight: 700, textAlign: 'right', fontSize: 13, color: (() => {
+                    const totalPresupuesto = categorias.reduce((acc, cat) => acc + (presupuestos[cat] || 0), 0);
+                    const totalReal = categorias.reduce((acc, cat) => acc + (gastosPorCategoria.find(g => g.name === cat)?.value || 0), 0);
+                    const diferenciaTotale = totalPresupuesto - totalReal;
+                    return diferenciaTotale < 0 ? '#d32f2f' : '#22c55e';
+                  })() }}>
+                    {(() => {
+                      const totalPresupuesto = categorias.reduce((acc, cat) => acc + (presupuestos[cat] || 0), 0);
+                      const totalReal = categorias.reduce((acc, cat) => acc + (gastosPorCategoria.find(g => g.name === cat)?.value || 0), 0);
+                      const diferenciaTotale = totalPresupuesto - totalReal;
+                      return `${diferenciaTotale.toFixed(2)} €`;
+                    })()}
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
         </div>
 
         {/* Últimos movimientos */}
-        <h3 style={{ textAlign: 'center', color: '#222', fontWeight: 600, marginTop: 40, marginBottom: 24 }}>Últimos movimientos</h3>
+        <h3 style={{ textAlign: 'center', color: '#1d1d1f', fontWeight: 600, marginTop: 40, marginBottom: 24 }}>Últimos movimientos</h3>
         
         {/* Filtros visuales */}
-        <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 8px #0001', padding: isMobile ? 12 : 16, marginBottom: 16, display: 'flex', gap: isMobile ? 8 : 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ background: '#fff', borderRadius: 20, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', padding: isMobile ? 12 : 16, marginBottom: 16, display: 'flex', gap: isMobile ? 8 : 12, flexWrap: 'wrap', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <label style={{ fontSize: isMobile ? 12 : 13, color: '#666', fontWeight: 600 }}>Filtrar por:</label>
+            <label style={{ fontSize: isMobile ? 12 : 13, color: '#86868b', fontWeight: 600 }}>Filtrar por:</label>
           </div>
           
           {/* Filtro Tipo */}
@@ -786,7 +850,7 @@ function ExpenseTracker({ onBack }) {
             <select 
               value={filtros.tipo} 
               onChange={(e) => { setFiltros({...filtros, tipo: e.target.value}); setCurrentPage(0); }}
-              style={{ fontSize: 13, padding: '8px 10px', borderRadius: 6, border: '1px solid #e0e0e0', background: '#fff', cursor: 'pointer', appearance: 'none', paddingRight: 24 }}
+              style={{ fontSize: 13, padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e5e7', background: '#fff', cursor: 'pointer', appearance: 'none', paddingRight: 24 }}
             >
               <option value="">📌 Tipo</option>
               <option value="gasto">Gasto</option>
@@ -794,7 +858,7 @@ function ExpenseTracker({ onBack }) {
               <option value="hucha">Hucha</option>
               <option value="retirada-hucha">Retirada Hucha</option>
             </select>
-            <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', fontSize: 12, color: '#666' }}>▼</span>
+            <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', fontSize: 12, color: '#86868b' }}>▼</span>
           </div>
           
           {/* Filtro Categoría */}
@@ -802,14 +866,14 @@ function ExpenseTracker({ onBack }) {
             <select 
               value={filtros.categoria} 
               onChange={(e) => { setFiltros({...filtros, categoria: e.target.value}); setCurrentPage(0); }}
-              style={{ fontSize: 13, padding: '8px 10px', borderRadius: 6, border: '1px solid #e0e0e0', background: '#fff', cursor: 'pointer', appearance: 'none', paddingRight: 24 }}
+              style={{ fontSize: 13, padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e5e7', background: '#fff', cursor: 'pointer', appearance: 'none', paddingRight: 24 }}
             >
               <option value="">🏷️ Categoría</option>
               {[...new Set(operacionesMes.map(op => op.categoria))].sort().map(cat => (
                 <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
-            <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', fontSize: 12, color: '#666' }}>▼</span>
+            <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', fontSize: 12, color: '#86868b' }}>▼</span>
           </div>
           
           {/* Filtro Cuenta */}
@@ -817,21 +881,21 @@ function ExpenseTracker({ onBack }) {
             <select 
               value={filtros.cuenta} 
               onChange={(e) => { setFiltros({...filtros, cuenta: e.target.value}); setCurrentPage(0); }}
-              style={{ fontSize: 13, padding: '8px 10px', borderRadius: 6, border: '1px solid #e0e0e0', background: '#fff', cursor: 'pointer', appearance: 'none', paddingRight: 24 }}
+              style={{ fontSize: 13, padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e5e7', background: '#fff', cursor: 'pointer', appearance: 'none', paddingRight: 24 }}
             >
               <option value="">💳 Cuenta</option>
               {cuentas.map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
-            <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', fontSize: 12, color: '#666' }}>▼</span>
+            <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', fontSize: 12, color: '#86868b' }}>▼</span>
           </div>
           
           {/* Botón Limpiar Filtros */}
           {(filtros.tipo || filtros.categoria || filtros.cuenta) && (
             <button 
               onClick={() => { setFiltros({ tipo: '', categoria: '', cuenta: '' }); setCurrentPage(0); }}
-              style={{ fontSize: 13, padding: '8px 12px', borderRadius: 6, border: '1px solid #e0e0e0', background: '#f0f0f0', color: '#666', fontWeight: 600, cursor: 'pointer' }}
+              style={{ fontSize: 13, padding: '8px 12px', borderRadius: 6, border: '1px solid #e5e5e7', background: '#f0f0f0', color: '#86868b', fontWeight: 600, cursor: 'pointer' }}
             >
               ✕ Limpiar
             </button>
@@ -842,18 +906,18 @@ function ExpenseTracker({ onBack }) {
           </div>
         </div>
 
-        <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 8px #0001', overflowX: 'auto', marginBottom: isMobile ? 16 : 32 }}>
+        <div style={{ background: '#fff', borderRadius: 20, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', overflowX: 'auto', marginBottom: isMobile ? 16 : 32 }}>
           <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 900 }}>
             <thead>
-              <tr style={{ background: '#f1f3f4', color: '#555' }}>
-                <th style={{...thStyle, cursor: 'pointer', userSelect: 'none'}} onClick={() => handleSort('fecha')}>Fecha <span style={{fontSize: 11, color: '#007aff', fontWeight: 'bold'}}>{sortConfig.key === 'fecha' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}</span></th>
-                <th style={{...thStyle, cursor: 'pointer', userSelect: 'none'}} onClick={() => handleSort('tipo')}>Tipo <span style={{fontSize: 11, color: '#007aff', fontWeight: 'bold'}}>{sortConfig.key === 'tipo' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}</span></th>
-                <th style={{...thStyle, cursor: 'pointer', userSelect: 'none'}} onClick={() => handleSort('cantidad')}>Cantidad <span style={{fontSize: 11, color: '#007aff', fontWeight: 'bold'}}>{sortConfig.key === 'cantidad' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}</span></th>
-                <th style={{...thStyle, cursor: 'pointer', userSelect: 'none'}} onClick={() => handleSort('categoria')}>Categoría <span style={{fontSize: 11, color: '#007aff', fontWeight: 'bold'}}>{sortConfig.key === 'categoria' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}</span></th>
-                <th style={{...thStyle, cursor: 'pointer', userSelect: 'none'}} onClick={() => handleSort('usuario')}>Usuario <span style={{fontSize: 11, color: '#007aff', fontWeight: 'bold'}}>{sortConfig.key === 'usuario' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}</span></th>
-                <th style={{...thStyle, cursor: 'pointer', userSelect: 'none'}} onClick={() => handleSort('cuenta')}>Cuenta <span style={{fontSize: 11, color: '#007aff', fontWeight: 'bold'}}>{sortConfig.key === 'cuenta' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}</span></th>
-                <th style={{...thStyle}}>Concepto</th>
-                <th style={{...thStyle}}>Acciones</th>
+              <tr style={{ background: '#f1f3f4', color: '#1d1d1f' }}>
+                <th style={{...thStyle, cursor: 'pointer', userSelect: 'none', color: '#1d1d1f'}} onClick={() => handleSort('fecha')}>Fecha <span style={{fontSize: 11, color: '#0066cc', fontWeight: 'bold'}}>{sortConfig.key === 'fecha' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}</span></th>
+                <th style={{...thStyle, cursor: 'pointer', userSelect: 'none', color: '#1d1d1f'}} onClick={() => handleSort('tipo')}>Tipo <span style={{fontSize: 11, color: '#0066cc', fontWeight: 'bold'}}>{sortConfig.key === 'tipo' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}</span></th>
+                <th style={{...thStyle, cursor: 'pointer', userSelect: 'none', color: '#1d1d1f'}} onClick={() => handleSort('cantidad')}>Cantidad <span style={{fontSize: 11, color: '#0066cc', fontWeight: 'bold'}}>{sortConfig.key === 'cantidad' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}</span></th>
+                <th style={{...thStyle, cursor: 'pointer', userSelect: 'none', color: '#1d1d1f'}} onClick={() => handleSort('categoria')}>Categoría <span style={{fontSize: 11, color: '#0066cc', fontWeight: 'bold'}}>{sortConfig.key === 'categoria' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}</span></th>
+                <th style={{...thStyle, cursor: 'pointer', userSelect: 'none', color: '#1d1d1f'}} onClick={() => handleSort('usuario')}>Usuario <span style={{fontSize: 11, color: '#0066cc', fontWeight: 'bold'}}>{sortConfig.key === 'usuario' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}</span></th>
+                <th style={{...thStyle, cursor: 'pointer', userSelect: 'none', color: '#1d1d1f'}} onClick={() => handleSort('cuenta')}>Cuenta <span style={{fontSize: 11, color: '#0066cc', fontWeight: 'bold'}}>{sortConfig.key === 'cuenta' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}</span></th>
+                <th style={{...thStyle, color: '#1d1d1f'}}>Concepto</th>
+                <th style={{...thStyle, color: '#1d1d1f'}}>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -868,27 +932,27 @@ function ExpenseTracker({ onBack }) {
                     key={op.id}
                     style={{
                       borderBottom: '1px solid #f1f3f4',
-                      color: '#222',
+                      color: '#1d1d1f',
                       fontWeight: 500,
                       background: idx % 2 === 0 ? '#f8fafc' : '#fff',
                     }}
                   >
-                    <td style={{ ...tdStyle, fontWeight: 600, color: '#6366f1' }}>{op.fecha}</td>
+                    <td style={{ ...tdStyle, fontWeight: 600, color: '#0066cc' }}>{op.fecha}</td>
                     <td style={{
                       ...tdStyle,
                       fontWeight: 600,
-                      color: colorTipos[tipoDisplay] || (isIngreso || isRetiradaHucha ? '#22c55e' : isGasto ? '#ef4444' : '#1b5e20'),
+                      color: isIngreso || isRetiradaHucha ? '#1b5e20' : isGasto ? '#d32f2f' : '#1b5e20',
                       textTransform: 'capitalize',
                     }}>{tipoDisplay}</td>
                     <td style={{
                       ...tdStyle,
                       fontWeight: 700,
-                      color: isIngreso || isRetiradaHucha ? '#22c55e' : isGasto ? '#ef4444' : '#1b5e20',
+                      color: isIngreso || isRetiradaHucha ? '#1b5e20' : isGasto ? '#d32f2f' : '#1b5e20',
                       background: '#f1f3f4',
                     }}>{Number(op.cantidad).toFixed(2)} €</td>
-                    <td style={{ ...tdStyle, fontWeight: 600, color: colorsPorCategoria[op.categoria] || '#222', background: '#fff' }}>{op.categoria}</td>
-                    <td style={{ ...tdStyle, fontWeight: 600, color: '#6366f1' }}>{op.usuario}</td>
-                    <td style={{ ...tdStyle, fontWeight: 600, color: '#f59e42', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    <td style={{ ...tdStyle, fontWeight: 600, color: '#1d1d1f', background: '#fff' }}>{op.categoria}</td>
+                    <td style={{ ...tdStyle, fontWeight: 600, color: '#0066cc' }}>{op.usuario}</td>
+                    <td style={{ ...tdStyle, fontWeight: 600, color: '#1d1d1f', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                       {op.cuenta && op.cuenta.trim().toLowerCase() === 'bbva' && (
                         <img src={bbvaLogo} alt="BBVA" style={{ height: 22, verticalAlign: 'middle' }} />
                       )}
@@ -896,7 +960,7 @@ function ExpenseTracker({ onBack }) {
                         <img src={imaginLogoWebp} alt="Imagin" style={{ height: 22, verticalAlign: 'middle' }} />
                       )}
                     </td>
-                    <td style={{ ...tdStyle, fontStyle: 'italic', color: op.concepto ? '#555' : '#bbb', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.concepto || '-'}</td>
+                    <td style={{ ...tdStyle, fontStyle: 'italic', color: op.concepto ? '#222' : '#999', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.concepto || '-'}</td>
                     <td style={{ ...tdStyle, minWidth: 80 }}>
                       <button onClick={() => handleEditar(op)} style={editBtnStyle} title="Editar">✏️</button>
                       <button onClick={() => handleBorrar(op.id)} style={deleteBtnStyle} title="Borrar">🗑️</button>
@@ -909,11 +973,11 @@ function ExpenseTracker({ onBack }) {
         </div>
 
         {/* Controles de paginación y elementos por página - FUSIONADOS */}
-        <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 8px #0001', padding: 16, marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ background: '#fff', borderRadius: 20, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', padding: 16, marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           {/* Elementos por página */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <label style={{ fontSize: 14, color: '#666', fontWeight: 600 }}>Elementos por página:</label>
-            <select value={itemsPerPage} onChange={handleItemsPerPageChange} style={{ fontSize: 14, padding: '6px 10px', borderRadius: 6, border: '1px solid #e0e0e0', background: '#fff' }}>
+            <label style={{ fontSize: 14, color: '#86868b', fontWeight: 600 }}>Elementos por página:</label>
+            <select value={itemsPerPage} onChange={handleItemsPerPageChange} style={{ fontSize: 14, padding: '6px 10px', borderRadius: 6, border: '1px solid #e5e5e7', background: '#fff' }}>
               <option value={10}>10</option>
               <option value={20}>20</option>
               <option value={50}>50</option>
