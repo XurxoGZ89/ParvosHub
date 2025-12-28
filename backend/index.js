@@ -102,6 +102,63 @@ app.put('/operaciones/:id', async (req, res) => {
   }
 });
 
+// Endpoint para obtener presupuestos de un mes específico
+app.get('/presupuestos/:anio/:mes', async (req, res) => {
+  const { anio, mes } = req.params;
+  const mesFormatted = String(Number(mes) + 1).padStart(2, '0');
+  const keyMes = `${anio}-${mesFormatted}`;
+  
+  try {
+    const result = await db.query(
+      'SELECT categoria, cantidad FROM presupuestos WHERE mes = $1',
+      [keyMes]
+    );
+    
+    const presupuestos = {};
+    result.rows.forEach(row => {
+      presupuestos[row.categoria] = row.cantidad;
+    });
+    
+    res.json({ mes: keyMes, presupuestos });
+  } catch (err) {
+    console.error('Error al obtener presupuestos:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint para guardar/actualizar presupuestos
+app.post('/presupuestos/:anio/:mes', async (req, res) => {
+  const { anio, mes } = req.params;
+  const { presupuestos } = req.body;
+  
+  if (!presupuestos || typeof presupuestos !== 'object') {
+    return res.status(400).json({ error: 'Presupuestos inválidos' });
+  }
+  
+  const mesFormatted = String(Number(mes) + 1).padStart(2, '0');
+  const keyMes = `${anio}-${mesFormatted}`;
+  
+  try {
+    // Primero, eliminar presupuestos existentes para ese mes
+    await db.query('DELETE FROM presupuestos WHERE mes = $1', [keyMes]);
+    
+    // Luego, insertar los nuevos presupuestos
+    const insertPromises = Object.entries(presupuestos).map(([categoria, cantidad]) => {
+      return db.query(
+        'INSERT INTO presupuestos (mes, categoria, cantidad) VALUES ($1, $2, $3)',
+        [keyMes, categoria, cantidad]
+      );
+    });
+    
+    await Promise.all(insertPromises);
+    
+    res.status(201).json({ mes: keyMes, presupuestos });
+  } catch (err) {
+    console.error('Error al guardar presupuestos:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Puerto
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

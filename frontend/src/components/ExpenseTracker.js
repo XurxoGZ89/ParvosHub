@@ -146,10 +146,32 @@ function ExpenseTracker({ onBack }) {
     setOperaciones(filtradas);
   };
 
-  // Cargar operaciones al montar el componente
+  const cargarPresupuestos = async () => {
+    const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+    try {
+      const res = await axios.get(`${API_URL}/presupuestos/${anioSeleccionado}/${mesSeleccionado}`);
+      if (res.data && res.data.presupuestos) {
+        const keyMes = `${anioSeleccionado}-${String(mesSeleccionado + 1).padStart(2, '0')}`;
+        setPresupuestosPorMes(prev => ({
+          ...prev,
+          [keyMes]: res.data.presupuestos
+        }));
+      }
+    } catch (err) {
+      console.log('No hay presupuestos guardados para este mes aún');
+    }
+  };
+
+  // Cargar operaciones y presupuestos al montar el componente
   useEffect(() => {
     cargarOperaciones();
+    cargarPresupuestos();
   }, []);
+
+  // Cargar presupuestos cuando cambien mes o año
+  useEffect(() => {
+    cargarPresupuestos();
+  }, [mesSeleccionado, anioSeleccionado]);
 
   // Actualizar fecha del formulario cuando cambien mes/año
   useEffect(() => {
@@ -319,15 +341,33 @@ function ExpenseTracker({ onBack }) {
     }, 100);
   }
 
-  const handlePresupuestoChange = (cat, value) => {
+  const handlePresupuestoChange = async (cat, value) => {
     const keyMesActual = `${anioSeleccionado}-${mesSeleccionado}`;
+    const nuevoValor = Number(value);
+    
     setPresupuestosPorMes(prev => ({
       ...prev,
       [keyMesActual]: {
         ...prev[keyMesActual],
-        [cat]: Number(value)
+        [cat]: nuevoValor
       }
     }));
+
+    // Guardar en la API
+    const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+    try {
+      const presupuestosActuales = presupuestosPorMes[keyMesActual] || {};
+      const presupuestosActualizados = {
+        ...presupuestosActuales,
+        [cat]: nuevoValor
+      };
+      
+      await axios.post(`${API_URL}/presupuestos/${anioSeleccionado}/${mesSeleccionado}`, {
+        presupuestos: presupuestosActualizados
+      });
+    } catch (err) {
+      console.error('Error al guardar presupuesto:', err);
+    }
   };
 
   // Cálculos - Hucha separada (basados en mes, no en filtros)

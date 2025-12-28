@@ -32,6 +32,19 @@ async function initDatabase() {
       );
     `);
     console.log('Tabla operaciones lista');
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS presupuestos (
+        id SERIAL PRIMARY KEY,
+        mes TEXT NOT NULL,
+        categoria TEXT NOT NULL,
+        cantidad REAL NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(mes, categoria)
+      );
+    `);
+    console.log('Tabla presupuestos lista');
   } catch (err) {
     console.error('Error al crear tabla:', err.message);
   }
