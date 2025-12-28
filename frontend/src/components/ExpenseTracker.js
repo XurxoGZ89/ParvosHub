@@ -108,18 +108,24 @@ function ExpenseTracker({ onBack }) {
   const [editandoId, setEditandoId] = useState(null);
   const [sortConfig, setSortConfig] = useState({ key: 'fecha', direction: 'desc' });
   const [filtros, setFiltros] = useState({ tipo: '', categoria: '', cuenta: '' });
-  const [presupuestos, setPresupuestos] = useState({
-    'Vacaciones': 500,
-    'Ocio': 200,
-    'Hogar': 400,
-    'Vehículos': 150,
-    'Extra': 100,
-    'Alimentación': 350
-  });
+  const [presupuestosPorMes, setPresupuestosPorMes] = useState({});
   const [editingPresupuestoCat, setEditingPresupuestoCat] = useState(null);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(0);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  // Obtener presupuestos del mes actual
+  const keyMesActual = `${anioSeleccionado}-${mesSeleccionado}`;
+  const presupuestosBase = {
+    'Vacaciones': 0,
+    'Ocio': 0,
+    'Hogar': 0,
+    'Vehículos': 0,
+    'Extra': 0,
+    'Alimentación': 0
+  };
+  // Garantizar que siempre existen todas las categorías
+  const presupuestos = { ...presupuestosBase, ...(presupuestosPorMes[keyMesActual] || {}) };
 
   useEffect(() => {
     const handleResize = () => {
@@ -314,7 +320,14 @@ function ExpenseTracker({ onBack }) {
   }
 
   const handlePresupuestoChange = (cat, value) => {
-    setPresupuestos(prev => ({ ...prev, [cat]: Number(value) }));
+    const keyMesActual = `${anioSeleccionado}-${mesSeleccionado}`;
+    setPresupuestosPorMes(prev => ({
+      ...prev,
+      [keyMesActual]: {
+        ...prev[keyMesActual],
+        [cat]: Number(value)
+      }
+    }));
   };
 
   // Cálculos - Hucha separada (basados en mes, no en filtros)
@@ -334,8 +347,33 @@ function ExpenseTracker({ onBack }) {
     .filter(op => op.tipo === 'gasto' && op.tipo !== 'hucha')
     .reduce((acc, op) => acc + Number(op.cantidad), 0);
 
-  // Situación global SIN Hucha
-  const situacionGlobal = ingresosTotales - gastosTotales;
+  // Calcular situación global ACUMULADA del mes anterior
+  const mesAnterior = mesSeleccionado === 0 ? 11 : mesSeleccionado - 1;
+  const anioAnterior = mesSeleccionado === 0 ? anioSeleccionado - 1 : anioSeleccionado;
+  
+  // Calcular TODA la situación acumulada hasta antes del mes actual
+  const operacionesAnteriores = operaciones.filter(op => {
+    if (!op.fecha || op.tipo === 'hucha') return false;
+    const fecha = new Date(op.fecha);
+    const anioOp = fecha.getFullYear();
+    const mesOp = fecha.getMonth();
+    
+    // Incluir TODO lo anterior al mes/año actual
+    return (anioOp < anioSeleccionado) || (anioOp === anioSeleccionado && mesOp < mesSeleccionado);
+  });
+  
+  const ingresosTotalesAnteriores = operacionesAnteriores
+    .filter(op => op.tipo === 'ingreso' || op.tipo === 'retirada-hucha')
+    .reduce((acc, op) => acc + Number(op.cantidad), 0);
+  
+  const gastosTotalesAnteriores = operacionesAnteriores
+    .filter(op => op.tipo === 'gasto')
+    .reduce((acc, op) => acc + Number(op.cantidad), 0);
+  
+  const situacionMesAnterior = ingresosTotalesAnteriores - gastosTotalesAnteriores;
+
+  // Situación global = acumulada anterior + mes actual
+  const situacionGlobal = situacionMesAnterior + ingresosTotales - gastosTotales;
 
   const huchaTotal = operacionesMes
     .filter(op => op.tipo === 'hucha')
@@ -345,20 +383,24 @@ function ExpenseTracker({ onBack }) {
     .filter(op => op.tipo === 'retirada-hucha')
     .reduce((acc, op) => acc + Number(op.cantidad), 0);
 
-  const huchaNeta = huchaTotal - retiradaHuchaTotal;
+  // Calcular hucha TOTAL ACUMULADA hasta antes del mes actual
+  const operacionesHuchaAnteriores = operaciones.filter(op => {
+    if (!op.fecha || op.tipo !== 'hucha') return false;
+    const fecha = new Date(op.fecha);
+    const anioOp = fecha.getFullYear();
+    const mesOp = fecha.getMonth();
+    
+    // Incluir TODO lo anterior al mes/año actual
+    return (anioOp < anioSeleccionado) || (anioOp === anioSeleccionado && mesOp < mesSeleccionado);
+  });
 
-  // Calcular hucha del mes anterior
-  const mesAnterior = mesSeleccionado === 0 ? 11 : mesSeleccionado - 1;
-  const anioAnterior = mesSeleccionado === 0 ? anioSeleccionado - 1 : anioSeleccionado;
-  const huchaMesAnterior = operaciones
-    .filter(op => {
-      if (!op.fecha || op.tipo !== 'hucha') return false;
-      const fecha = new Date(op.fecha);
-      return fecha.getMonth() === mesAnterior && fecha.getFullYear() === anioAnterior;
-    })
+  const huchaMesAnterior = operacionesHuchaAnteriores
     .reduce((acc, op) => acc + Number(op.cantidad), 0);
 
-  const huchaDiferencia = huchaNeta - huchaMesAnterior;
+  // Hucha neta = acumulada anterior + movimientos del mes actual
+  const huchaNeta = huchaMesAnterior + huchaTotal - retiradaHuchaTotal;
+
+  const huchaDiferencia = huchaTotal - retiradaHuchaTotal;
   const huchaPercentaje = huchaMesAnterior !== 0 ? ((huchaDiferencia / huchaMesAnterior) * 100).toFixed(1) : 0;
 
   // Calcular saldo del mes anterior por cuenta
@@ -634,11 +676,12 @@ function ExpenseTracker({ onBack }) {
                 </tr>
               </thead>
               <tbody>
-                {Object.keys(presupuestos).map(cat => {
+                {categorias.map(cat => {
                   const real = gastosPorCategoria.find(g => g.name === cat)?.value || 0;
-                  const presupuesto = presupuestos[cat];
+                  const presupuesto = presupuestos[cat] || 0;
                   const diferencia = presupuesto - real;
                   const isEditing = editingPresupuestoCat === cat;
+                  
                   return (
                     <tr key={cat} style={{ background: '#fff', borderBottom: '1px solid #f1f3f4' }}>
                       <td style={{ padding: '8px 6px', fontWeight: 600, textAlign: 'left', fontSize: 13 }}>{cat}</td>
@@ -659,7 +702,17 @@ function ExpenseTracker({ onBack }) {
                           />
                         ) : (
                           <span
-                            style={{ cursor: 'pointer', display: 'inline-block', minWidth: 60, padding: '4px 6px', borderRadius: 6, background: '#f6f6f6', border: '1px solid transparent', color: '#222', fontSize: 13 }}
+                            style={{ 
+                              cursor: 'pointer', 
+                              display: 'inline-block', 
+                              minWidth: 60, 
+                              padding: '4px 6px', 
+                              borderRadius: 6, 
+                              background: '#f6f6f6', 
+                              border: '1px solid transparent', 
+                              color: '#222', 
+                              fontSize: 13
+                            }}
                             title="Haz click para editar"
                             onClick={() => setEditingPresupuestoCat(cat)}
                             tabIndex={0}
