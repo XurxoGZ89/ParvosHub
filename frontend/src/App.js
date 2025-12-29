@@ -1,9 +1,11 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import { LanguageProvider } from './contexts/LanguageContext';
+import { CalendarEventsProvider } from './contexts/CalendarEventsContext';
 import Home from './components/Home';
 import ExpenseTracker from './components/ExpenseTracker';
 import ResumenAnual from './components/ResumenAnual';
+import Calendario from './components/Calendario';
 import './App.css';
 
 function AppContent() {
@@ -15,6 +17,7 @@ function AppContent() {
         <Route path="/" element={<Home onNavigate={(page) => navigate(`/${page}`)} />} />
         <Route path="/gastos" element={<ExpenseTracker onBack={() => navigate('/')} />} />
         <Route path="/resumen" element={<ResumenAnual onBack={() => navigate('/')} />} />
+        <Route path="/calendario" element={<Calendario onBack={() => navigate('/')} />} />
       </Routes>
     </div>
   );
@@ -23,9 +26,11 @@ function AppContent() {
 function App() {
   return (
     <LanguageProvider>
-      <Router>
-        <AppContent />
-      </Router>
+      <CalendarEventsProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </CalendarEventsProvider>
     </LanguageProvider>
   );
 }

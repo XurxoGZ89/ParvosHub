@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useCalendarEvents } from '../contexts/CalendarEventsContext';
 import Header from './Header';
 
 const mesKeys = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -27,8 +28,11 @@ const colorsPorCategoria = {
 
 const Home = ({ onNavigate }) => {
   const { t } = useLanguage();
+  const { getEventosPorMes } = useCalendarEvents();
   const [operaciones, setOperaciones] = useState([]);
   const [anioSeleccionado, setAnioSeleccionado] = useState(new Date().getFullYear());
+  const [mesCalendario, setMesCalendario] = useState(new Date().getMonth());
+  const [anioCalendario, setAnioCalendario] = useState(new Date().getFullYear());
   const [datosMensuales, setDatosMensuales] = useState([]);
 
   const cargarOperaciones = useCallback(async () => {
@@ -172,7 +176,136 @@ const Home = ({ onNavigate }) => {
             <h2 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0, marginBottom: 6, color: '#1d1d1f' }}>{t('presupuestos')}</h2>
             <p style={{ fontSize: '0.8rem', color: '#86868b', margin: 0, lineHeight: 1.4 }}>{t('proximamente')}</p>
           </div>
+
+          {/* Card Calendario */}
+          <div
+            onClick={() => onNavigate('calendario')}
+            style={{
+              background: '#fff',
+              borderRadius: 16,
+              padding: '20px 16px',
+              textAlign: 'center',
+              cursor: 'pointer',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+              transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+              border: '1px solid #f0f0f0'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'translateY(-6px)';
+              e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.1)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.05)';
+            }}
+          >
+            <div style={{ fontSize: '2rem', marginBottom: 10 }}>📅</div>
+            <h2 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0, marginBottom: 6, color: '#1d1d1f' }}>Calendario</h2>
+            <p style={{ fontSize: '0.8rem', color: '#86868b', margin: 0, lineHeight: 1.4 }}>Eventos y gastos recurrentes</p>
+          </div>
         </div>
+
+        {/* Card de Próximos Eventos del Calendario */}
+        {getEventosPorMes(anioCalendario, mesCalendario).length > 0 && (
+          <div style={{ background: '#fff', borderRadius: 20, padding: 32, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', marginBottom: 32, marginTop: 32 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+              <h2 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#1d1d1f', margin: 0 }}>📌 Próximos Eventos</h2>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button
+                  onClick={() => {
+                    if (mesCalendario === 0) {
+                      setMesCalendario(11);
+                      setAnioCalendario(anioCalendario - 1);
+                    } else {
+                      setMesCalendario(mesCalendario - 1);
+                    }
+                  }}
+                  style={{
+                    background: '#f5f5f7',
+                    border: '1px solid #e5e5e7',
+                    padding: '8px 12px',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    fontSize: 14,
+                    fontWeight: 500,
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  ← Anterior
+                </button>
+                <button
+                  onClick={() => {
+                    if (mesCalendario === 11) {
+                      setMesCalendario(0);
+                      setAnioCalendario(anioCalendario + 1);
+                    } else {
+                      setMesCalendario(mesCalendario + 1);
+                    }
+                  }}
+                  style={{
+                    background: '#f5f5f7',
+                    border: '1px solid #e5e5e7',
+                    padding: '8px 12px',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    fontSize: 14,
+                    fontWeight: 500,
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  Siguiente →
+                </button>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth < 768 ? '1fr' : 'repeat(auto-fill, minmax(250px, 1fr))', gap: 16 }}>
+              {getEventosPorMes(anioCalendario, mesCalendario).slice(0, 4).map(evento => (
+                <div
+                  key={evento.id}
+                  onClick={() => onNavigate('calendario')}
+                  style={{
+                    background: '#f9f9fb',
+                    padding: 16,
+                    borderRadius: 12,
+                    border: '1px solid #e5e5e7',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#007AFF', marginBottom: 4 }}>
+                    {evento.dia_mes} de {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][mesCalendario]}
+                  </div>
+                  <h4 style={{ fontSize: 16, fontWeight: 600, color: '#1d1d1f', margin: 0, marginBottom: 8 }}>
+                    {evento.nombre}
+                  </h4>
+                  <span style={{ fontSize: 12, color: '#999', background: '#f5f5f7', padding: '4px 8px', borderRadius: 6, display: 'inline-block', marginBottom: 8 }}>
+                    {evento.categoria}
+                  </span>
+                  <div style={{ fontSize: 13, color: '#86868b', marginTop: 8 }}>
+                    <strong>Monto:</strong> {evento.cantidad_min}€{evento.cantidad_max ? ` - ${evento.cantidad_max}€` : ''}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => onNavigate('calendario')}
+              style={{
+                width: '100%',
+                marginTop: 16,
+                background: '#007AFF',
+                color: '#fff',
+                border: 'none',
+                padding: '12px 16px',
+                borderRadius: 12,
+                cursor: 'pointer',
+                fontSize: 16,
+                fontWeight: 600,
+                transition: 'all 0.2s'
+              }}
+            >
+              Ver Calendario Completo
+            </button>
+          </div>
+        )}
 
         {/* Gráfico de Resumen Anual */}
         <div style={{ background: '#fff', borderRadius: 20, padding: 40, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0' }}>

@@ -3,6 +3,7 @@ import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import ReactPaginate from 'react-paginate';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useCalendarEvents } from '../contexts/CalendarEventsContext';
 import Header from './Header';
 import bbvaLogo from '../assets/BBVA_2019.svg.png';
 import imaginLogoWebp from '../assets/imagin.webp';
@@ -92,6 +93,7 @@ const tdStyle = {
 
 function ExpenseTracker({ onBack }) {
   const { t } = useLanguage();
+  const { getEventosPorMes, descartarWarning } = useCalendarEvents();
   const hoy = new Date();
   const [mesSeleccionado, setMesSeleccionado] = useState(hoy.getMonth());
   const [anioSeleccionado, setAnioSeleccionado] = useState(hoy.getFullYear());
@@ -116,6 +118,7 @@ function ExpenseTracker({ onBack }) {
   const [currentPage, setCurrentPage] = useState(0);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [formVisible, setFormVisible] = useState(window.innerWidth >= 768); // Oculto en móvil, visible en desktop
+  const [warningsDescartados, setWarningsDescartados] = useState(new Set());
 
   // Obtener presupuestos del mes actual
   const keyMesActual = `${anioSeleccionado}-${String(mesSeleccionado + 1).padStart(2, '0')}`;
@@ -166,6 +169,16 @@ function ExpenseTracker({ onBack }) {
       console.log('No hay presupuestos guardados para este mes aún');
     }
   }, [anioSeleccionado, mesSeleccionado]);
+
+  const manejarEliminarWarning = async (eventoId) => {
+    try {
+      const mesAno = `${anioSeleccionado}-${String(mesSeleccionado + 1).padStart(2, '0')}`;
+      await descartarWarning(eventoId, mesAno);
+      setWarningsDescartados(prev => new Set([...prev, eventoId]));
+    } catch (err) {
+      console.error('Error al descartar warning:', err);
+    }
+  };
 
   // Cargar operaciones y presupuestos al montar el componente
   useEffect(() => {
@@ -504,6 +517,55 @@ function ExpenseTracker({ onBack }) {
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
         {/* Header con Fecha/Hora e Idioma */}
         <Header title={t('registroDeGastos')} />
+
+        {/* Warnings de Eventos del Calendario */}
+        {getEventosPorMes(anioSeleccionado, mesSeleccionado).length > 0 && (
+          <div style={{ marginBottom: 24 }}>
+            {getEventosPorMes(anioSeleccionado, mesSeleccionado)
+              .filter(evento => !warningsDescartados.has(evento.id))
+              .map(evento => (
+                <div
+                  key={evento.id}
+                  style={{
+                    background: '#FFF3CD',
+                    border: '1px solid #FFE8A1',
+                    borderRadius: 12,
+                    padding: 16,
+                    marginBottom: 12,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}
+                >
+                  <div>
+                    <h4 style={{ fontSize: 14, fontWeight: 600, color: '#7f6b0d', margin: '0 0 4px 0' }}>
+                      ⚠️ {evento.nombre}
+                    </h4>
+                    <p style={{ fontSize: 13, color: '#9d8208', margin: '0 0 4px 0' }}>
+                      Día {evento.dia_mes} - Cantidad: {evento.cantidad_min}€{evento.cantidad_max ? ` a ${evento.cantidad_max}€` : ''}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => manejarEliminarWarning(evento.id)}
+                    style={{
+                      background: '#FF3B30',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '8px 12px',
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      transition: 'all 0.2s',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    Descartar
+                  </button>
+                </div>
+              ))}
+          </div>
+        )}
 
         {/* Botón atrás */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
