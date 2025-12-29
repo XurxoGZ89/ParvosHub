@@ -36,3 +36,11 @@ Thumbs.db
 
 # Electron
 release/
+
+# Documentación local (no incluir en git)
+CAMBIOS_REALIZADOS.md
+DOCUMENTACION.md
+INSTRUCCIONES_DESPLIEGUE.md
+RESUMEN_VISUAL.md
+ARRANQUE.md
+ParvosHub_API.postman_collection.json
