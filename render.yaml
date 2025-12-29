@@ -7,3 +7,5 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: REACT_APP_API_URL
+        value: https://parvoshub-api.onrender.com
