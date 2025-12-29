@@ -45,6 +45,33 @@ async function initDatabase() {
       );
     `);
     console.log('Tabla presupuestos lista');
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS calendar_events (
+        id SERIAL PRIMARY KEY,
+        nombre TEXT NOT NULL,
+        dia_mes INTEGER NOT NULL CHECK (dia_mes >= 1 AND dia_mes <= 31),
+        cantidad_min REAL NOT NULL,
+        cantidad_max REAL,
+        categoria TEXT NOT NULL,
+        recurrencia JSONB NOT NULL,
+        activo BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('Tabla calendar_events lista');
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS dismissed_warnings (
+        id SERIAL PRIMARY KEY,
+        evento_id INTEGER NOT NULL REFERENCES calendar_events(id) ON DELETE CASCADE,
+        mes_ano TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(evento_id, mes_ano)
+      );
+    `);
+    console.log('Tabla dismissed_warnings lista');
   } catch (err) {
     console.error('Error al crear tabla:', err.message);
   }

@@ -1,39 +1,36 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCalendarEvents } from '../contexts/CalendarEventsContext';
 import Header from './Header';
+import bbvaLogo from '../assets/BBVA_2019.svg.png';
+import imaginLogoWebp from '../assets/imagin.webp';
 
-const mesKeys = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const cuentas = ['Imagin', 'BBVA'];
 
-// Helper para convertir categoría español a clave de traducción
-const categoriaToKey = {
-  'Vacaciones': 'vacaciones',
-  'Ocio': 'ocio',
-  'Hogar': 'hogar',
-  'Vehículos': 'vehiculos',
-  'Extra': 'extra',
-  'Alimentación': 'alimentacion'
-};
-
-const colorsPorCategoria = {
-  'Vacaciones': '#FF9500',     // Naranja Apple
-  'Ocio': '#FF3B30',           // Rojo Apple
-  'Hogar': '#34C759',          // Verde Apple
-  'Vehículos': '#007AFF',      // Azul Apple
-  'Extra': '#AF52DE',          // Púrpura Apple
-  'Alimentación': '#FFB400'    // Amarillo Apple
+// Función para formatear moneda al formato europeo
+const formatearMoneda = (numero) => {
+  const formateado = new Intl.NumberFormat('es-ES', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(numero);
+  
+  // Si termina en ",00", quitar los ceros
+  if (formateado.endsWith(',00')) {
+    return formateado.slice(0, -3);
+  }
+  return formateado;
 };
 
 const Home = ({ onNavigate }) => {
   const { t } = useLanguage();
   const { getEventosPorMes } = useCalendarEvents();
   const [operaciones, setOperaciones] = useState([]);
-  const [anioSeleccionado, setAnioSeleccionado] = useState(new Date().getFullYear());
+  const [mesActual] = useState(new Date().getMonth());
+  const [anioActual] = useState(new Date().getFullYear());
   const [mesCalendario, setMesCalendario] = useState(new Date().getMonth());
   const [anioCalendario, setAnioCalendario] = useState(new Date().getFullYear());
-  const [datosMensuales, setDatosMensuales] = useState([]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const cargarOperaciones = useCallback(async () => {
     try {
@@ -50,167 +47,289 @@ const Home = ({ onNavigate }) => {
     }
   }, []);
 
-  const procesarDatos = useCallback(() => {
-    const datos = Array(12).fill(null).map((_, mesIndex) => ({
-      mes: mesIndex + 1,
-      'Vacaciones': 0,
-      'Ocio': 0,
-      'Hogar': 0,
-      'Vehículos': 0,
-      'Extra': 0,
-      'Alimentación': 0,
-      'ingreso': 0,
-      'Total': 0
-    }));
-
-    operaciones.forEach(op => {
-      if (!op.fecha || op.tipo === 'hucha' || op.tipo === 'retirada-hucha') return;
-      const fecha = new Date(op.fecha);
-      if (fecha.getFullYear() !== anioSeleccionado) return;
-
-      const mesIndex = fecha.getMonth();
-      const cantidad = Number(op.cantidad);
-
-      if (op.tipo === 'ingreso') {
-        datos[mesIndex]['ingreso'] += cantidad;
-      } else if (op.tipo === 'gasto' && op.categoria) {
-        datos[mesIndex][op.categoria] = (datos[mesIndex][op.categoria] || 0) + cantidad;
-        datos[mesIndex]['Total'] += cantidad;
-      }
-    });
-
-    setDatosMensuales(datos);
-  }, [operaciones, anioSeleccionado]);
-
   useEffect(() => {
     cargarOperaciones();
   }, [cargarOperaciones]);
 
+  // Detectar cambios de tamaño de ventana para responsive
   useEffect(() => {
-    procesarDatos();
-  }, [procesarDatos]);
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
-  const aniosDisponibles = Array.from(
-    new Set(
-      operaciones
-        .filter(op => op.fecha)
-        .map(op => new Date(op.fecha).getFullYear())
-    )
-  ).sort((a, b) => b - a);
+  // Calcular situación global ACUMULADA del mes anterior
+  const operacionesAnteriores = operaciones.filter(op => {
+    if (!op.fecha || op.tipo === 'hucha') return false;
+    const fecha = new Date(op.fecha);
+    const anioOp = fecha.getFullYear();
+    const mesOp = fecha.getMonth();
+    
+    return (anioOp < anioActual) || (anioOp === anioActual && mesOp < mesActual);
+  });
+  
+  const ingresosTotalesAnteriores = operacionesAnteriores
+    .filter(op => op.tipo === 'ingreso' || op.tipo === 'retirada-hucha')
+    .reduce((acc, op) => acc + Number(op.cantidad), 0);
+  
+  const gastosTotalesAnteriores = operacionesAnteriores
+    .filter(op => op.tipo === 'gasto')
+    .reduce((acc, op) => acc + Number(op.cantidad), 0);
+  
+  const situacionMesAnterior = ingresosTotalesAnteriores - gastosTotalesAnteriores;
+
+  // Operaciones del mes actual
+  const operacionesMes = operaciones.filter(op => {
+    if (!op.fecha) return false;
+    const fecha = new Date(op.fecha);
+    return fecha.getMonth() === mesActual && fecha.getFullYear() === anioActual;
+  });
+
+  const ingresosTotales = operacionesMes
+    .filter(op => op.tipo === 'ingreso' || op.tipo === 'retirada-hucha')
+    .reduce((acc, op) => acc + Number(op.cantidad), 0);
+
+  const gastosTotales = operacionesMes
+    .filter(op => op.tipo === 'gasto' && op.tipo !== 'hucha')
+    .reduce((acc, op) => acc + Number(op.cantidad), 0);
+
+  const situacionGlobal = situacionMesAnterior + ingresosTotales - gastosTotales;
+
+  // Calcular saldo por cuenta
+  const saldoMesAnteriorPorCuenta = cuentas.reduce((acc, cuenta) => {
+    const operacionesMesAnterior = operaciones.filter(op => {
+      if (!op.fecha) return false;
+      const fecha = new Date(op.fecha);
+      const anioOp = fecha.getFullYear();
+      const mesOp = fecha.getMonth();
+      return ((anioOp < anioActual) || (anioOp === anioActual && mesOp < mesActual)) && op.tipo !== 'hucha' && op.cuenta === cuenta;
+    });
+    
+    acc[cuenta] = operacionesMesAnterior.reduce((saldo, op) => {
+      if (op.tipo === 'ingreso' || op.tipo === 'retirada-hucha') return saldo + Number(op.cantidad);
+      if (op.tipo === 'gasto') return saldo - Number(op.cantidad);
+      return saldo;
+    }, 0);
+    return acc;
+  }, {});
+
+  const situacionPorCuenta = cuentas.map(cuenta => ({
+    cuenta,
+    saldo: (saldoMesAnteriorPorCuenta[cuenta] || 0) + operacionesMes
+      .filter(op => op.tipo !== 'hucha' && op.cuenta === cuenta)
+      .reduce((acc, op) => {
+        if (op.tipo === 'ingreso' || op.tipo === 'retirada-hucha') return acc + Number(op.cantidad);
+        if (op.tipo === 'gasto') return acc - Number(op.cantidad);
+        return acc;
+      }, 0)
+  }));
+
+
 
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f7', padding: '20px 20px 40px 20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         <Header title={t('parvosHub')} subtitle={t('homeSubtitle')} />
 
-        {/* Cards Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth < 768 ? '1fr' : 'repeat(3, 1fr)', gap: 24, marginBottom: 32 }}>
-          {/* Card Gastos */}
+        {/* Navegación con iconos pequeños */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          gap: 20, 
+          marginBottom: 40, 
+          flexWrap: 'wrap',
+          background: '#fff',
+          borderRadius: 20,
+          padding: 24,
+          boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+          border: '1px solid #f0f0f0'
+        }}>
+          {/* Registro de Gastos */}
           <div
             onClick={() => onNavigate('gastos')}
             style={{
-              background: '#fff',
-              borderRadius: 16,
-              padding: '20px 16px',
-              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 8,
               cursor: 'pointer',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
-              transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-              border: '1px solid #f0f0f0'
+              transition: 'all 0.3s',
+              padding: 12
             }}
             onMouseOver={(e) => {
-              e.currentTarget.style.transform = 'translateY(-6px)';
-              e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.1)';
+              e.currentTarget.style.transform = 'scale(1.1)';
             }}
             onMouseOut={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.05)';
+              e.currentTarget.style.transform = 'scale(1)';
             }}
           >
-            <div style={{ fontSize: '2rem', marginBottom: 10 }}>💰</div>
-            <h2 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0, marginBottom: 6, color: '#1d1d1f' }}>{t('registro')}</h2>
-            <p style={{ fontSize: '0.8rem', color: '#86868b', margin: 0, lineHeight: 1.4 }}>{t('registroDesc')}</p>
+            <div style={{ fontSize: '1.8rem' }}>💰</div>
+            <div style={{ fontSize: '0.75rem', textAlign: 'center', color: '#1d1d1f', fontWeight: 500, maxWidth: 70 }}>
+              {t('registroDeGastos')}
+            </div>
           </div>
 
-          {/* Card Estadísticas */}
+          {/* Resumen del Año */}
           <div
             onClick={() => onNavigate('resumen')}
             style={{
-              background: '#fff',
-              borderRadius: 16,
-              padding: '20px 16px',
-              textAlign: 'center',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
-              transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 8,
               cursor: 'pointer',
-              border: '1px solid #f0f0f0'
+              transition: 'all 0.3s',
+              padding: 12
             }}
             onMouseOver={(e) => {
-              e.currentTarget.style.transform = 'translateY(-6px)';
-              e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.1)';
+              e.currentTarget.style.transform = 'scale(1.1)';
             }}
             onMouseOut={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.05)';
+              e.currentTarget.style.transform = 'scale(1)';
             }}
           >
-            <div style={{ fontSize: '2rem', marginBottom: 10 }}>📊</div>
-            <h2 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0, marginBottom: 6, color: '#1d1d1f' }}>{t('resumen')}</h2>
-            <p style={{ fontSize: '0.8rem', color: '#86868b', margin: 0, lineHeight: 1.4 }}>{t('resumenDesc')}</p>
+            <div style={{ fontSize: '1.8rem' }}>📊</div>
+            <div style={{ fontSize: '0.75rem', textAlign: 'center', color: '#1d1d1f', fontWeight: 500, maxWidth: 70 }}>
+              {t('resumenAnual')}
+            </div>
           </div>
 
-          {/* Card Presupuestos (Future) */}
-          <div
-            style={{
-              background: '#fff',
-              borderRadius: 16,
-              padding: '20px 16px',
-              textAlign: 'center',
-              cursor: 'not-allowed',
-              opacity: 0.6,
-              boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
-              border: '1px solid #f0f0f0'
-            }}
-          >
-            <div style={{ fontSize: '2rem', marginBottom: 10 }}>📋</div>
-            <h2 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0, marginBottom: 6, color: '#1d1d1f' }}>{t('presupuestos')}</h2>
-            <p style={{ fontSize: '0.8rem', color: '#86868b', margin: 0, lineHeight: 1.4 }}>{t('proximamente')}</p>
-          </div>
-
-          {/* Card Calendario */}
+          {/* Calendario */}
           <div
             onClick={() => onNavigate('calendario')}
             style={{
-              background: '#fff',
-              borderRadius: 16,
-              padding: '20px 16px',
-              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 8,
               cursor: 'pointer',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
-              transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-              border: '1px solid #f0f0f0'
+              transition: 'all 0.3s',
+              padding: 12,
+              opacity: 0.7
             }}
             onMouseOver={(e) => {
-              e.currentTarget.style.transform = 'translateY(-6px)';
-              e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.1)';
+              e.currentTarget.style.transform = 'scale(1.1)';
+              e.currentTarget.style.opacity = '1';
             }}
             onMouseOut={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.05)';
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.opacity = '0.7';
             }}
           >
-            <div style={{ fontSize: '2rem', marginBottom: 10 }}>📅</div>
-            <h2 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0, marginBottom: 6, color: '#1d1d1f' }}>Calendario</h2>
-            <p style={{ fontSize: '0.8rem', color: '#86868b', margin: 0, lineHeight: 1.4 }}>Eventos y gastos recurrentes</p>
+            <div style={{ fontSize: '1.8rem' }}>📅</div>
+            <div style={{ fontSize: '0.75rem', textAlign: 'center', color: '#1d1d1f', fontWeight: 500, maxWidth: 70 }}>
+              {t('calendario')}
+            </div>
+            <div style={{ fontSize: '0.65rem', color: '#999' }}>{t('proximamente')}</div>
+          </div>
+
+          {/* Receteario */}
+          <div
+            onClick={() => onNavigate('receteario')}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 8,
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              padding: 12,
+              opacity: 0.7
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'scale(1.1)';
+              e.currentTarget.style.opacity = '1';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.opacity = '0.7';
+            }}
+          >
+            <div style={{ fontSize: '1.8rem' }}>👨‍🍳</div>
+            <div style={{ fontSize: '0.75rem', textAlign: 'center', color: '#1d1d1f', fontWeight: 500, maxWidth: 70 }}>
+              {t('receteario')}
+            </div>
+            <div style={{ fontSize: '0.65rem', color: '#999' }}>{t('proximamente')}</div>
+          </div>
+
+          {/* Lista de la Compra */}
+          <div
+            onClick={() => onNavigate('listacompra')}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 8,
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              padding: 12,
+              opacity: 0.7
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'scale(1.1)';
+              e.currentTarget.style.opacity = '1';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.opacity = '0.7';
+            }}
+          >
+            <div style={{ fontSize: '1.8rem' }}>🛒</div>
+            <div style={{ fontSize: '0.75rem', textAlign: 'center', color: '#1d1d1f', fontWeight: 500, maxWidth: 70 }}>
+              {t('listaCompra')}
+            </div>
+            <div style={{ fontSize: '0.65rem', color: '#999' }}>{t('proximamente')}</div>
           </div>
         </div>
 
-        {/* Card de Próximos Eventos del Calendario */}
-        {getEventosPorMes(anioCalendario, mesCalendario).length > 0 && (
-          <div style={{ background: '#fff', borderRadius: 20, padding: 32, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', marginBottom: 32, marginTop: 32 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-              <h2 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#1d1d1f', margin: 0 }}>📌 Próximos Eventos</h2>
-              <div style={{ display: 'flex', gap: 12 }}>
+        {/* Grid de tarjetas: Situación Global + Calendario */}
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24, marginBottom: 32 }}>
+          {/* Card Situación Global */}
+          <div style={{ background: '#fff', borderRadius: 20, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', padding: 24, textAlign: 'center' }}>
+            <div style={{ fontSize: 14, color: '#888', marginBottom: 16, fontWeight: 700 }}>{t('situacionGlobal')}</div>
+            <div style={{ fontSize: 36, fontWeight: 700, color: situacionGlobal >= 0 ? '#007aff' : '#ff6961', marginBottom: 20 }}>{formatearMoneda(situacionGlobal)} €</div>
+            
+            {/* Cuentas */}
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #e5e5e7' }}>
+              {situacionPorCuenta.map(c => {
+                const logo = c.cuenta.toLowerCase() === 'bbva' ? bbvaLogo : imaginLogoWebp;
+                return (
+                  <div key={c.cuenta} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px', background: '#f5f5f7', borderRadius: 10 }}>
+                    <img src={logo} alt={c.cuenta} style={{ height: 24, objectFit: 'contain' }} />
+                    <div style={{ fontSize: 12, color: '#1d1d1f', fontWeight: 700 }}>{formatearMoneda(c.saldo)} €</div>
+                  </div>
+                );
+              })}
+            </div>
+            
+            {/* Ingresos y Gastos */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ padding: '10px', background: '#e8f5e9', borderRadius: 10 }}>
+                <div style={{ fontSize: 11, color: '#2e7d32', fontWeight: 600, marginBottom: 4 }}>{t('ingresos')}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#22c55e' }}>+{formatearMoneda(ingresosTotales)} €</div>
+              </div>
+              <div style={{ padding: '10px', background: '#ffebee', borderRadius: 10 }}>
+                <div style={{ fontSize: 11, color: '#b71c1c', fontWeight: 600, marginBottom: 4 }}>{t('gastos')}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#ef4444' }}>-{formatearMoneda(gastosTotales)} €</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Card Calendario con Eventos */}
+          <div 
+            style={{ 
+              background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)', 
+              borderRadius: 20, 
+              boxShadow: '0 2px 10px rgba(0,0,0,0.05)', 
+              border: '1px solid #f0f0f0', 
+              padding: isMobile ? 20 : 24
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h2 style={{ fontSize: isMobile ? 16 : 18, fontWeight: 700, color: '#1565c0', margin: 0 }}>📅 {t('calendario')}</h2>
+              <div style={{ display: 'flex', gap: 8 }}>
                 <button
                   onClick={() => {
                     if (mesCalendario === 0) {
@@ -221,17 +340,17 @@ const Home = ({ onNavigate }) => {
                     }
                   }}
                   style={{
-                    background: '#f5f5f7',
-                    border: '1px solid #e5e5e7',
-                    padding: '8px 12px',
+                    background: '#fff',
+                    border: '1px solid #1565c0',
+                    padding: '6px 10px',
                     borderRadius: 8,
                     cursor: 'pointer',
-                    fontSize: 14,
-                    fontWeight: 500,
-                    transition: 'all 0.2s'
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: '#1565c0'
                   }}
                 >
-                  ← Anterior
+                  ←
                 </button>
                 <button
                   onClick={() => {
@@ -243,173 +362,87 @@ const Home = ({ onNavigate }) => {
                     }
                   }}
                   style={{
-                    background: '#f5f5f7',
-                    border: '1px solid #e5e5e7',
-                    padding: '8px 12px',
+                    background: '#fff',
+                    border: '1px solid #1565c0',
+                    padding: '6px 10px',
                     borderRadius: 8,
                     cursor: 'pointer',
-                    fontSize: 14,
-                    fontWeight: 500,
-                    transition: 'all 0.2s'
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: '#1565c0'
                   }}
                 >
-                  Siguiente →
+                  →
                 </button>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth < 768 ? '1fr' : 'repeat(auto-fill, minmax(250px, 1fr))', gap: 16 }}>
-              {getEventosPorMes(anioCalendario, mesCalendario).slice(0, 4).map(evento => (
-                <div
-                  key={evento.id}
+            
+            {getEventosPorMes(anioCalendario, mesCalendario).length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {getEventosPorMes(anioCalendario, mesCalendario).slice(0, 3).map(evento => (
+                  <div
+                    key={evento.id}
+                    onClick={() => onNavigate('calendario')}
+                    style={{
+                      background: '#fff',
+                      padding: 12,
+                      borderRadius: 12,
+                      border: '1px solid #1565c0',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1565c0', marginBottom: 4 }}>
+                      {evento.dia_mes} de {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][mesCalendario]}
+                    </div>
+                    <h4 style={{ fontSize: 14, fontWeight: 600, color: '#1d1d1f', margin: 0, marginBottom: 6 }}>
+                      {evento.nombre}
+                    </h4>
+                    <div style={{ fontSize: 12, color: '#86868b' }}>
+                      {evento.cantidad_min}€{evento.cantidad_max ? ` - ${evento.cantidad_max}€` : ''}
+                    </div>
+                  </div>
+                ))}
+                <button
                   onClick={() => onNavigate('calendario')}
                   style={{
-                    background: '#f9f9fb',
-                    padding: 16,
+                    width: '100%',
+                    background: '#1565c0',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '10px 16px',
                     borderRadius: 12,
-                    border: '1px solid #e5e5e7',
                     cursor: 'pointer',
-                    transition: 'all 0.2s'
+                    fontSize: 14,
+                    fontWeight: 600,
+                    marginTop: 8
                   }}
                 >
-                  <div style={{ fontSize: 14, fontWeight: 600, color: '#007AFF', marginBottom: 4 }}>
-                    {evento.dia_mes} de {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][mesCalendario]}
-                  </div>
-                  <h4 style={{ fontSize: 16, fontWeight: 600, color: '#1d1d1f', margin: 0, marginBottom: 8 }}>
-                    {evento.nombre}
-                  </h4>
-                  <span style={{ fontSize: 12, color: '#999', background: '#f5f5f7', padding: '4px 8px', borderRadius: 6, display: 'inline-block', marginBottom: 8 }}>
-                    {evento.categoria}
-                  </span>
-                  <div style={{ fontSize: 13, color: '#86868b', marginTop: 8 }}>
-                    <strong>Monto:</strong> {evento.cantidad_min}€{evento.cantidad_max ? ` - ${evento.cantidad_max}€` : ''}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={() => onNavigate('calendario')}
-              style={{
-                width: '100%',
-                marginTop: 16,
-                background: '#007AFF',
-                color: '#fff',
-                border: 'none',
-                padding: '12px 16px',
-                borderRadius: 12,
-                cursor: 'pointer',
-                fontSize: 16,
-                fontWeight: 600,
-                transition: 'all 0.2s'
-              }}
-            >
-              Ver Calendario Completo
-            </button>
-          </div>
-        )}
-
-        {/* Gráfico de Resumen Anual */}
-        <div style={{ background: '#fff', borderRadius: 20, padding: 40, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40, flexWrap: 'wrap', gap: 16 }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0, color: '#1d1d1f' }}>📈 {t('resumenDelAno')}</h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <button 
-                onClick={() => {
-                  const currentIndex = aniosDisponibles.indexOf(anioSeleccionado);
-                  if (currentIndex < aniosDisponibles.length - 1) {
-                    setAnioSeleccionado(aniosDisponibles[currentIndex + 1]);
-                  }
-                }}
-                style={{ background: '#f5f5f7', border: 'none', fontSize: 16, cursor: 'pointer', padding: '8px 12px', color: '#007aff', borderRadius: 8, fontWeight: 600, transition: 'background 0.2s' }}
-                onMouseOver={(e) => e.target.style.background = '#efefef'}
-                onMouseOut={(e) => e.target.style.background = '#f5f5f7'}
-              >
-                ◀
-              </button>
-              <select 
-                value={anioSeleccionado} 
-                onChange={(e) => setAnioSeleccionado(Number(e.target.value))}
-                style={{ 
-                  fontSize: 15, 
-                  padding: '8px 12px', 
-                  borderRadius: 8, 
-                  border: '1px solid #e5e5e7',
-                  background: '#fff',
-                  cursor: 'pointer',
-                  color: '#1d1d1f',
-                  fontWeight: 500
-                }}
-              >
-                {aniosDisponibles.map(anio => (
-                  <option key={anio} value={anio}>{anio}</option>
-                ))}
-              </select>
-              <button 
-                onClick={() => {
-                  const currentIndex = aniosDisponibles.indexOf(anioSeleccionado);
-                  if (currentIndex > 0) {
-                    setAnioSeleccionado(aniosDisponibles[currentIndex - 1]);
-                  }
-                }}
-                style={{ background: '#f5f5f7', border: 'none', fontSize: 16, cursor: 'pointer', padding: '8px 12px', color: '#007aff', borderRadius: 8, fontWeight: 600, transition: 'background 0.2s' }}
-                onMouseOver={(e) => e.target.style.background = '#efefef'}
-                onMouseOut={(e) => e.target.style.background = '#f5f5f7'}
-              >
-                ▶
-              </button>
-            </div>
-          </div>
-
-          {datosMensuales.length > 0 ? (
-            <>
-              <ResponsiveContainer width="100%" height={380}>
-                <BarChart
-                  data={datosMensuales.map(d => ({
-                    ...d,
-                    mes: `${t(mesKeys[d.mes - 1]).substring(0, 3)}`
-                  }))}
-                  margin={{ top: 20, right: 30, bottom: 20, left: 0 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="mes" tick={{ fontSize: 13, fill: '#666' }} />
-                  <YAxis tick={{ fontSize: 13, fill: '#666' }} />
-                  <Tooltip formatter={v => `${v.toFixed(2)} €`} contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                  <Legend />
-                  <Bar dataKey="Vacaciones" stackId="a" fill={colorsPorCategoria['Vacaciones']} radius={[8, 8, 0, 0]} name={t('vacaciones')} />
-                  <Bar dataKey="Ocio" stackId="a" fill={colorsPorCategoria['Ocio']} name={t('ocio')} />
-                  <Bar dataKey="Hogar" stackId="a" fill={colorsPorCategoria['Hogar']} name={t('hogar')} />
-                  <Bar dataKey="Vehículos" stackId="a" fill={colorsPorCategoria['Vehículos']} name={t('vehiculos')} />
-                  <Bar dataKey="Extra" stackId="a" fill={colorsPorCategoria['Extra']} name={t('extra')} />
-                  <Bar dataKey="Alimentación" stackId="a" fill={colorsPorCategoria['Alimentación']} name={t('alimentacion')} />
-                </BarChart>
-              </ResponsiveContainer>
-
-              {/* Resumen de totales */}
-              <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth < 768 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 16, marginTop: 40 }}>
-                {['Vacaciones', 'Ocio', 'Hogar', 'Vehículos', 'Extra', 'Alimentación'].map(categoria => {
-                  const total = datosMensuales.reduce((sum, mes) => sum + mes[categoria], 0);
-                  return (
-                    <div key={categoria} style={{ background: '#f5f5f7', borderRadius: 16, padding: 20, textAlign: 'center', borderLeft: `3px solid ${colorsPorCategoria[categoria]}`, transition: 'all 0.3s' }}
-                      onMouseOver={(e) => {
-                        e.currentTarget.style.background = '#efefef';
-                        e.currentTarget.style.transform = 'translateY(-4px)';
-                      }}
-                      onMouseOut={(e) => {
-                        e.currentTarget.style.background = '#f5f5f7';
-                        e.currentTarget.style.transform = 'translateY(0)';
-                      }}
-                    >
-                      <div style={{ fontSize: 13, color: '#666', marginBottom: 10, fontWeight: 600, letterSpacing: '0.3px' }}>{t(categoriaToKey[categoria])}</div>
-                      <div style={{ fontSize: 28, fontWeight: 700, color: colorsPorCategoria[categoria] }}>{total.toFixed(2)} €</div>
-                    </div>
-                  );
-                })}
+                  Ver Todos
+                </button>
               </div>
-            </>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}>
-              <p style={{ fontSize: '1rem', margin: 0 }}>Sin datos disponibles para este año</p>
-            </div>
-          )}
+            ) : (
+              <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>📅</div>
+                <p style={{ fontSize: 13, color: '#666', marginBottom: 16 }}>Sin eventos este mes</p>
+                <button
+                  onClick={() => onNavigate('calendario')}
+                  style={{
+                    background: '#1565c0',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '10px 20px',
+                    borderRadius: 12,
+                    cursor: 'pointer',
+                    fontSize: 14,
+                    fontWeight: 600
+                  }}
+                >
+                  Añadir Evento
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

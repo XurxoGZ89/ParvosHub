@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useLanguage } from '../contexts/LanguageContext';
 import Header from './Header';
 
@@ -25,11 +26,26 @@ const colorsPorCategoria = {
   'Alimentación': '#FFB400'    // Amarillo Apple
 };
 
+// Función para formatear moneda al formato europeo
+const formatearMoneda = (numero) => {
+  const formateado = new Intl.NumberFormat('es-ES', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(numero);
+  
+  // Si termina en ",00", quitar los ceros
+  if (formateado.endsWith(',00')) {
+    return formateado.slice(0, -3);
+  }
+  return formateado;
+};
+
 const ResumenAnual = ({ onBack }) => {
   const { t } = useLanguage();
   const [operaciones, setOperaciones] = useState([]);
   const [anioSeleccionado, setAnioSeleccionado] = useState(new Date().getFullYear());
   const [datosTabulares, setDatosTabulares] = useState([]);
+  const [datosMensuales, setDatosMensuales] = useState([]);
   const [aniosDisponibles, setAniosDisponibles] = useState([]);
 
   const cargarOperaciones = useCallback(async () => {
@@ -92,6 +108,19 @@ const ResumenAnual = ({ onBack }) => {
     });
 
     setDatosTabulares(datos);
+    // Preparar datos para el gráfico
+    setDatosMensuales(datos.map(d => ({
+      mes: mesKeys[d.mesNum - 1],
+      mesNum: d.mesNum,
+      'Vacaciones': d['Vacaciones'],
+      'Ocio': d['Ocio'],
+      'Hogar': d['Hogar'],
+      'Vehículos': d['Vehículos'],
+      'Extra': d['Extra'],
+      'Alimentación': d['Alimentación'],
+      'ingreso': d['ingreso'],
+      'Total': d['Total']
+    })));
   }, [operaciones, anioSeleccionado]);
 
   useEffect(() => {
@@ -232,14 +261,14 @@ const ResumenAnual = ({ onBack }) => {
                         fontSize: 13
                       }}
                     >
-                      {mes[cat] > 0 ? `${mes[cat].toFixed(2)} €` : '-'}
+                      {mes[cat] > 0 ? `${formatearMoneda(mes[cat])} €` : '-'}
                     </td>
                   ))}
                   <td style={{ padding: '14px 12px', textAlign: 'right', fontWeight: 600, color: '#FF3B30', fontSize: 13 }}>
-                    {mes['Total'].toFixed(2)} €
+                    {formatearMoneda(mes['Total'])} €
                   </td>
                   <td style={{ padding: '14px 12px', textAlign: 'right', fontWeight: 600, color: (mes['ingreso'] - mes['Total']) >= 0 ? '#34C759' : '#FF3B30', fontSize: 13 }}>
-                    {(mes['ingreso'] - mes['Total']).toFixed(2)} €
+                    {formatearMoneda(mes['ingreso'] - mes['Total'])} €
                   </td>
                 </tr>
               ))}
@@ -257,18 +286,75 @@ const ResumenAnual = ({ onBack }) => {
                       fontSize: 13
                     }}
                   >
-                    {totalesPorCategoria[cat].toFixed(2)} €
+                    {formatearMoneda(totalesPorCategoria[cat])} €
                   </td>
                 ))}
                 <td style={{ padding: '16px 12px', textAlign: 'right', fontWeight: 600, color: '#1d1d1f', fontSize: 13 }}>
-                  {totalGastos.toFixed(2)} €
+                  {formatearMoneda(totalGastos)} €
                 </td>
                 <td style={{ padding: '16px 12px', textAlign: 'right', fontWeight: 600, color: diferencia >= 0 ? '#34C759' : '#FF3B30', fontSize: 13 }}>
-                  {diferencia.toFixed(2)} €
+                  {formatearMoneda(diferencia)} €
                 </td>
               </tr>
             </tbody>
           </table>
+        </div>
+
+        {/* Gráfico de Resumen Anual */}
+        <div style={{ background: '#fff', borderRadius: 20, padding: 40, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', marginBottom: 60 }}>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0, marginBottom: 40, color: '#1d1d1f', textAlign: 'center' }}>📈 {t('resumenDelAno')}</h2>
+
+          {datosMensuales.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={380}>
+                <BarChart
+                  data={datosMensuales.map(d => ({
+                    ...d,
+                    mes: `${t(mesKeys[d.mesNum - 1]).substring(0, 3)}`
+                  }))}
+                  margin={{ top: 20, right: 30, bottom: 20, left: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="mes" tick={{ fontSize: 13, fill: '#666' }} />
+                  <YAxis tick={{ fontSize: 13, fill: '#666' }} />
+                  <Tooltip formatter={v => `${formatearMoneda(v)} €`} contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                  <Legend />
+                  <Bar dataKey="Vacaciones" stackId="a" fill={colorsPorCategoria['Vacaciones']} radius={[8, 8, 0, 0]} name={t('vacaciones')} />
+                  <Bar dataKey="Ocio" stackId="a" fill={colorsPorCategoria['Ocio']} name={t('ocio')} />
+                  <Bar dataKey="Hogar" stackId="a" fill={colorsPorCategoria['Hogar']} name={t('hogar')} />
+                  <Bar dataKey="Vehículos" stackId="a" fill={colorsPorCategoria['Vehículos']} name={t('vehiculos')} />
+                  <Bar dataKey="Extra" stackId="a" fill={colorsPorCategoria['Extra']} name={t('extra')} />
+                  <Bar dataKey="Alimentación" stackId="a" fill={colorsPorCategoria['Alimentación']} name={t('alimentacion')} />
+                </BarChart>
+              </ResponsiveContainer>
+
+              {/* Resumen de totales del gráfico */}
+              <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth < 768 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 16, marginTop: 40 }}>
+                {['Vacaciones', 'Ocio', 'Hogar', 'Vehículos', 'Extra', 'Alimentación'].map(categoria => {
+                  const total = datosMensuales.reduce((sum, mes) => sum + mes[categoria], 0);
+                  return (
+                    <div key={categoria} style={{ background: '#f5f5f7', borderRadius: 16, padding: 20, textAlign: 'center', borderLeft: `3px solid ${colorsPorCategoria[categoria]}`, transition: 'all 0.3s' }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.background = '#efefef';
+                        e.currentTarget.style.transform = 'translateY(-4px)';
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.background = '#f5f5f7';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      <div style={{ fontSize: 13, color: '#666', marginBottom: 10, fontWeight: 600, letterSpacing: '0.3px' }}>{t(categoriaToKey[categoria])}</div>
+                      <div style={{ fontSize: 28, fontWeight: 700, color: colorsPorCategoria[categoria] }}>{formatearMoneda(total)} €</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}>
+              <p style={{ fontSize: '1rem', margin: 0 }}>Sin datos disponibles para este año</p>
+            </div>
+          )}
         </div>
 
         {/* Resumen de totales por categoría */}
@@ -290,7 +376,7 @@ const ResumenAnual = ({ onBack }) => {
                   }}
                 >
                   <div style={{ fontSize: 13, color: '#86868b', marginBottom: 10, fontWeight: 600, letterSpacing: '0.3px' }}>{t(categoriaToKey[cat])}</div>
-                  <div style={{ fontSize: 28, fontWeight: 700, color: colorsPorCategoria[cat], marginBottom: 8 }}>{total.toFixed(2)} €</div>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: colorsPorCategoria[cat], marginBottom: 8 }}>{formatearMoneda(total)} €</div>
                   <div style={{ fontSize: 12, color: '#86868b', fontWeight: 500 }}>{porcentaje}% del total</div>
                 </div>
               );

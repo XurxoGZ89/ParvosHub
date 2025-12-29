@@ -159,6 +159,115 @@ app.post('/presupuestos/:anio/:mes', async (req, res) => {
   }
 });
 
+// ===== ENDPOINTS PARA CALENDAR EVENTS =====
+
+// Obtener todos los eventos del calendario
+app.get('/calendar-events', async (req, res) => {
+  try {
+    const result = await db.query('SELECT * FROM calendar_events WHERE activo = true ORDER BY dia_mes ASC');
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error al obtener eventos:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Crear un nuevo evento del calendario
+app.post('/calendar-events', async (req, res) => {
+  const { nombre, dia_mes, cantidad_min, cantidad_max, categoria, recurrencia } = req.body;
+  
+  if (!nombre || !dia_mes || !cantidad_min || !categoria || !recurrencia) {
+    return res.status(400).json({ error: 'Faltan datos obligatorios' });
+  }
+
+  try {
+    const result = await db.query(
+      'INSERT INTO calendar_events (nombre, dia_mes, cantidad_min, cantidad_max, categoria, recurrencia) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [nombre, dia_mes, cantidad_min, cantidad_max || null, categoria, JSON.stringify(recurrencia)]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error al crear evento:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Actualizar un evento del calendario
+app.put('/calendar-events/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nombre, dia_mes, cantidad_min, cantidad_max, categoria, recurrencia } = req.body;
+
+  try {
+    const result = await db.query(
+      'UPDATE calendar_events SET nombre = $1, dia_mes = $2, cantidad_min = $3, cantidad_max = $4, categoria = $5, recurrencia = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *',
+      [nombre, dia_mes, cantidad_min, cantidad_max || null, categoria, JSON.stringify(recurrencia), id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Evento no encontrado' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error al actualizar evento:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Desactivar un evento del calendario (soft delete)
+app.delete('/calendar-events/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await db.query(
+      'UPDATE calendar_events SET activo = false WHERE id = $1 RETURNING *',
+      [id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Evento no encontrado' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error al desactivar evento:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Descartar warning para un mes específico
+app.post('/dismissed-warnings', async (req, res) => {
+  const { evento_id, mes_ano } = req.body;
+
+  if (!evento_id || !mes_ano) {
+    return res.status(400).json({ error: 'Faltan datos obligatorios' });
+  }
+
+  try {
+    await db.query(
+      'INSERT INTO dismissed_warnings (evento_id, mes_ano) VALUES ($1, $2) ON CONFLICT (evento_id, mes_ano) DO NOTHING',
+      [evento_id, mes_ano]
+    );
+    res.status(201).json({ success: true });
+  } catch (err) {
+    console.error('Error al descartar warning:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Obtener warnings descartados para un mes específico
+app.get('/dismissed-warnings/:mes_ano', async (req, res) => {
+  const { mes_ano } = req.params;
+
+  try {
+    const result = await db.query(
+      'SELECT evento_id FROM dismissed_warnings WHERE mes_ano = $1',
+      [mes_ano]
+    );
+    const dismissedIds = result.rows.map(row => row.evento_id);
+    res.json(dismissedIds);
+  } catch (err) {
+    console.error('Error al obtener warnings descartados:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Puerto
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
