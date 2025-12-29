@@ -3,21 +3,21 @@ import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import ReactPaginate from 'react-paginate';
 import { useLanguage } from '../contexts/LanguageContext';
-import { useCalendarEvents } from '../contexts/CalendarEventsContext';
 import Header from './Header';
 import bbvaLogo from '../assets/BBVA_2019.svg.png';
 import imaginLogoWebp from '../assets/imagin.webp';
 import '../styles/pagination.css';
 
 const mesKeys = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-const categorias = ['Vacaciones', 'Ocio', 'Hogar', 'Vehículos', 'Extra', 'Alimentación'];
+const categorias = ['Vacaciones', 'Ocio', 'Hogar', 'Movilidad', 'Deporte', 'Extra', 'Alimentación'];
 
 // Helper para convertir categoría español a clave de traducción
 const categoriaToKey = {
   'Vacaciones': 'vacaciones',
   'Ocio': 'ocio',
   'Hogar': 'hogar',
-  'Vehículos': 'vehiculos',
+  'Movilidad': 'movilidad',
+  'Deporte': 'deporte',
   'Extra': 'extra',
   'Alimentación': 'alimentacion'
 };
@@ -25,11 +25,26 @@ const categoriaToKey = {
 const usuarios = ['Xurxo', 'Sonia'];
 const cuentas = ['Imagin', 'BBVA'];
 
+// Función para formatear moneda al formato europeo
+const formatearMoneda = (numero) => {
+  const formateado = new Intl.NumberFormat('es-ES', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(numero);
+  
+  // Si termina en ",00", quitar los ceros
+  if (formateado.endsWith(',00')) {
+    return formateado.slice(0, -3);
+  }
+  return formateado;
+};
+
 const colorsPorCategoria = {
   'Vacaciones': '#FF9500',     // Naranja Apple
   'Ocio': '#FF3B30',           // Rojo Apple
   'Hogar': '#34C759',          // Verde Apple
-  'Vehículos': '#007AFF',      // Azul Apple
+  'Movilidad': '#007AFF',      // Azul Apple
+  'Deporte': '#5AC8FA',        // Azul Claro Apple
   'Extra': '#AF52DE',          // Púrpura Apple
   'Alimentación': '#FFB400'    // Amarillo Apple
 };
@@ -93,7 +108,6 @@ const tdStyle = {
 
 function ExpenseTracker({ onBack }) {
   const { t } = useLanguage();
-  const { getEventosPorMes, descartarWarning } = useCalendarEvents();
   const hoy = new Date();
   const [mesSeleccionado, setMesSeleccionado] = useState(hoy.getMonth());
   const [anioSeleccionado, setAnioSeleccionado] = useState(hoy.getFullYear());
@@ -118,7 +132,6 @@ function ExpenseTracker({ onBack }) {
   const [currentPage, setCurrentPage] = useState(0);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [formVisible, setFormVisible] = useState(window.innerWidth >= 768); // Oculto en móvil, visible en desktop
-  const [warningsDescartados, setWarningsDescartados] = useState(new Set());
 
   // Obtener presupuestos del mes actual
   const keyMesActual = `${anioSeleccionado}-${String(mesSeleccionado + 1).padStart(2, '0')}`;
@@ -126,7 +139,8 @@ function ExpenseTracker({ onBack }) {
     'Vacaciones': 0,
     'Ocio': 0,
     'Hogar': 0,
-    'Vehículos': 0,
+    'Movilidad': 0,
+    'Deporte': 0,
     'Extra': 0,
     'Alimentación': 0
   };
@@ -169,16 +183,6 @@ function ExpenseTracker({ onBack }) {
       console.log('No hay presupuestos guardados para este mes aún');
     }
   }, [anioSeleccionado, mesSeleccionado]);
-
-  const manejarEliminarWarning = async (eventoId) => {
-    try {
-      const mesAno = `${anioSeleccionado}-${String(mesSeleccionado + 1).padStart(2, '0')}`;
-      await descartarWarning(eventoId, mesAno);
-      setWarningsDescartados(prev => new Set([...prev, eventoId]));
-    } catch (err) {
-      console.error('Error al descartar warning:', err);
-    }
-  };
 
   // Cargar operaciones y presupuestos al montar el componente
   useEffect(() => {
@@ -514,58 +518,9 @@ function ExpenseTracker({ onBack }) {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f7', padding: '40px 20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-      <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         {/* Header con Fecha/Hora e Idioma */}
         <Header title={t('registroDeGastos')} />
-
-        {/* Warnings de Eventos del Calendario */}
-        {getEventosPorMes(anioSeleccionado, mesSeleccionado).length > 0 && (
-          <div style={{ marginBottom: 24 }}>
-            {getEventosPorMes(anioSeleccionado, mesSeleccionado)
-              .filter(evento => !warningsDescartados.has(evento.id))
-              .map(evento => (
-                <div
-                  key={evento.id}
-                  style={{
-                    background: '#FFF3CD',
-                    border: '1px solid #FFE8A1',
-                    borderRadius: 12,
-                    padding: 16,
-                    marginBottom: 12,
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}
-                >
-                  <div>
-                    <h4 style={{ fontSize: 14, fontWeight: 600, color: '#7f6b0d', margin: '0 0 4px 0' }}>
-                      ⚠️ {evento.nombre}
-                    </h4>
-                    <p style={{ fontSize: 13, color: '#9d8208', margin: '0 0 4px 0' }}>
-                      Día {evento.dia_mes} - Cantidad: {evento.cantidad_min}€{evento.cantidad_max ? ` a ${evento.cantidad_max}€` : ''}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => manejarEliminarWarning(evento.id)}
-                    style={{
-                      background: '#FF3B30',
-                      color: '#fff',
-                      border: 'none',
-                      padding: '8px 12px',
-                      borderRadius: 8,
-                      cursor: 'pointer',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      transition: 'all 0.2s',
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    Descartar
-                  </button>
-                </div>
-              ))}
-          </div>
-        )}
 
         {/* Botón atrás */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
@@ -618,7 +573,7 @@ function ExpenseTracker({ onBack }) {
             ))}
           </select>
           <select value={anioSeleccionado} onChange={e => setAnioSeleccionado(Number(e.target.value))} style={{ fontSize: 15, padding: '8px 12px', borderRadius: 8, border: '1px solid #e5e5e7', background: '#fff', cursor: 'pointer', color: '#1d1d1f', fontWeight: 500 }}>
-            {Array.from({length: 2}, (_, i) => 2025 + i).map(anio => (
+            {Array.from({length: 6}, (_, i) => 2025 + i).map(anio => (
               <option key={anio} value={anio}>{anio}</option>
             ))}
           </select>
@@ -653,6 +608,21 @@ function ExpenseTracker({ onBack }) {
             padding: isMobile ? 16 : 24, 
             transition: 'background 0.3s'
           }}>
+            {/* Mensaje de Warning/Info - ARRIBA */}
+            {mensaje && (
+              <div style={{ 
+                padding: '12px 16px', 
+                background: '#fff3cd', 
+                borderRadius: 8, 
+                marginBottom: 16, 
+                fontSize: 13, 
+                color: '#86868b',
+                border: '1px solid #ffeeba'
+              }}>
+                {mensaje}
+              </div>
+            )}
+            
             {/* Botón para mostrar/ocultar formulario en móvil */}
             {isMobile && (
               <button
@@ -729,9 +699,9 @@ function ExpenseTracker({ onBack }) {
                 </button>
               )}
             </form>
-            {mensaje && <p style={{ textAlign: 'center', color: '#007aff', marginTop: 12, fontSize: 13 }}>{mensaje}</p>}
               </>
             )}
+
           </div>
 
           {/* Tarjetas derecha (1/3) */}
@@ -739,7 +709,7 @@ function ExpenseTracker({ onBack }) {
             {/* Situación Global */}
             <div style={{ background: '#fff', borderRadius: 20, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', padding: 18, textAlign: 'center' }}>
               <div style={{ fontSize: 12, color: '#888', marginBottom: 14, fontWeight: 700 }}>{t('situacionGlobal')}</div>
-              <div style={{ fontSize: 36, fontWeight: 700, color: situacionGlobal >= 0 ? '#007aff' : '#ff6961', marginBottom: 16 }}>{situacionGlobal.toFixed(2)} €</div>
+              <div style={{ fontSize: 36, fontWeight: 700, color: situacionGlobal >= 0 ? '#007aff' : '#ff6961', marginBottom: 16 }}>{formatearMoneda(situacionGlobal)} €</div>
               
               {/* Cuentas */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid #e5e5e7' }}>
@@ -748,7 +718,7 @@ function ExpenseTracker({ onBack }) {
                   return (
                     <div key={c.cuenta} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px', background: '#f5f5f7', borderRadius: 10 }}>
                       <img src={logo} alt={c.cuenta} style={{ height: 28, objectFit: 'contain' }} />
-                      <div style={{ fontSize: 12, color: '#1d1d1f', fontWeight: 700 }}>{c.saldo.toFixed(2)} €</div>
+                      <div style={{ fontSize: 12, color: '#1d1d1f', fontWeight: 700 }}>{formatearMoneda(c.saldo)} €</div>
                     </div>
                   );
                 })}
@@ -758,11 +728,11 @@ function ExpenseTracker({ onBack }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div style={{ padding: '10px', background: '#e8f5e9', borderRadius: 10 }}>
                   <div style={{ fontSize: 11, color: '#2e7d32', fontWeight: 600, marginBottom: 4 }}>{t('ingresos')}</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: '#22c55e' }}>+{ingresosTotales.toFixed(2)} €</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#22c55e' }}>+{formatearMoneda(ingresosTotales)} €</div>
                 </div>
                 <div style={{ padding: '10px', background: '#ffebee', borderRadius: 10 }}>
                   <div style={{ fontSize: 11, color: '#b71c1c', fontWeight: 600, marginBottom: 4 }}>{t('gastos')}</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: '#ef4444' }}>-{gastosTotales.toFixed(2)} €</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#ef4444' }}>-{formatearMoneda(gastosTotales)} €</div>
                 </div>
               </div>
             </div>
@@ -770,14 +740,14 @@ function ExpenseTracker({ onBack }) {
             {/* Hucha */}
             <div style={{ background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)', borderRadius: 20, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', padding: 18, textAlign: 'center' }}>
               <div style={{ fontSize: 12, color: '#2e7d32', marginBottom: 12, fontWeight: 700 }}>🐷 {t('huchaTotal')}</div>
-              <div style={{ fontSize: 36, fontWeight: 700, color: '#1b5e20', marginBottom: 16 }}>{huchaNeta.toFixed(2)} €</div>
+              <div style={{ fontSize: 36, fontWeight: 700, color: '#1b5e20', marginBottom: 16 }}>{formatearMoneda(huchaNeta)} €</div>
               <div style={{ background: 'rgba(255,255,255,0.6)', borderRadius: 10, padding: 10, marginTop: 10 }}>
                 <div style={{ fontSize: 11, color: '#558b2f', fontWeight: 600, marginBottom: 6 }}>vs mes anterior</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: huchaDiferencia >= 0 ? '#2e7d32' : '#d32f2f', marginBottom: 6 }}>
-                  {huchaDiferencia >= 0 ? '+' : ''}{huchaDiferencia.toFixed(2)} € ({huchaPercentaje}%)
+                  {huchaDiferencia >= 0 ? '+' : ''}{formatearMoneda(huchaDiferencia)} € ({huchaPercentaje}%)
                 </div>
                 <div style={{ fontSize: 11, color: '#558b2f', fontWeight: 500, borderTop: '1px solid rgba(46, 125, 50, 0.2)', paddingTop: 8 }}>
-                  Mes anterior: <span style={{ fontWeight: 700, fontSize: 12 }}>{huchaMesAnterior.toFixed(2)} €</span>
+                  Mes anterior: <span style={{ fontWeight: 700, fontSize: 12 }}>{formatearMoneda(huchaMesAnterior)} €</span>
                 </div>
               </div>
             </div>
@@ -785,7 +755,7 @@ function ExpenseTracker({ onBack }) {
         </div>
 
         {/* Resumen mensual */}
-        <h3 style={{ textAlign: 'center', color: '#1d1d1f', fontWeight: 600, marginBottom: 24 }}>Resumen mensual</h3>
+        <h3 style={{ textAlign: 'center', color: '#1d1d1f', fontWeight: 600, marginBottom: 24 }}>{t('resumenMensual')}</h3>
 
         {/* Gráfico + Presupuesto vs Real en una fila */}
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 16 : 24, marginBottom: 32 }}>
@@ -804,7 +774,7 @@ function ExpenseTracker({ onBack }) {
                   tick={{ fontSize: 12 }} 
                 />
                 <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip formatter={v => `${v.toFixed(2)} €`} contentStyle={{ borderRadius: 8 }} />
+                <Tooltip formatter={v => `${formatearMoneda(v)} €`} contentStyle={{ borderRadius: 8 }} />
                 <Bar dataKey="value" radius={[8, 8, 0, 0]} shape={<BarWithColor />} />
               </BarChart>
             </ResponsiveContainer>
@@ -865,20 +835,20 @@ function ExpenseTracker({ onBack }) {
                             tabIndex={0}
                             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setEditingPresupuestoCat(cat); }}
                           >
-                            {presupuesto} € <span style={{ color: '#007aff', fontSize: 11, marginLeft: 2 }}>✎</span>
+                            {formatearMoneda(presupuesto)} € <span style={{ color: '#007aff', fontSize: 11, marginLeft: 2 }}>✎</span>
                           </span>
                         )}
                       </td>
-                      <td style={{ padding: '8px 6px', color: 'rgb(0, 122, 255)', fontWeight: 600, textAlign: 'right', fontSize: 13 }}>{real.toFixed(2)} €</td>
-                      <td style={{ padding: '8px 6px', color: diferencia < 0 ? '#d32f2f' : '#22c55e', fontWeight: 700, textAlign: 'right', fontSize: 13 }}>{diferencia.toFixed(2)} €</td>
+                      <td style={{ padding: '8px 6px', color: 'rgb(0, 122, 255)', fontWeight: 600, textAlign: 'right', fontSize: 13 }}>{formatearMoneda(real)} €</td>
+                      <td style={{ padding: '8px 6px', color: diferencia < 0 ? '#d32f2f' : '#22c55e', fontWeight: 700, textAlign: 'right', fontSize: 13 }}>{formatearMoneda(diferencia)} €</td>
                     </tr>
                   );
                 })}
                 {/* Fila TOTAL */}
                 <tr style={{ background: '#e8eef7', borderTop: '2px solid #007aff', fontWeight: 700 }}>
                   <td style={{ padding: '10px 6px', fontWeight: 700, textAlign: 'left', fontSize: 13, color: '#1d1d1f' }}>TOTAL</td>
-                  <td style={{ padding: '10px 6px', color: '#1d1d1f', fontWeight: 700, textAlign: 'right', fontSize: 13 }}>{categorias.reduce((acc, cat) => acc + (presupuestos[cat] || 0), 0).toFixed(2)} €</td>
-                  <td style={{ padding: '10px 6px', color: 'rgb(0, 122, 255)', fontWeight: 700, textAlign: 'right', fontSize: 13 }}>{categorias.reduce((acc, cat) => acc + (gastosPorCategoria.find(g => g.name === cat)?.value || 0), 0).toFixed(2)} €</td>
+                  <td style={{ padding: '10px 6px', color: '#1d1d1f', fontWeight: 700, textAlign: 'right', fontSize: 13 }}>{formatearMoneda(categorias.reduce((acc, cat) => acc + (presupuestos[cat] || 0), 0))} €</td>
+                  <td style={{ padding: '10px 6px', color: 'rgb(0, 122, 255)', fontWeight: 700, textAlign: 'right', fontSize: 13 }}>{formatearMoneda(categorias.reduce((acc, cat) => acc + (gastosPorCategoria.find(g => g.name === cat)?.value || 0), 0))} €</td>
                   <td style={{ padding: '10px 6px', fontWeight: 700, textAlign: 'right', fontSize: 13, color: (() => {
                     const totalPresupuesto = categorias.reduce((acc, cat) => acc + (presupuestos[cat] || 0), 0);
                     const totalReal = categorias.reduce((acc, cat) => acc + (gastosPorCategoria.find(g => g.name === cat)?.value || 0), 0);
@@ -889,7 +859,7 @@ function ExpenseTracker({ onBack }) {
                       const totalPresupuesto = categorias.reduce((acc, cat) => acc + (presupuestos[cat] || 0), 0);
                       const totalReal = categorias.reduce((acc, cat) => acc + (gastosPorCategoria.find(g => g.name === cat)?.value || 0), 0);
                       const diferenciaTotale = totalPresupuesto - totalReal;
-                      return `${diferenciaTotale.toFixed(2)} €`;
+                      return `${formatearMoneda(diferenciaTotale)} €`;
                     })()}
                   </td>
                 </tr>
@@ -899,7 +869,7 @@ function ExpenseTracker({ onBack }) {
         </div>
 
         {/* Últimos movimientos */}
-        <h3 style={{ textAlign: 'center', color: '#1d1d1f', fontWeight: 600, marginTop: 40, marginBottom: 24 }}>Últimos movimientos</h3>
+        <h3 style={{ textAlign: 'center', color: '#1d1d1f', fontWeight: 600, marginTop: 40, marginBottom: 24 }}>{t('ultimosMovimientos')}</h3>
         
         {/* Filtros visuales */}
         <div style={{ background: '#fff', borderRadius: 20, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', padding: isMobile ? 12 : 16, marginBottom: 16, display: 'flex', gap: isMobile ? 8 : 12, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1011,7 +981,7 @@ function ExpenseTracker({ onBack }) {
                       fontWeight: 700,
                       color: isIngreso || isRetiradaHucha ? '#1b5e20' : isGasto ? '#d32f2f' : '#1b5e20',
                       background: '#f1f3f4',
-                    }}>{Number(op.cantidad).toFixed(2)} €</td>
+                    }}>{formatearMoneda(Number(op.cantidad))} €</td>
                     <td style={{ ...tdStyle, fontWeight: 600, color: '#1d1d1f', background: '#fff' }}>{op.categoria}</td>
                     <td style={{ ...tdStyle, fontWeight: 600, color: '#0066cc' }}>{op.usuario}</td>
                     <td style={{ ...tdStyle, fontWeight: 600, color: '#1d1d1f', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
@@ -1051,11 +1021,11 @@ function ExpenseTracker({ onBack }) {
           {pageCount > 1 && (
             <ReactPaginate
               breakLabel="..."
-              nextLabel="Siguiente >"
+              nextLabel={`${t('siguiente')} >`}
               onPageChange={handlePageClick}
               pageRangeDisplayed={5}
               pageCount={pageCount}
-              previousLabel="< Anterior"
+              previousLabel={`< ${t('anterior')}`}
               renderOnZeroPageCount={null}
               containerClassName="pagination"
               activeClassName="active"

@@ -7,6 +7,7 @@ import bbvaLogo from '../assets/BBVA_2019.svg.png';
 import imaginLogoWebp from '../assets/imagin.webp';
 
 const cuentas = ['Imagin', 'BBVA'];
+const mesKeys = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
 // Función para formatear moneda al formato europeo
 const formatearMoneda = (numero) => {
@@ -129,7 +130,7 @@ const Home = ({ onNavigate }) => {
 
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f5f7', padding: '20px 20px 40px 20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#f5f5f7', padding: '40px 20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         <Header title={t('parvosHub')} subtitle={t('homeSubtitle')} />
 
@@ -206,23 +207,19 @@ const Home = ({ onNavigate }) => {
               gap: 8,
               cursor: 'pointer',
               transition: 'all 0.3s',
-              padding: 12,
-              opacity: 0.7
+              padding: 12
             }}
             onMouseOver={(e) => {
               e.currentTarget.style.transform = 'scale(1.1)';
-              e.currentTarget.style.opacity = '1';
             }}
             onMouseOut={(e) => {
               e.currentTarget.style.transform = 'scale(1)';
-              e.currentTarget.style.opacity = '0.7';
             }}
           >
             <div style={{ fontSize: '1.8rem' }}>📅</div>
             <div style={{ fontSize: '0.75rem', textAlign: 'center', color: '#1d1d1f', fontWeight: 500, maxWidth: 70 }}>
               {t('calendario')}
             </div>
-            <div style={{ fontSize: '0.65rem', color: '#999' }}>{t('proximamente')}</div>
           </div>
 
           {/* Receteario */}
@@ -328,13 +325,15 @@ const Home = ({ onNavigate }) => {
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h2 style={{ fontSize: isMobile ? 16 : 18, fontWeight: 700, color: '#1565c0', margin: 0 }}>📅 {t('calendario')}</h2>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <h2 style={{ fontSize: isMobile ? 16 : 18, fontWeight: 700, color: '#1565c0', margin: 0 }}>📅 {t('calendarioGastos')}</h2>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <button
                   onClick={() => {
                     if (mesCalendario === 0) {
                       setMesCalendario(11);
-                      setAnioCalendario(anioCalendario - 1);
+                      if (anioCalendario > 2025) {
+                        setAnioCalendario(anioCalendario - 1);
+                      }
                     } else {
                       setMesCalendario(mesCalendario - 1);
                     }
@@ -352,11 +351,16 @@ const Home = ({ onNavigate }) => {
                 >
                   ←
                 </button>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#1565c0', minWidth: 140, textAlign: 'center' }}>
+                  {t(mesKeys[mesCalendario])} {anioCalendario}
+                </div>
                 <button
                   onClick={() => {
                     if (mesCalendario === 11) {
                       setMesCalendario(0);
-                      setAnioCalendario(anioCalendario + 1);
+                      if (anioCalendario < 2030) {
+                        setAnioCalendario(anioCalendario + 1);
+                      }
                     } else {
                       setMesCalendario(mesCalendario + 1);
                     }
@@ -382,7 +386,7 @@ const Home = ({ onNavigate }) => {
                 {getEventosPorMes(anioCalendario, mesCalendario).slice(0, 3).map(evento => (
                   <div
                     key={evento.id}
-                    onClick={() => onNavigate('calendario')}
+                    onClick={() => onNavigate('calendario', { mes: mesCalendario, anio: anioCalendario, scrollToEventos: true })}
                     style={{
                       background: '#fff',
                       padding: 12,
@@ -393,7 +397,7 @@ const Home = ({ onNavigate }) => {
                     }}
                   >
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#1565c0', marginBottom: 4 }}>
-                      {evento.dia_mes} de {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][mesCalendario]}
+                      {evento.dia_mes} de {t(mesKeys[mesCalendario])}
                     </div>
                     <h4 style={{ fontSize: 14, fontWeight: 600, color: '#1d1d1f', margin: 0, marginBottom: 6 }}>
                       {evento.nombre}
@@ -404,7 +408,7 @@ const Home = ({ onNavigate }) => {
                   </div>
                 ))}
                 <button
-                  onClick={() => onNavigate('calendario')}
+                  onClick={() => onNavigate('calendario', { mes: mesCalendario, anio: anioCalendario })}
                   style={{
                     width: '100%',
                     background: '#1565c0',
@@ -418,15 +422,15 @@ const Home = ({ onNavigate }) => {
                     marginTop: 8
                   }}
                 >
-                  Ver Todos
+                  {t('verTodos')}
                 </button>
               </div>
             ) : (
               <div style={{ textAlign: 'center', padding: '20px 0' }}>
                 <div style={{ fontSize: 40, marginBottom: 12 }}>📅</div>
-                <p style={{ fontSize: 13, color: '#666', marginBottom: 16 }}>Sin eventos este mes</p>
+                <p style={{ fontSize: 13, color: '#666', marginBottom: 16 }}>{t('sinEventosEstesMes')}</p>
                 <button
-                  onClick={() => onNavigate('calendario')}
+                  onClick={() => onNavigate('calendario', { mes: mesCalendario, anio: anioCalendario, newEvent: true })}
                   style={{
                     background: '#1565c0',
                     color: '#fff',

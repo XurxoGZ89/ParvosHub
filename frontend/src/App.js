@@ -14,7 +14,7 @@ function AppContent() {
   return (
     <div style={{ margin: 0, padding: 0 }}>
       <Routes>
-        <Route path="/" element={<Home onNavigate={(page) => navigate(`/${page}`)} />} />
+        <Route path="/" element={<Home onNavigate={(page, params) => navigate(`/${page}`, { state: params })} />} />
         <Route path="/gastos" element={<ExpenseTracker onBack={() => navigate('/')} />} />
         <Route path="/resumen" element={<ResumenAnual onBack={() => navigate('/')} />} />
         <Route path="/calendario" element={<Calendario onBack={() => navigate('/')} />} />

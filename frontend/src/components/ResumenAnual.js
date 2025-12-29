@@ -5,14 +5,15 @@ import { useLanguage } from '../contexts/LanguageContext';
 import Header from './Header';
 
 const mesKeys = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-const categorias = ['Vacaciones', 'Ocio', 'Hogar', 'Vehículos', 'Extra', 'Alimentación'];
+const categorias = ['Vacaciones', 'Ocio', 'Hogar', 'Movilidad', 'Deporte', 'Extra', 'Alimentación'];
 
 // Helper para convertir categoría español a clave de traducción
 const categoriaToKey = {
   'Vacaciones': 'vacaciones',
   'Ocio': 'ocio',
   'Hogar': 'hogar',
-  'Vehículos': 'vehiculos',
+  'Movilidad': 'movilidad',
+  'Deporte': 'deporte',
   'Extra': 'extra',
   'Alimentación': 'alimentacion'
 };
@@ -21,7 +22,8 @@ const colorsPorCategoria = {
   'Vacaciones': '#FF9500',     // Naranja Apple
   'Ocio': '#FF3B30',           // Rojo Apple
   'Hogar': '#34C759',          // Verde Apple
-  'Vehículos': '#007AFF',      // Azul Apple
+  'Movilidad': '#007AFF',      // Azul Apple
+  'Deporte': '#5AC8FA',        // Azul Claro Apple
   'Extra': '#AF52DE',          // Púrpura Apple
   'Alimentación': '#FFB400'    // Amarillo Apple
 };
@@ -84,7 +86,8 @@ const ResumenAnual = ({ onBack }) => {
       'Vacaciones': 0,
       'Ocio': 0,
       'Hogar': 0,
-      'Vehículos': 0,
+      'Movilidad': 0,
+      'Deporte': 0,
       'Extra': 0,
       'Alimentación': 0,
       'ingreso': 0,
@@ -115,7 +118,8 @@ const ResumenAnual = ({ onBack }) => {
       'Vacaciones': d['Vacaciones'],
       'Ocio': d['Ocio'],
       'Hogar': d['Hogar'],
-      'Vehículos': d['Vehículos'],
+      'Movilidad': d['Movilidad'],
+      'Deporte': d['Deporte'],
       'Extra': d['Extra'],
       'Alimentación': d['Alimentación'],
       'ingreso': d['ingreso'],
@@ -143,7 +147,7 @@ const ResumenAnual = ({ onBack }) => {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f7', padding: '40px 20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-      <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         {/* Header con Fecha/Hora e Idioma */}
         <Header title={t('resumenDelAno')} />
 
@@ -221,7 +225,67 @@ const ResumenAnual = ({ onBack }) => {
           </div>
         </div>
 
-        {/* Tabla de datos anuales */}
+        {/* Gráfico de Resumen Anual - PRIMERO */}
+        <div style={{ background: '#fff', borderRadius: 20, padding: 40, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', marginBottom: 60 }}>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0, marginBottom: 40, color: '#1d1d1f', textAlign: 'center' }}>📈 {t('resumenDelAno')}</h2>
+
+          {datosMensuales.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={380}>
+                <BarChart
+                  data={datosMensuales.map(d => ({
+                    ...d,
+                    mes: `${t(mesKeys[d.mesNum - 1]).substring(0, 3)}`
+                  }))}
+                  margin={{ top: 20, right: 30, bottom: 20, left: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="mes" tick={{ fontSize: 13, fill: '#666' }} />
+                  <YAxis tick={{ fontSize: 13, fill: '#666' }} />
+                  <Tooltip formatter={v => `${formatearMoneda(v)} €`} contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                  <Legend />
+                  <Bar dataKey="Vacaciones" stackId="a" fill={colorsPorCategoria['Vacaciones']} radius={[8, 8, 0, 0]} name={t('vacaciones')} />
+                  <Bar dataKey="Ocio" stackId="a" fill={colorsPorCategoria['Ocio']} name={t('ocio')} />
+                  <Bar dataKey="Hogar" stackId="a" fill={colorsPorCategoria['Hogar']} name={t('hogar')} />
+                  <Bar dataKey="Movilidad" stackId="a" fill={colorsPorCategoria['Movilidad']} name={t('movilidad')} />
+                  <Bar dataKey="Deporte" stackId="a" fill={colorsPorCategoria['Deporte']} name={t('deporte')} />
+                  <Bar dataKey="Extra" stackId="a" fill={colorsPorCategoria['Extra']} name={t('extra')} />
+                  <Bar dataKey="Alimentación" stackId="a" fill={colorsPorCategoria['Alimentación']} name={t('alimentacion')} />
+                </BarChart>
+              </ResponsiveContainer>
+
+              {/* Resumen de totales del gráfico */}
+              <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth < 768 ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12, marginTop: 32 }}>
+                {['Vacaciones', 'Ocio', 'Hogar', 'Movilidad', 'Deporte', 'Extra', 'Alimentación'].map(categoria => {
+                  const total = datosMensuales.reduce((sum, mes) => sum + mes[categoria], 0);
+                  const porcentaje = totalGastos > 0 ? ((total / totalGastos) * 100).toFixed(1) : 0;
+                  return (
+                    <div key={categoria} style={{ background: '#f5f5f7', borderRadius: 14, padding: 16, textAlign: 'center', borderLeft: `3px solid ${colorsPorCategoria[categoria]}`, transition: 'all 0.3s' }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.background = '#efefef';
+                        e.currentTarget.style.transform = 'translateY(-4px)';
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.background = '#f5f5f7';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      <div style={{ fontSize: 13, color: '#666', marginBottom: 10, fontWeight: 600, letterSpacing: '0.3px' }}>{t(categoriaToKey[categoria])}</div>
+                      <div style={{ fontSize: 28, fontWeight: 700, color: colorsPorCategoria[categoria], marginBottom: 8 }}>{formatearMoneda(total)} €</div>
+                      <div style={{ fontSize: 12, color: '#86868b', fontWeight: 500 }}>{porcentaje}% del total</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}>
+              <p style={{ fontSize: '1rem', margin: 0 }}>Sin datos disponibles para este año</p>
+            </div>
+          )}
+        </div>
+
+        {/* Tabla de datos anuales - SEGUNDA */}
         <div style={{ background: '#fff', borderRadius: 20, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', overflowX: 'auto', marginBottom: 60 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 1000 }}>
             <thead>
@@ -298,90 +362,6 @@ const ResumenAnual = ({ onBack }) => {
               </tr>
             </tbody>
           </table>
-        </div>
-
-        {/* Gráfico de Resumen Anual */}
-        <div style={{ background: '#fff', borderRadius: 20, padding: 40, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', marginBottom: 60 }}>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0, marginBottom: 40, color: '#1d1d1f', textAlign: 'center' }}>📈 {t('resumenDelAno')}</h2>
-
-          {datosMensuales.length > 0 ? (
-            <>
-              <ResponsiveContainer width="100%" height={380}>
-                <BarChart
-                  data={datosMensuales.map(d => ({
-                    ...d,
-                    mes: `${t(mesKeys[d.mesNum - 1]).substring(0, 3)}`
-                  }))}
-                  margin={{ top: 20, right: 30, bottom: 20, left: 0 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="mes" tick={{ fontSize: 13, fill: '#666' }} />
-                  <YAxis tick={{ fontSize: 13, fill: '#666' }} />
-                  <Tooltip formatter={v => `${formatearMoneda(v)} €`} contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                  <Legend />
-                  <Bar dataKey="Vacaciones" stackId="a" fill={colorsPorCategoria['Vacaciones']} radius={[8, 8, 0, 0]} name={t('vacaciones')} />
-                  <Bar dataKey="Ocio" stackId="a" fill={colorsPorCategoria['Ocio']} name={t('ocio')} />
-                  <Bar dataKey="Hogar" stackId="a" fill={colorsPorCategoria['Hogar']} name={t('hogar')} />
-                  <Bar dataKey="Vehículos" stackId="a" fill={colorsPorCategoria['Vehículos']} name={t('vehiculos')} />
-                  <Bar dataKey="Extra" stackId="a" fill={colorsPorCategoria['Extra']} name={t('extra')} />
-                  <Bar dataKey="Alimentación" stackId="a" fill={colorsPorCategoria['Alimentación']} name={t('alimentacion')} />
-                </BarChart>
-              </ResponsiveContainer>
-
-              {/* Resumen de totales del gráfico */}
-              <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth < 768 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 16, marginTop: 40 }}>
-                {['Vacaciones', 'Ocio', 'Hogar', 'Vehículos', 'Extra', 'Alimentación'].map(categoria => {
-                  const total = datosMensuales.reduce((sum, mes) => sum + mes[categoria], 0);
-                  return (
-                    <div key={categoria} style={{ background: '#f5f5f7', borderRadius: 16, padding: 20, textAlign: 'center', borderLeft: `3px solid ${colorsPorCategoria[categoria]}`, transition: 'all 0.3s' }}
-                      onMouseOver={(e) => {
-                        e.currentTarget.style.background = '#efefef';
-                        e.currentTarget.style.transform = 'translateY(-4px)';
-                      }}
-                      onMouseOut={(e) => {
-                        e.currentTarget.style.background = '#f5f5f7';
-                        e.currentTarget.style.transform = 'translateY(0)';
-                      }}
-                    >
-                      <div style={{ fontSize: 13, color: '#666', marginBottom: 10, fontWeight: 600, letterSpacing: '0.3px' }}>{t(categoriaToKey[categoria])}</div>
-                      <div style={{ fontSize: 28, fontWeight: 700, color: colorsPorCategoria[categoria] }}>{formatearMoneda(total)} €</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}>
-              <p style={{ fontSize: '1rem', margin: 0 }}>Sin datos disponibles para este año</p>
-            </div>
-          )}
-        </div>
-
-        {/* Resumen de totales por categoría */}
-        <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1d1d1f', marginBottom: 40, textAlign: 'center', letterSpacing: '-0.5px' }}>Desglose de Gastos por Categoría</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth < 768 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 16, marginBottom: 40 }}>
-            {categorias.map(cat => {
-              const total = totalesPorCategoria[cat];
-              const porcentaje = totalGastos > 0 ? ((total / totalGastos) * 100).toFixed(1) : 0;
-              return (
-                <div key={cat} style={{ background: '#fff', borderRadius: 16, padding: 24, textAlign: 'center', borderLeft: `3px solid ${colorsPorCategoria[cat]}`, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', transition: 'all 0.3s' }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-4px)';
-                    e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.1)';
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.05)';
-                  }}
-                >
-                  <div style={{ fontSize: 13, color: '#86868b', marginBottom: 10, fontWeight: 600, letterSpacing: '0.3px' }}>{t(categoriaToKey[cat])}</div>
-                  <div style={{ fontSize: 28, fontWeight: 700, color: colorsPorCategoria[cat], marginBottom: 8 }}>{formatearMoneda(total)} €</div>
-                  <div style={{ fontSize: 12, color: '#86868b', fontWeight: 500 }}>{porcentaje}% del total</div>
-                </div>
-              );
-            })}
-          </div>
         </div>
       </div>
     </div>

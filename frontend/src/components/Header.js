@@ -11,15 +11,12 @@ const Header = ({ title, subtitle }) => {
   }, []);
 
   const formatearFechaHora = () => {
-    const opciones = {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    };
-    return fechaHora.toLocaleDateString(language === 'ca' ? 'ca-ES' : 'gl-ES', opciones);
+    const dia = String(fechaHora.getDate()).padStart(2, '0');
+    const mes = String(fechaHora.getMonth() + 1).padStart(2, '0');
+    const anio = fechaHora.getFullYear();
+    const horas = String(fechaHora.getHours()).padStart(2, '0');
+    const minutos = String(fechaHora.getMinutes()).padStart(2, '0');
+    return `${dia}/${mes}/${anio}, ${horas}:${minutos}`;
   };
 
   return (

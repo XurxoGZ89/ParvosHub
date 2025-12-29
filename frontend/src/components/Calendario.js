@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useCalendarEvents } from '../contexts/CalendarEventsContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import Header from './Header';
 
 const CATEGORIAS = ['Cumpleaños', 'Seguro', 'Viaje', 'Día Especial'];
@@ -13,15 +15,17 @@ const TIPOS_RECURRENCIA = [
 ];
 
 function Calendario({ onBack }) {
+  const location = useLocation();
+  const { t } = useLanguage();
+  const eventosRef = useRef(null);
   const { getEventosPorMes, crearEvento, actualizarEvento, desactivarEvento } = useCalendarEvents();
   
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [vistaAnual, setVistaAnual] = useState(false);
-  const [mesActual, setMesActual] = useState(new Date().getMonth());
-  const [anioActual, setAnioActual] = useState(new Date().getFullYear());
-  const [mostrarModal, setMostrarModal] = useState(false);
+  const [mesActual, setMesActual] = useState(location.state?.mes ?? new Date().getMonth());
+  const [anioActual, setAnioActual] = useState(location.state?.anio ?? new Date().getFullYear());
+  const [mostrarModal, setMostrarModal] = useState(location.state?.newEvent ?? false);
   const [editando, setEditando] = useState(null);
-  const [diaSeleccionado, setDiaSeleccionado] = useState(null);
   const [formData, setFormData] = useState({
     nombre: '',
     dia_mes: '',
@@ -47,7 +51,17 @@ function Calendario({ onBack }) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Scroll a eventos si viene de Home
+  useEffect(() => {
+    if (location.state?.scrollToEventos && eventosRef.current) {
+      setTimeout(() => {
+        eventosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 300);
+    }
+  }, [location.state?.scrollToEventos]);
+
   const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const mesKeys = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   const diasPorMes = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
   // Ajustar febrero en años bisiestos
@@ -68,10 +82,8 @@ function Calendario({ onBack }) {
         categoria: evento.categoria,
         recurrencia
       });
-      setDiaSeleccionado(null);
     } else {
       setEditando(null);
-      setDiaSeleccionado(dia);
       setFormData({
         nombre: '',
         dia_mes: dia || '',
@@ -94,7 +106,6 @@ function Calendario({ onBack }) {
   const cerrarModal = () => {
     setMostrarModal(false);
     setEditando(null);
-    setDiaSeleccionado(null);
     setFormData({
       nombre: '',
       dia_mes: '',
@@ -194,15 +205,15 @@ function Calendario({ onBack }) {
 
     return (
       <div style={{ marginTop: 32 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8, marginBottom: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 12 }}>
           {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map(dia => (
-            <div key={dia} style={{ textAlign: 'center', fontWeight: 600, color: '#86868b', fontSize: 13, padding: 8 }}>
+            <div key={dia} style={{ textAlign: 'center', fontWeight: 600, color: '#86868b', fontSize: 12, padding: 4 }}>
               {dia}
             </div>
           ))}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
           {semanas.map((semana, semanaIdx) =>
             semana.map((dia, diaIdx) => {
               const eventosDelDia = dia ? eventosMesActual.filter(evt => evt.dia_mes === dia) : [];
@@ -213,16 +224,17 @@ function Calendario({ onBack }) {
                   key={`${semanaIdx}-${diaIdx}`}
                   onClick={() => dia && abrirModal(null, dia)}
                   style={{
-                    minHeight: tieneEventos ? 'auto' : 60,
-                    padding: tieneEventos ? 12 : 8,
-                    borderRadius: 10,
+                    minHeight: tieneEventos ? 'auto' : 45,
+                    padding: tieneEventos ? 8 : 4,
+                    borderRadius: 8,
                     background: dia ? '#f9f9fb' : 'transparent',
                     border: tieneEventos ? '2px solid #007AFF' : '1px solid #e5e5e7',
                     cursor: dia ? 'pointer' : 'default',
                     transition: 'all 0.2s',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: 6
+                    gap: 3,
+                    fontSize: 12
                   }}
                   onMouseOver={(e) => {
                     if (dia) {
@@ -339,8 +351,9 @@ function Calendario({ onBack }) {
                           background: '#fff',
                           padding: '8px 10px',
                           borderRadius: 6,
-                          border: '1px solid #e5e5e7',
+                          border: '1px solid #007AFF',
                           fontSize: 12,
+                          color: '#1d1d1f',
                           cursor: 'pointer',
                           transition: 'all 0.2s',
                           overflow: 'hidden',
@@ -350,17 +363,19 @@ function Calendario({ onBack }) {
                         onMouseOver={(e) => {
                           e.currentTarget.style.background = '#007AFF';
                           e.currentTarget.style.color = '#fff';
+                          e.currentTarget.style.borderColor = '#007AFF';
                         }}
                         onMouseOut={(e) => {
                           e.currentTarget.style.background = '#fff';
                           e.currentTarget.style.color = '#1d1d1f';
+                          e.currentTarget.style.borderColor = '#007AFF';
                         }}
                       >
                         <strong>{evento.dia_mes}:</strong> {evento.nombre}
                       </div>
                     ))}
                     {eventosDelMes.length > 3 && (
-                      <div style={{ fontSize: 11, color: '#999', paddingTop: 4, borderTop: '1px solid #e5e5e7' }}>
+                      <div style={{ fontSize: 11, color: '#666', paddingTop: 4, borderTop: '1px solid #e5e5e7' }}>
                         +{eventosDelMes.length - 3} más
                       </div>
                     )}
@@ -405,7 +420,7 @@ function Calendario({ onBack }) {
               e.target.style.boxShadow = 'none';
             }}
           >
-            ← Volver
+            ← {t('volver')}
           </button>
 
           <button
@@ -430,7 +445,7 @@ function Calendario({ onBack }) {
               e.target.style.boxShadow = 'none';
             }}
           >
-            + Nuevo evento
+            {t('nuevoMovimiento')}
           </button>
 
           <button
@@ -455,7 +470,7 @@ function Calendario({ onBack }) {
               e.target.style.boxShadow = 'none';
             }}
           >
-            {vistaAnual ? 'Ver Mes' : 'Ver Año'}
+            {vistaAnual ? t('verMes') : t('verAno')}
           </button>
         </div>
 
@@ -469,11 +484,148 @@ function Calendario({ onBack }) {
           </div>
         )}
 
-        {/* Card de eventos encima del calendario */}
+        {/* Contenedor calendario */}
+        <div style={{ background: '#fff', borderRadius: 20, padding: isMobile ? 16 : 32, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', marginBottom: 24 }}>
+          {!vistaAnual && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+              <button
+                onClick={() => {
+                  if (mesActual === 0) {
+                    setMesActual(11);
+                    if (anioActual > 2025) {
+                      setAnioActual(anioActual - 1);
+                    }
+                  } else {
+                    setMesActual(mesActual - 1);
+                  }
+                }}
+                style={{
+                  background: '#f5f5f7',
+                  border: '1px solid #e5e5e7',
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  fontWeight: 500,
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => {
+                  e.target.style.background = '#e8e8ed';
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.background = '#f5f5f7';
+                }}
+              >
+                ← {t('anterior')}
+              </button>
+
+              <h2 style={{ fontSize: 24, fontWeight: 600, color: '#1d1d1f' }}>
+                {t(mesKeys[mesActual])} {anioActual}
+              </h2>
+
+              <button
+                onClick={() => {
+                  if (mesActual === 11) {
+                    setMesActual(0);
+                    if (anioActual < 2030) {
+                      setAnioActual(anioActual + 1);
+                    }
+                  } else {
+                    setMesActual(mesActual + 1);
+                  }
+                }}
+                style={{
+                  background: '#f5f5f7',
+                  border: '1px solid #e5e5e7',
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  fontWeight: 500,
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => {
+                  e.target.style.background = '#e8e8ed';
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.background = '#f5f5f7';
+                }}
+              >
+                {t('siguiente')} →
+              </button>
+            </div>
+          )}
+
+          {vistaAnual && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+              <button
+                onClick={() => {
+                  if (anioActual > 2025) {
+                    setAnioActual(anioActual - 1);
+                  }
+                }}
+                style={{
+                  background: '#f5f5f7',
+                  border: '1px solid #e5e5e7',
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  fontWeight: 500,
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => {
+                  e.target.style.background = '#e8e8ed';
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.background = '#f5f5f7';
+                }}
+              >
+                ← {anioActual - 1}
+              </button>
+
+              <h2 style={{ fontSize: 24, fontWeight: 600, color: '#1d1d1f' }}>
+                {anioActual}
+              </h2>
+
+              <button
+                onClick={() => {
+                  if (anioActual < 2030) {
+                    setAnioActual(anioActual + 1);
+                  }
+                }}
+                style={{
+                  background: '#f5f5f7',
+                  border: '1px solid #e5e5e7',
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  fontWeight: 500,
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => {
+                  e.target.style.background = '#e8e8ed';
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.background = '#f5f5f7';
+                }}
+              >
+                {anioActual + 1} →
+              </button>
+            </div>
+          )}
+
+          {!vistaAnual && renderCalendarioMensual()}
+
+          {vistaAnual && renderVistaAnual()}
+        </div>
+
+        {/* Card de eventos DEBAJO del calendario */}
         {!vistaAnual && eventosMesActual.length > 0 && (
-          <div style={{ background: '#fff', borderRadius: 16, padding: isMobile ? 16 : 24, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', marginBottom: 24 }}>
+          <div ref={eventosRef} style={{ background: '#fff', borderRadius: 16, padding: isMobile ? 16 : 24, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', marginTop: 24 }}>
             <h3 style={{ fontSize: isMobile ? 16 : 18, fontWeight: 600, color: '#1d1d1f', marginBottom: 16 }}>
-              📌 Eventos de {meses[mesActual]}
+              📌 Eventos de {t(mesKeys[mesActual])}
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(250px, 1fr))', gap: 16 }}>
               {eventosMesActual.map(evento => (
@@ -499,7 +651,7 @@ function Calendario({ onBack }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 12 }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 600, color: '#007AFF', marginBottom: 4 }}>
-                        {evento.dia_mes} de {meses[mesActual]}
+                        {evento.dia_mes} de {t(mesKeys[mesActual])}
                       </div>
                       <h4 style={{ fontSize: 16, fontWeight: 600, color: '#1d1d1f', margin: 0, marginBottom: 4, cursor: 'pointer' }} onClick={() => abrirModal(evento)}>
                         {evento.nombre}
@@ -536,7 +688,7 @@ function Calendario({ onBack }) {
                         e.target.style.background = '#007AFF';
                       }}
                     >
-                      Editar
+                      {t('editar')}
                     </button>
                     <button
                       onClick={() => manejarEliminarEvento(evento.id)}
@@ -567,131 +719,6 @@ function Calendario({ onBack }) {
             </div>
           </div>
         )}
-
-        {/* Contenedor calendario */}
-        <div style={{ background: '#fff', borderRadius: 20, padding: isMobile ? 16 : 32, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0' }}>
-          {!vistaAnual && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-              <button
-                onClick={() => {
-                  if (mesActual === 0) {
-                    setMesActual(11);
-                    setAnioActual(anioActual - 1);
-                  } else {
-                    setMesActual(mesActual - 1);
-                  }
-                }}
-                style={{
-                  background: '#f5f5f7',
-                  border: '1px solid #e5e5e7',
-                  padding: '8px 12px',
-                  borderRadius: 8,
-                  cursor: 'pointer',
-                  fontSize: 14,
-                  fontWeight: 500,
-                  transition: 'all 0.2s'
-                }}
-                onMouseOver={(e) => {
-                  e.target.style.background = '#e8e8ed';
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.background = '#f5f5f7';
-                }}
-              >
-                ← Anterior
-              </button>
-
-              <h2 style={{ fontSize: 24, fontWeight: 600, color: '#1d1d1f' }}>
-                {meses[mesActual]} {anioActual}
-              </h2>
-
-              <button
-                onClick={() => {
-                  if (mesActual === 11) {
-                    setMesActual(0);
-                    setAnioActual(anioActual + 1);
-                  } else {
-                    setMesActual(mesActual + 1);
-                  }
-                }}
-                style={{
-                  background: '#f5f5f7',
-                  border: '1px solid #e5e5e7',
-                  padding: '8px 12px',
-                  borderRadius: 8,
-                  cursor: 'pointer',
-                  fontSize: 14,
-                  fontWeight: 500,
-                  transition: 'all 0.2s'
-                }}
-                onMouseOver={(e) => {
-                  e.target.style.background = '#e8e8ed';
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.background = '#f5f5f7';
-                }}
-              >
-                Siguiente →
-              </button>
-            </div>
-          )}
-
-          {vistaAnual && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-              <button
-                onClick={() => setAnioActual(anioActual - 1)}
-                style={{
-                  background: '#f5f5f7',
-                  border: '1px solid #e5e5e7',
-                  padding: '8px 12px',
-                  borderRadius: 8,
-                  cursor: 'pointer',
-                  fontSize: 14,
-                  fontWeight: 500,
-                  transition: 'all 0.2s'
-                }}
-                onMouseOver={(e) => {
-                  e.target.style.background = '#e8e8ed';
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.background = '#f5f5f7';
-                }}
-              >
-                ← {anioActual - 1}
-              </button>
-
-              <h2 style={{ fontSize: 24, fontWeight: 600, color: '#1d1d1f' }}>
-                {anioActual}
-              </h2>
-
-              <button
-                onClick={() => setAnioActual(anioActual + 1)}
-                style={{
-                  background: '#f5f5f7',
-                  border: '1px solid #e5e5e7',
-                  padding: '8px 12px',
-                  borderRadius: 8,
-                  cursor: 'pointer',
-                  fontSize: 14,
-                  fontWeight: 500,
-                  transition: 'all 0.2s'
-                }}
-                onMouseOver={(e) => {
-                  e.target.style.background = '#e8e8ed';
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.background = '#f5f5f7';
-                }}
-              >
-                {anioActual + 1} →
-              </button>
-            </div>
-          )}
-
-          {!vistaAnual && renderCalendarioMensual()}
-
-          {vistaAnual && renderVistaAnual()}
-        </div>
       </div>
 
       {/* Modal para crear/editar evento */}
@@ -725,7 +752,7 @@ function Calendario({ onBack }) {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 style={{ fontSize: 24, fontWeight: 600, color: '#1d1d1f', marginBottom: 24 }}>
-              {editando ? '✏️ Editar Evento' : '➕ Nuevo Evento'}
+              {editando ? `✏️ ${t('editarEvento')}` : `➕ ${t('nuevoEvento')}`}
             </h2>
 
             <form onSubmit={manejarSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
