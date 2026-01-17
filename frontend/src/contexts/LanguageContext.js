@@ -106,7 +106,7 @@ const translations = {
 
     // Calendario de Comidas
     'calendarioComidas': 'Calendari de Menjars',
-    'comidasCongeladas': 'Menjars Congelats',
+    'comidasCongeladas': 'Menjars',
     'comidasDespensa': 'Menjars Rebost',
     'nuevaComida': 'Nova menjar',
     'anadirNotas': 'Afegir notes...',
@@ -258,7 +258,7 @@ const translations = {
 
     // Calendario de Comidas
     'calendarioComidas': 'Calendario de Comidas',
-    'comidasCongeladas': 'Comidas Conxeladas',
+    'comidasCongeladas': 'Comidas',
     'comidasDespensa': 'Comidas Despensa',
     'nuevaComida': 'Nova comida',
     'anadirNotas': 'Engadir notas...',
