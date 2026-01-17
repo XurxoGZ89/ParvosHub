@@ -830,7 +830,8 @@ function CalendarioComidas({ onBack }) {
               <table style={{ 
                 width: '100%', 
                 borderCollapse: 'collapse',
-                minWidth: isMobile ? '100%' : 'auto'
+                minWidth: isMobile ? '100%' : 'auto',
+                tableLayout: 'fixed'
               }}>
                 <thead>
                   <tr style={{ background: '#f1f3f4' }}>
@@ -849,7 +850,8 @@ function CalendarioComidas({ onBack }) {
                         fontSize: isMobile ? 11 : 13,
                         borderBottom: '2px solid #e5e5e7',
                         textAlign: 'center',
-                        minWidth: isMobile ? 50 : 80,
+                        width: isMobile ? '12%' : '13%',
+                        maxWidth: isMobile ? 80 : 120,
                         background: fecha.getDay() === 0 || fecha.getDay() === 6 ? '#f9f9f9' : '#f1f3f4'
                       }}>
                         <div>{diasSemana[fecha.getDay() === 0 ? 6 : fecha.getDay() - 1]}</div>
@@ -951,7 +953,7 @@ function CalendarioComidas({ onBack }) {
                               </button>
                             </div>
                           ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, pointerEvents: 'none' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                               {comidas.map((comida) => (
                                 <div
                                   key={comida.id}
@@ -972,10 +974,11 @@ function CalendarioComidas({ onBack }) {
                                     alignItems: 'center',
                                     gap: 4,
                                     border: '1px solid rgba(0,0,0,0.08)',
-                                    animation: 'fadeIn 0.3s ease-in'
+                                    animation: 'fadeIn 0.3s ease-in',
+                                    pointerEvents: 'auto'
                                   }}
                                 >
-                                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
                                     {comida.comida_nombre}
                                   </span>
                                   <button
@@ -1093,7 +1096,7 @@ function CalendarioComidas({ onBack }) {
                               </button>
                             </div>
                           ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, pointerEvents: 'none' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                               {comidas.map((comida) => (
                                 <div
                                   key={comida.id}
@@ -1115,10 +1118,11 @@ function CalendarioComidas({ onBack }) {
                                     gap: 4,
                                     border: '1px solid rgba(0,0,0,0.08)',
                                     opacity: loading ? 0.6 : 1,
-                                    animation: 'fadeIn 0.3s ease-in'
+                                    animation: 'fadeIn 0.3s ease-in',
+                                    pointerEvents: 'auto'
                                   }}
                                 >
-                                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
                                     {comida.comida_nombre}
                                   </span>
                                   <button
