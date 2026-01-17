@@ -1,11 +1,15 @@
 services:
   - type: web
-    name: parvoshub-web
+    name: parvoshub-api
     env: node
-    buildCommand: "cd frontend && npm install && npm run build"
-    startCommand: "npx serve -s frontend/build -l 3000"
+    buildCommand: "cd backend && npm install"
+    startCommand: "cd backend && npm start"
     envVars:
       - key: NODE_ENV
         value: production
-      - key: REACT_APP_API_URL
-        value: https://parvoshub-api.onrender.com
+      - key: PORT
+        value: 3001
+
+  - type: web
+    name: parvoshub-web
+    env: node

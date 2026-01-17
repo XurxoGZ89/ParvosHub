@@ -268,6 +268,178 @@ app.get('/dismissed-warnings/:mes_ano', async (req, res) => {
   }
 });
 
+// ===== ENDPOINTS PARA CALENDARIO DE COMIDAS =====
+
+// Obtener todas las comidas congeladas del inventario
+app.get('/comidas-congeladas', async (req, res) => {
+  try {
+    const result = await db.query('SELECT * FROM comidas_congeladas ORDER BY fecha_creacion DESC');
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error al obtener comidas congeladas:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Crear una nueva comida congelada
+app.post('/comidas-congeladas', async (req, res) => {
+  const { nombre, notas } = req.body;
+  
+  if (!nombre) {
+    return res.status(400).json({ error: 'El nombre es obligatorio' });
+  }
+
+  try {
+    const result = await db.query(
+      'INSERT INTO comidas_congeladas (nombre, notas) VALUES ($1, $2) RETURNING *',
+      [nombre, notas || null]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error al crear comida congelada:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Actualizar una comida congelada (notas o estado tachada)
+app.put('/comidas-congeladas/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nombre, notas, tachada } = req.body;
+
+  try {
+    let query, params;
+    
+    if (tachada !== undefined) {
+      // Actualizar estado tachada
+      query = 'UPDATE comidas_congeladas SET tachada = $1, fecha_tachada = $2 WHERE id = $3 RETURNING *';
+      params = [tachada, tachada ? new Date().toISOString() : null, id];
+    } else {
+      // Actualizar nombre y notas
+      query = 'UPDATE comidas_congeladas SET nombre = $1, notas = $2 WHERE id = $3 RETURNING *';
+      params = [nombre, notas || null, id];
+    }
+    
+    const result = await db.query(query, params);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Comida no encontrada' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error al actualizar comida congelada:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Eliminar una comida congelada
+app.delete('/comidas-congeladas/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await db.query('DELETE FROM comidas_congeladas WHERE id = $1', [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Comida no encontrada' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error al eliminar comida congelada:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Limpiar comidas tachadas de semanas pasadas
+app.delete('/comidas-congeladas/limpiar/pasadas', async (req, res) => {
+  try {
+    // Calcular fecha límite (inicio de la semana actual - lunes)
+    const hoy = new Date();
+    const diaSemana = hoy.getDay() === 0 ? 7 : hoy.getDay(); // Domingo = 7
+    const inicioSemana = new Date(hoy);
+    inicioSemana.setDate(hoy.getDate() - diaSemana + 1);
+    inicioSemana.setHours(0, 0, 0, 0);
+
+    const result = await db.query(
+      'DELETE FROM comidas_congeladas WHERE tachada = true AND fecha_tachada < $1 RETURNING id',
+      [inicioSemana.toISOString()]
+    );
+    
+    res.json({ success: true, deleted: result.rowCount });
+  } catch (err) {
+    console.error('Error al limpiar comidas pasadas:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Obtener todas las comidas planificadas
+app.get('/comidas-planificadas', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT cp.*, cc.nombre as comida_nombre 
+      FROM comidas_planificadas cp
+      LEFT JOIN comidas_congeladas cc ON cp.comida_id = cc.id
+      ORDER BY cp.fecha ASC, cp.tipo_comida ASC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error al obtener comidas planificadas:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Crear una comida planificada
+app.post('/comidas-planificadas', async (req, res) => {
+  const { comida_id, comida_nombre, fecha, tipo_comida } = req.body;
+  
+  if (!fecha || !tipo_comida) {
+    return res.status(400).json({ error: 'Fecha y tipo de comida son obligatorios' });
+  }
+
+  try {
+    const result = await db.query(
+      'INSERT INTO comidas_planificadas (comida_id, comida_nombre, fecha, tipo_comida) VALUES ($1, $2, $3, $4) RETURNING *',
+      [comida_id || null, comida_nombre, fecha, tipo_comida]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error al crear comida planificada:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Actualizar una comida planificada (mover en el calendario)
+app.put('/comidas-planificadas/:id', async (req, res) => {
+  const { id } = req.params;
+  const { fecha, tipo_comida } = req.body;
+
+  try {
+    const result = await db.query(
+      'UPDATE comidas_planificadas SET fecha = $1, tipo_comida = $2 WHERE id = $3 RETURNING *',
+      [fecha, tipo_comida, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Comida planificada no encontrada' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error al actualizar comida planificada:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Eliminar una comida planificada
+app.delete('/comidas-planificadas/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await db.query('DELETE FROM comidas_planificadas WHERE id = $1 RETURNING *', [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Comida planificada no encontrada' });
+    }
+    res.json({ success: true, comida: result.rows[0] });
+  } catch (err) {
+    console.error('Error al eliminar comida planificada:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Puerto
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

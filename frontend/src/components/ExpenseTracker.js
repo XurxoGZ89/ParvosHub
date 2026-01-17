@@ -3,13 +3,14 @@ import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import ReactPaginate from 'react-paginate';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useCalendarEvents } from '../contexts/CalendarEventsContext';
 import Header from './Header';
 import bbvaLogo from '../assets/BBVA_2019.svg.png';
 import imaginLogoWebp from '../assets/imagin.webp';
 import '../styles/pagination.css';
 
 const mesKeys = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-const categorias = ['Vacaciones', 'Ocio', 'Hogar', 'Movilidad', 'Deporte', 'Extra', 'Alimentación'];
+const categorias = ['Alimentación', 'Deporte', 'Extra', 'Hogar', 'Movilidad', 'Ocio', 'Vacaciones'];
 
 // Helper para convertir categoría español a clave de traducción
 const categoriaToKey = {
@@ -22,8 +23,8 @@ const categoriaToKey = {
   'Alimentación': 'alimentacion'
 };
 
-const usuarios = ['Xurxo', 'Sonia'];
-const cuentas = ['Imagin', 'BBVA'];
+const usuarios = ['Sonia', 'Xurxo'];
+const cuentas = ['BBVA', 'Imagin'];
 
 // Función para formatear moneda al formato europeo
 const formatearMoneda = (numero) => {
@@ -108,6 +109,7 @@ const tdStyle = {
 
 function ExpenseTracker({ onBack }) {
   const { t } = useLanguage();
+  const { getEventosPorMes, descartarWarning, dismissedWarnings, cargarWarningsDescartados } = useCalendarEvents();
   const hoy = new Date();
   const [mesSeleccionado, setMesSeleccionado] = useState(hoy.getMonth());
   const [anioSeleccionado, setAnioSeleccionado] = useState(hoy.getFullYear());
@@ -194,6 +196,12 @@ function ExpenseTracker({ onBack }) {
     cargarPresupuestos();
   }, [mesSeleccionado, anioSeleccionado, cargarPresupuestos]);
 
+  // Cargar warnings descartados cuando cambian mes o año
+  useEffect(() => {
+    const mesAno = `${anioSeleccionado}-${String(mesSeleccionado + 1).padStart(2, '0')}`;
+    cargarWarningsDescartados(mesAno);
+  }, [mesSeleccionado, anioSeleccionado, cargarWarningsDescartados]);
+
   // Actualizar fecha del formulario cuando cambien mes/año
   useEffect(() => {
     if (form.fecha) {
@@ -224,6 +232,13 @@ function ExpenseTracker({ onBack }) {
     if (sortConfig.key === 'fecha') {
       aVal = new Date(aVal);
       bVal = new Date(bVal);
+      // Si las fechas son iguales, ordenar por created_at (hora de creación)
+      if (aVal.getTime() === bVal.getTime()) {
+        const aCreated = a.created_at ? new Date(a.created_at) : new Date(0);
+        const bCreated = b.created_at ? new Date(b.created_at) : new Date(0);
+        const timeComparison = aCreated < bCreated ? -1 : aCreated > bCreated ? 1 : 0;
+        return sortConfig.direction === 'asc' ? timeComparison : -timeComparison;
+      }
     } else if (sortConfig.key === 'cantidad') {
       aVal = Number(aVal);
       bVal = Number(bVal);
@@ -594,9 +609,108 @@ function ExpenseTracker({ onBack }) {
           </button>
         </div>
 
-        <h2 style={{ textAlign: 'center', fontWeight: 700, color: '#1d1d1f', letterSpacing: '-0.5px', marginBottom: 40, fontSize: '1.5rem' }}>
+        <h2 style={{ textAlign: 'center', fontWeight: 700, color: '#1d1d1f', letterSpacing: '-0.5px', marginBottom: 24, fontSize: '1.5rem' }}>
           {t(mesKeys[mesSeleccionado])} {anioSeleccionado}
         </h2>
+
+        {/* Warnings de eventos del calendario */}
+        {(() => {
+          const mesAno = `${anioSeleccionado}-${String(mesSeleccionado + 1).padStart(2, '0')}`;
+          const eventosMes = getEventosPorMes(anioSeleccionado, mesSeleccionado);
+          const dismissed = dismissedWarnings[mesAno] || new Set();
+          const eventosVisibles = eventosMes.filter(evento => !dismissed.has(evento.id));
+          
+          return eventosVisibles.length > 0 ? (
+            <div style={{ marginBottom: 24 }}>
+              {eventosVisibles.map(evento => {
+                const recurrencia = typeof evento.recurrencia === 'string' ? JSON.parse(evento.recurrencia) : evento.recurrencia;
+                const cantidadDisplay = evento.cantidad_max 
+                  ? `${formatearMoneda(evento.cantidad_min)}-${formatearMoneda(evento.cantidad_max)} €`
+                  : `${formatearMoneda(evento.cantidad_min)} €`;
+                
+                return (
+                  <div 
+                    key={evento.id}
+                    style={{ 
+                      background: 'linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%)',
+                      borderLeft: '4px solid #f39c12',
+                      borderRadius: 12,
+                      padding: '14px 16px',
+                      marginBottom: 12,
+                      boxShadow: '0 2px 8px rgba(243, 156, 18, 0.15)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      flexWrap: isMobile ? 'wrap' : 'nowrap'
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        <span style={{ fontSize: 18 }}>⚠️</span>
+                        <strong style={{ fontSize: 15, color: '#856404', fontWeight: 700 }}>
+                          {evento.nombre}
+                        </strong>
+                        <span style={{ 
+                          fontSize: 11, 
+                          color: '#856404', 
+                          background: 'rgba(133, 100, 4, 0.15)', 
+                          padding: '2px 8px', 
+                          borderRadius: 6,
+                          fontWeight: 600
+                        }}>
+                          {evento.categoria}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 13, color: '#856404', marginLeft: 26 }}>
+                        Día {evento.dia_mes} - Presupuesto sugerido: <strong>{cantidadDisplay}</strong>
+                        {recurrencia.tipo === 'unica' && ' (Evento único)'}
+                        {recurrencia.tipo === 'anual' && ' (Anual)'}
+                        {recurrencia.tipo === 'mensual' && ' (Mensual)'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const mensaje = t('confirmarDescartarWarning')
+                          .replace('{mes}', t(mesKeys[mesSeleccionado]))
+                          .replace('{anio}', anioSeleccionado);
+                        
+                        if (window.confirm(mensaje)) {
+                          try {
+                            await descartarWarning(evento.id, mesAno);
+                          } catch (err) {
+                            alert(t('errorDescartarWarning'));
+                          }
+                        }
+                      }}
+                      style={{
+                        background: 'rgba(133, 100, 4, 0.2)',
+                        border: 'none',
+                        borderRadius: 8,
+                        padding: '8px 12px',
+                        cursor: 'pointer',
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: '#856404',
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.2s',
+                        minWidth: isMobile ? '100%' : 'auto'
+                      }}
+                      onMouseOver={(e) => {
+                        e.target.style.background = 'rgba(133, 100, 4, 0.3)';
+                      }}
+                      onMouseOut={(e) => {
+                        e.target.style.background = 'rgba(133, 100, 4, 0.2)';
+                      }}
+                    >
+                      ✕ Descartar aviso
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null;
+        })()}
 
         {/* Formulario + Tarjetas (Situación Global + Hucha) en una fila */}
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: isMobile ? 16 : 24, marginBottom: 32 }}>
@@ -663,7 +777,20 @@ function ExpenseTracker({ onBack }) {
                 max={`${anioSeleccionado}-${String(mesSeleccionado + 1).padStart(2, '0')}-31`}
                 onFocus={(e) => e.target.showPicker?.()}
               />
-              <select name="tipo" value={form.tipo} onChange={handleChange} required style={{...inputStyle, fontSize: 14, padding: '10px 12px', paddingRight: 32}}>
+              <select 
+                name="tipo" 
+                value={form.tipo} 
+                onChange={handleChange} 
+                required 
+                style={{...inputStyle, fontSize: 14, padding: '10px 12px', paddingRight: 32}}
+                onFocus={(e) => {
+                  if (isMobile) {
+                    setTimeout(() => {
+                      e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 300);
+                  }
+                }}
+              >
                 <option value="gasto">{t('gasto')}</option>
                 <option value="ingreso">{t('ingreso')}</option>
                 <option value="hucha">{t('hucha')}</option>
@@ -671,13 +798,39 @@ function ExpenseTracker({ onBack }) {
               </select>
               <input type="number" name="cantidad" value={form.cantidad} onChange={handleChange} placeholder={t('cantidad')} required step="0.01" style={{...inputStyle, fontSize: 14, padding: '10px 12px'}} />
               <input type="text" name="concepto" value={form.concepto} onChange={handleChange} placeholder={t('descripcion')} style={{...inputStyle, fontSize: 14, padding: '10px 12px'}} />
-              <select name="categoria" value={form.categoria} onChange={handleChange} required style={{...inputStyle, fontSize: 14, padding: '10px 12px', paddingRight: 32}}>
+              <select 
+                name="categoria" 
+                value={form.categoria} 
+                onChange={handleChange} 
+                required 
+                style={{...inputStyle, fontSize: 14, padding: '10px 12px', paddingRight: 32}}
+                onFocus={(e) => {
+                  if (isMobile) {
+                    setTimeout(() => {
+                      e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 300);
+                  }
+                }}
+              >
                 <option value="">{t('selectCategoria')}</option>
                 {getCategoriasDisponibles().map(cat => (
                   <option key={cat} value={cat}>{t(categoriaToKey[cat] || cat.toLowerCase())}</option>
                 ))}
               </select>
-              <select name="usuario" value={form.usuario} onChange={handleChange} required style={{...inputStyle, fontSize: 14, padding: '10px 12px', paddingRight: 32}}>
+              <select 
+                name="usuario" 
+                value={form.usuario} 
+                onChange={handleChange} 
+                required 
+                style={{...inputStyle, fontSize: 14, padding: '10px 12px', paddingRight: 32}}
+                onFocus={(e) => {
+                  if (isMobile) {
+                    setTimeout(() => {
+                      e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 300);
+                  }
+                }}
+              >
                 <option value="">{t('selectUsuario')}</option>
                 {usuarios.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
@@ -688,6 +841,13 @@ function ExpenseTracker({ onBack }) {
                 disabled={form.tipo === 'hucha'}
                 required={form.tipo !== 'hucha'}
                 style={{...inputStyle, fontSize: 14, padding: '10px 12px', paddingRight: 32, background: form.tipo === 'hucha' ? '#f0f0f0' : '#fff', opacity: form.tipo === 'hucha' ? 0.6 : 1}}
+                onFocus={(e) => {
+                  if (isMobile) {
+                    setTimeout(() => {
+                      e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 300);
+                  }
+                }}
               >
                 <option value="">{t('selectCuenta')}</option>
                 {cuentas.map(c => <option key={c} value={c}>{c}</option>)}
@@ -775,7 +935,7 @@ function ExpenseTracker({ onBack }) {
                 />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip formatter={v => `${formatearMoneda(v)} €`} contentStyle={{ borderRadius: 8 }} />
-                <Bar dataKey="value" radius={[8, 8, 0, 0]} shape={<BarWithColor />} />
+                <Bar dataKey="value" radius={[8, 8, 0, 0]} shape={<BarWithColor presupuestos={presupuestos} />} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -1041,20 +1201,37 @@ function ExpenseTracker({ onBack }) {
   );
 }
 
-// Componente personalizado para Bar con colores
+// Componente personalizado para Bar con colores y línea de presupuesto
 function BarWithColor(props) {
-  const { x, y, width, height, payload } = props;
+  const { x, y, width, height, payload, presupuestos } = props;
   const color = colorsPorCategoria[payload.name] || '#999';
+  const presupuesto = presupuestos?.[payload.name] || 0;
+  
+  // Solo dibujar línea si hay presupuesto y el gasto lo supera
+  const shouldDrawLine = presupuesto > 0 && payload.value > presupuesto;
   
   return (
-    <rect
-      x={x}
-      y={y}
-      width={width}
-      height={height}
-      fill={color}
-      radius={[8, 8, 0, 0]}
-    />
+    <>
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        fill={color}
+        radius={[8, 8, 0, 0]}
+      />
+      {shouldDrawLine && (
+        <line
+          x1={x}
+          y1={y}
+          x2={x + width}
+          y2={y}
+          stroke="#d32f2f"
+          strokeWidth={3}
+          strokeDasharray="5 3"
+        />
+      )}
+    </>
   );
 }
 
