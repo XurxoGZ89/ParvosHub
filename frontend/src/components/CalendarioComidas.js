@@ -177,17 +177,34 @@ function CalendarioComidas({ onBack }) {
     }
   };
 
-  // Actualizar notas de una comida
+  // Actualizar notas de una comida del inventario
   const handleActualizarNotas = async (id, notas) => {
     try {
       const comida = comidasCongeladas.find(c => c.id === id);
+      
+      // Verificar si las notas realmente cambiaron
+      if (comida.notas === notas) {
+        return; // Sin cambios, no hacer nada
+      }
+      
       await axios.put(`${API_URL}/comidas-congeladas/${id}`, {
         nombre: comida.nombre,
         notas
       });
-      cargarComidasCongeladas();
+      
+      // Actualizar estado local en lugar de recargar
+      setComidasCongeladas(prev =>
+        prev.map(c => c.id === id ? { ...c, notas } : c)
+      );
+      
+      // Sincronizar con items planificados que vienen de este inventario
+      setComidasPlanificadas(prev =>
+        prev.map(cp => cp.comida_id === id ? { ...cp, notas } : cp)
+      );
+      
+      setToast({ type: 'success', message: 'Notas guardadas ✓' });
     } catch (err) {
-      alert(t('errorActualizarNotas'));
+      setToast({ type: 'error', message: 'Error al guardar notas' });
     }
   };
 
@@ -492,18 +509,26 @@ function CalendarioComidas({ onBack }) {
           notas: notasActuales
         });
         
-        // Actualizar estado local en lugar de recargar
+        // Actualizar estado local del inventario
         setComidasCongeladas(prev =>
           prev.map(c => c.id === comidaObj.comida_id 
             ? { ...c, notas: notasActuales } 
             : c
           )
         );
+        
+        // Sincronizar TODAS las instancias planificadas de esta comida
+        setComidasPlanificadas(prev =>
+          prev.map(cp => cp.comida_id === comidaObj.comida_id 
+            ? { ...cp, notas: notasActuales } 
+            : cp
+          )
+        );
       } else {
         // Actualizar en planificadas (texto libre)
         await axios.put(`${API_URL}/comidas-planificadas/${comidasPlanificadasId}`, { notas: notasActuales });
         
-        // Actualizar estado local en lugar de recargar
+        // Actualizar estado local solo de este item específico
         setComidasPlanificadas(prev =>
           prev.map(c => c.id === comidasPlanificadasId 
             ? { ...c, notas: notasActuales } 
@@ -523,6 +548,16 @@ function CalendarioComidas({ onBack }) {
         }
       }
     }
+  };
+
+  // Cerrar modal de notas con guardado automático
+  const handleCerrarNotasCalendario = async (comidaId) => {
+    const comida = comidasPlanificadas.find(c => c.id === comidaId);
+    if (comida) {
+      // Guardar antes de cerrar
+      await handleActualizarNotasPlanificada(comidaId, comida.notas, comida);
+    }
+    setNotasCalendarioAbiertas(null);
   };
 
   // Obtener la fecha más reciente de planificación para una comida - MEMOIZADO
@@ -1586,47 +1621,95 @@ function CalendarioComidas({ onBack }) {
                             </div>
                           ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              {comidas.length === 0 && (
+                                <button
+                                  onClick={() => setModoTextoLibre({ fecha, tipoComida: 'comida' })}
+                                  style={{
+                                    background: 'transparent',
+                                    border: '1px dashed #ccc',
+                                    borderRadius: 6,
+                                    padding: isMobile ? '8px' : '10px',
+                                    cursor: 'pointer',
+                                    fontSize: isMobile ? 18 : 20,
+                                    color: '#999',
+                                    transition: 'all 0.2s',
+                                    minHeight: isMobile ? 40 : 50
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = '#f5f5f5';
+                                    e.currentTarget.style.borderColor = '#007AFF';
+                                    e.currentTarget.style.color = '#007AFF';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = 'transparent';
+                                    e.currentTarget.style.borderColor = '#ccc';
+                                    e.currentTarget.style.color = '#999';
+                                  }}
+                                  title="Añadir texto libre"
+                                >
+                                  +
+                                </button>
+                              )}
                               {comidas.map((comida) => (
                                 <div key={comida.id} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                   <div
                                     draggable
                                     onDragStart={(e) => handleDragStart(e, comida, 'calendario')}
+                                    title={comida.comida_nombre.length > 15 ? comida.comida_nombre : ''}
                                     style={{
                                       background: comida.comida_id 
                                         ? 'linear-gradient(135deg, #ffeaa7 0%, #ffd93d 100%)' 
                                         : 'linear-gradient(135deg, #b3e5fc 0%, #81d4fa 100%)',
-                                      padding: isMobile ? '4px 6px' : '6px 8px',
-                                      borderRadius: 6,
-                                      fontSize: isMobile ? 10 : 12,
+                                      padding: isMobile ? '6px' : '8px',
+                                      borderRadius: 8,
+                                      fontSize: isMobile ? 10.5 : 12,
                                       fontWeight: 600,
                                       color: '#1d1d1f',
                                       cursor: 'grab',
                                       display: 'flex',
+                                      flexDirection: 'column',
                                       justifyContent: 'space-between',
                                       alignItems: 'center',
                                       gap: 4,
                                       border: '1px solid rgba(0,0,0,0.08)',
                                       animation: 'fadeIn 0.3s ease-in',
-                                      pointerEvents: 'auto'
+                                      pointerEvents: 'auto',
+                                      minHeight: isMobile ? 60 : 70,
+                                      textAlign: 'center',
+                                      boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
                                     }}
                                   >
-                                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+                                    <span style={{ 
+                                      flex: 1, 
+                                      display: 'flex', 
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      overflow: comida.comida_nombre.length > 15 ? 'hidden' : 'visible',
+                                      textOverflow: comida.comida_nombre.length > 15 ? 'ellipsis' : 'clip',
+                                      wordBreak: comida.comida_nombre.length > 15 ? 'normal' : 'break-word',
+                                      whiteSpace: comida.comida_nombre.length > 15 ? 'nowrap' : 'normal',
+                                      pointerEvents: 'none',
+                                      lineHeight: '1.3',
+                                      width: '100%',
+                                      padding: '0 2px'
+                                    }}>
                                       {comida.comida_nombre}
                                     </span>
-                                    <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', gap: 3, alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setNotasCalendarioAbiertas(notasCalendarioAbiertas === comida.id ? null : comida.id);
                                         }}
                                         style={{
-                                          background: 'none',
+                                          background: comida.notas ? 'rgba(0, 122, 255, 0.15)' : 'rgba(0,0,0,0.05)',
                                           border: 'none',
                                           cursor: 'pointer',
-                                          fontSize: 11,
-                                          padding: 0,
+                                          fontSize: isMobile ? 12 : 14,
+                                          padding: isMobile ? '3px 5px' : '4px 6px',
+                                          borderRadius: 4,
                                           color: comida.notas ? '#007AFF' : '#999',
-                                          opacity: notasCalendarioAbiertas === comida.id ? 1 : 0.7
+                                          transition: 'all 0.2s'
                                         }}
                                         title={comida.notas ? 'Ver notas' : 'Añadir notas'}
                                       >
@@ -1635,12 +1718,14 @@ function CalendarioComidas({ onBack }) {
                                       <button
                                         onClick={() => handleEliminarPlanificada(comida)}
                                         style={{
-                                          background: 'none',
+                                          background: 'rgba(211, 47, 47, 0.1)',
                                           border: 'none',
                                           cursor: 'pointer',
-                                          fontSize: 12,
-                                          padding: 0,
-                                          color: '#d32f2f'
+                                          fontSize: isMobile ? 12 : 14,
+                                          padding: isMobile ? '3px 5px' : '4px 6px',
+                                          borderRadius: 4,
+                                          color: '#d32f2f',
+                                          transition: 'all 0.2s'
                                         }}
                                       >
                                         ✕
@@ -1787,48 +1872,96 @@ function CalendarioComidas({ onBack }) {
                             </div>
                           ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              {comidas.length === 0 && (
+                                <button
+                                  onClick={() => setModoTextoLibre({ fecha, tipoComida: 'cena' })}
+                                  style={{
+                                    background: 'transparent',
+                                    border: '1px dashed #ccc',
+                                    borderRadius: 6,
+                                    padding: isMobile ? '8px' : '10px',
+                                    cursor: 'pointer',
+                                    fontSize: isMobile ? 18 : 20,
+                                    color: '#999',
+                                    transition: 'all 0.2s',
+                                    minHeight: isMobile ? 40 : 50
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = '#f5f5f5';
+                                    e.currentTarget.style.borderColor = '#007AFF';
+                                    e.currentTarget.style.color = '#007AFF';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = 'transparent';
+                                    e.currentTarget.style.borderColor = '#ccc';
+                                    e.currentTarget.style.color = '#999';
+                                  }}
+                                  title="Añadir texto libre"
+                                >
+                                  +
+                                </button>
+                              )}
                               {comidas.map((comida) => (
                                 <div key={comida.id} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                   <div
                                     draggable
                                     onDragStart={(e) => handleDragStart(e, comida, 'calendario')}
+                                    title={comida.comida_nombre.length > 15 ? comida.comida_nombre : ''}
                                     style={{
                                       background: comida.comida_id 
                                         ? 'linear-gradient(135deg, #c5e1a5 0%, #aed581 100%)' 
                                         : 'linear-gradient(135deg, #b3e5fc 0%, #81d4fa 100%)',
-                                      padding: isMobile ? '4px 6px' : '6px 8px',
-                                      borderRadius: 6,
-                                      fontSize: isMobile ? 10 : 12,
+                                      padding: isMobile ? '6px' : '8px',
+                                      borderRadius: 8,
+                                      fontSize: isMobile ? 10.5 : 12,
                                       fontWeight: 600,
                                       color: '#1d1d1f',
                                       cursor: 'grab',
                                       display: 'flex',
+                                      flexDirection: 'column',
                                       justifyContent: 'space-between',
                                       alignItems: 'center',
                                       gap: 4,
                                       border: '1px solid rgba(0,0,0,0.08)',
                                       opacity: loading ? 0.6 : 1,
                                       animation: 'fadeIn 0.3s ease-in',
-                                      pointerEvents: 'auto'
+                                      pointerEvents: 'auto',
+                                      minHeight: isMobile ? 60 : 70,
+                                      textAlign: 'center',
+                                      boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
                                     }}
                                   >
-                                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+                                    <span style={{ 
+                                      flex: 1, 
+                                      display: 'flex', 
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      overflow: comida.comida_nombre.length > 15 ? 'hidden' : 'visible',
+                                      textOverflow: comida.comida_nombre.length > 15 ? 'ellipsis' : 'clip',
+                                      wordBreak: comida.comida_nombre.length > 15 ? 'normal' : 'break-word',
+                                      whiteSpace: comida.comida_nombre.length > 15 ? 'nowrap' : 'normal',
+                                      pointerEvents: 'none',
+                                      lineHeight: '1.3',
+                                      width: '100%',
+                                      padding: '0 2px'
+                                    }}>
                                       {comida.comida_nombre}
                                     </span>
-                                    <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', gap: 3, alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setNotasCalendarioAbiertas(notasCalendarioAbiertas === comida.id ? null : comida.id);
                                         }}
                                         style={{
-                                          background: 'none',
+                                          background: comida.notas ? 'rgba(0, 122, 255, 0.15)' : 'rgba(0,0,0,0.05)',
                                           border: 'none',
                                           cursor: 'pointer',
-                                          fontSize: 11,
-                                          padding: 0,
+                                          fontSize: isMobile ? 12 : 14,
+                                          padding: isMobile ? '3px 5px' : '4px 6px',
+                                          borderRadius: 4,
                                           color: comida.notas ? '#007AFF' : '#999',
-                                          opacity: notasCalendarioAbiertas === comida.id ? 1 : 0.7
+                                          transition: 'all 0.2s'
                                         }}
                                         title={comida.notas ? 'Ver notas' : 'Añadir notas'}
                                       >
@@ -1837,12 +1970,14 @@ function CalendarioComidas({ onBack }) {
                                       <button
                                         onClick={() => handleEliminarPlanificada(comida)}
                                         style={{
-                                          background: 'none',
+                                          background: 'rgba(211, 47, 47, 0.1)',
                                           border: 'none',
                                           cursor: 'pointer',
-                                          fontSize: 12,
-                                          padding: 0,
-                                          color: '#d32f2f'
+                                          fontSize: isMobile ? 12 : 14,
+                                          padding: isMobile ? '3px 5px' : '4px 6px',
+                                          borderRadius: 4,
+                                          color: '#d32f2f',
+                                          transition: 'all 0.2s'
                                         }}
                                       >
                                         ✕
