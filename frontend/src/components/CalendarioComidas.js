@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { useLanguage } from '../contexts/LanguageContext';
 import Header from './Header';
@@ -21,6 +21,10 @@ function CalendarioComidas({ onBack }) {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null); // {type: 'success'|'error', message: string}
   const [deleteModal, setDeleteModal] = useState(null); // {comida, type: 'complete'|'both'}
+  const [mostrarUsados, setMostrarUsados] = useState(false);
+  const [moveModal, setMoveModal] = useState(null);
+  const [comidaEnEdicion, setComidaEnEdicion] = useState(null); // {id, nuevoNombre}
+  const [notasCalendarioAbiertas, setNotasCalendarioAbiertas] = useState(null); // id de comida planificada
 
   // Toast automático
   useEffect(() => {
@@ -66,16 +70,83 @@ function CalendarioComidas({ onBack }) {
     }
   }, []);
 
+  // Limpiar comidas planificadas vencidas (fecha anterior a hoy)
+  const limpiarComidasVencidas = useCallback(async () => {
+    try {
+      const hoy = new Date();
+      const diaSemana = hoy.getDay() === 0 ? 7 : hoy.getDay();
+      
+      // Calcular el lunes de la semana actual
+      const lunesActual = new Date(hoy);
+      lunesActual.setDate(hoy.getDate() - diaSemana + 1);
+      lunesActual.setHours(0, 0, 0, 0);
+      
+      const response = await axios.get(`${API_URL}/comidas-planificadas`);
+      const comidasVencidas = response.data.filter(comida => {
+        const fechaComida = new Date(comida.fecha);
+        fechaComida.setHours(0, 0, 0, 0);
+        return fechaComida < lunesActual; // Anterior al lunes de la semana actual
+      });
+
+      if (comidasVencidas.length === 0) return;
+
+      // Agrupar comidas vencidas por comida_id para optimizar
+      const comidasPorId = new Map();
+      comidasVencidas.forEach(comida => {
+        if (comida.comida_id) {
+          if (!comidasPorId.has(comida.comida_id)) {
+            comidasPorId.set(comida.comida_id, []);
+          }
+          comidasPorId.get(comida.comida_id).push(comida.id);
+        }
+      });
+
+      // Eliminar las comidas vencidas
+      await Promise.all(comidasVencidas.map(comida => 
+        axios.delete(`${API_URL}/comidas-planificadas/${comida.id}`)
+      ));
+
+      // Verificar qué comidas del inventario destachar
+      const comidasADestachar = [];
+      for (const [comidaId, idsVencidos] of comidasPorId.entries()) {
+        // Verificar si hay otras planificaciones NO vencidas de esta comida
+        const otrasPlanificaciones = response.data.filter(
+          cp => cp.comida_id === comidaId && !idsVencidos.includes(cp.id)
+        );
+        
+        // Solo destachar si no hay otras planificaciones activas
+        if (otrasPlanificaciones.length === 0) {
+          comidasADestachar.push(comidaId);
+        }
+      }
+
+      // Destachar comidas del inventario en paralelo
+      if (comidasADestachar.length > 0) {
+        await Promise.all(comidasADestachar.map(comidaId =>
+          axios.put(`${API_URL}/comidas-congeladas/${comidaId}`, { tachada: false })
+        ));
+      }
+
+      console.log(`✓ Limpiadas ${comidasVencidas.length} comidas vencidas`);
+    } catch (err) {
+      console.error('Error al limpiar comidas vencidas:', err);
+    }
+  }, []);
+
   useEffect(() => {
-    cargarComidasCongeladas();
-    cargarComidasPlanificadas();
+    // Primero limpiar comidas vencidas
+    limpiarComidasVencidas().then(() => {
+      // Luego cargar los datos limpios
+      cargarComidasCongeladas();
+      cargarComidasPlanificadas();
+    });
     
     // Limpiar comidas tachadas de semanas pasadas
     axios.delete(`${API_URL}/comidas-congeladas/limpiar/pasadas`).catch(console.error);
-  }, [cargarComidasCongeladas, cargarComidasPlanificadas]);
+  }, [cargarComidasCongeladas, cargarComidasPlanificadas, limpiarComidasVencidas]);
 
-  // Calcular fechas de la quincena (2 semanas)
-  const getQuincenaDates = () => {
+  // Calcular fechas de la quincena (2 semanas) - MEMOIZADO
+  const fechasQuincena = useMemo(() => {
     const hoy = new Date();
     const diaSemana = hoy.getDay() === 0 ? 7 : hoy.getDay();
     
@@ -94,9 +165,8 @@ function CalendarioComidas({ onBack }) {
     }
     
     return fechas;
-  };
+  }, [semanaActual]); // Solo recalcular cuando cambia la semana
 
-  const fechasQuincena = getQuincenaDates();
   const diasSemana = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
   // Añadir comida al inventario
@@ -177,8 +247,8 @@ function CalendarioComidas({ onBack }) {
     }
   };
 
-  // A\u00f1adir comida de texto libre al calendario
-  const handleA\u00f1adirTextoLibre = async () => {
+  // Añadir comida de texto libre al calendario
+  const handleAñadirTextoLibre = async () => {
     if (!textoLibre.trim() || !modoTextoLibre) return;
 
     setLoading(true);
@@ -211,12 +281,12 @@ function CalendarioComidas({ onBack }) {
     // Activar animación pulse en la celda
     setPulseCell({ fecha: fecha.getTime(), tipoComida });
 
-    setLoading(true);
     const fechaStr = fecha.toISOString().split('T')[0];
 
-    try {
-      if (draggedItem.source === 'inventario') {
-        // Arrastrar desde inventario al calendario (sin confirmación)
+    // Si es desde inventario sin tachar, añadir directamente sin modal
+    if (draggedItem.source === 'inventario' && !draggedItem.item.tachada) {
+      setLoading(true);
+      try {
         await axios.post(`${API_URL}/comidas-planificadas`, {
           comida_id: draggedItem.item.id,
           comida_nombre: draggedItem.item.nombre,
@@ -231,19 +301,20 @@ function CalendarioComidas({ onBack }) {
           tachada: true
         });
         cargarComidasCongeladas();
-      } else if (draggedItem.source === 'calendario') {
-        // Mover dentro del calendario
-        await axios.put(`${API_URL}/comidas-planificadas/${draggedItem.item.id}`, {
-          fecha: fechaStr,
-          tipo_comida: tipoComida
-        });
-        setToast({ type: 'success', message: 'Comida movida ✓' });
-        cargarComidasPlanificadas();
+      } catch (err) {
+        setToast({ type: 'error', message: 'Error al añadir la comida' });
+      } finally {
+        setLoading(false);
+        setDraggedItem(null);
       }
-    } catch (err) {
-      setToast({ type: 'error', message: 'Error al mover la comida' });
-    } finally {
-      setLoading(false);
+    } else {
+      // Si es desde calendario o desde inventario tachado, mostrar modal mover/repetir
+      setMoveModal({
+        item: draggedItem.item,
+        source: draggedItem.source,
+        fecha: fecha,
+        tipoComida: tipoComida
+      });
       setDraggedItem(null);
     }
   };
@@ -293,11 +364,159 @@ function CalendarioComidas({ onBack }) {
     );
   };
 
+
+  // Manejar mover/repetir item
+  const handleMoverORepetir = async (accion) => {
+    if (!moveModal) return;
+
+    setLoading(true);
+    const fechaStr = moveModal.fecha.toISOString().split('T')[0];
+
+    try {
+      if (accion === 'repetir') {
+        // Crear nueva entrada planificada
+        if (moveModal.source === 'calendario') {
+          await axios.post(`${API_URL}/comidas-planificadas`, {
+            comida_id: moveModal.item.comida_id,
+            comida_nombre: moveModal.item.comida_nombre,
+            fecha: fechaStr,
+            tipo_comida: moveModal.tipoComida
+          });
+        } else {
+          // Desde inventario tachado
+          await axios.post(`${API_URL}/comidas-planificadas`, {
+            comida_id: moveModal.item.id,
+            comida_nombre: moveModal.item.nombre,
+            fecha: fechaStr,
+            tipo_comida: moveModal.tipoComida
+          });
+        }
+        setToast({ type: 'success', message: 'Item repetido ✓' });
+      } else {
+        // Mover
+        if (moveModal.source === 'calendario') {
+          await axios.put(`${API_URL}/comidas-planificadas/${moveModal.item.id}`, {
+            fecha: fechaStr,
+            tipo_comida: moveModal.tipoComida
+          });
+          setToast({ type: 'success', message: 'Item movido ✓' });
+        } else {
+          // Desde inventario tachado - crear nueva y dejar tachado
+          await axios.post(`${API_URL}/comidas-planificadas`, {
+            comida_id: moveModal.item.id,
+            comida_nombre: moveModal.item.nombre,
+            fecha: fechaStr,
+            tipo_comida: moveModal.tipoComida
+          });
+          setToast({ type: 'success', message: 'Item añadido ✓' });
+        }
+      }
+      cargarComidasPlanificadas();
+    } catch (err) {
+      setToast({ type: 'error', message: 'Error al procesar' });
+    } finally {
+      setLoading(false);
+      setMoveModal(null);
+    }
+  };
+
+  // Eliminar comida tachada del inventario con warning
+  const handleEliminarComidaTachada = async (comida) => {
+    const comidaPlanificada = comidasPlanificadas.find(cp => cp.comida_id === comida.id);
+    const mensaje = comidaPlanificada 
+      ? `Si eliminas "${comida.nombre}", también se borrará del calendario. ¿Continuar?`
+      : `¿Eliminar "${comida.nombre}"?`;
+    
+    if (!window.confirm(mensaje)) return;
+
+    setLoading(true);
+    try {
+      // Eliminar del inventario
+      await axios.delete(`${API_URL}/comidas-congeladas/${comida.id}`);
+      
+      // Las comidas planificadas se eliminarán automáticamente por la FK CASCADE
+      setToast({ type: 'success', message: 'Eliminado ✓' });
+      cargarComidasCongeladas();
+      cargarComidasPlanificadas();
+    } catch (err) {
+      setToast({ type: 'error', message: 'Error al eliminar' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Actualizar notas de comida planificada
+  const handleActualizarNotasPlanificada = async (id, notas) => {
+    try {
+      await axios.put(`${API_URL}/comidas-planificadas/${id}`, { notas });
+      // No necesita recargar porque ya se actualiza en el onChange
+      // Solo mostramos toast de confirmación
+      setToast({ type: 'success', message: 'Notas guardadas ✓' });
+    } catch (err) {
+      setToast({ type: 'error', message: 'Error al guardar notas' });
+      // En caso de error, recargar para recuperar el estado original
+      cargarComidasPlanificadas();
+    }
+  };
+
+  // Obtener la fecha más reciente de planificación para una comida - MEMOIZADO
+  const getFechaUltimaPlanificacion = useCallback((comidaId) => {
+    const planificaciones = comidasPlanificadas.filter(cp => cp.comida_id === comidaId);
+    if (planificaciones.length === 0) return null;
+    
+    // Ordenar por fecha descendente y coger la más reciente (sin mutar el array original)
+    const fechaStr = [...planificaciones].sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0].fecha;
+    const fecha = new Date(fechaStr);
+    const dia = String(fecha.getDate()).padStart(2, '0');
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+    return `${dia}/${mes}`;
+  }, [comidasPlanificadas]);
+
+  // Guardar nombre editado de una comida
+  const handleGuardarNombreComida = async (comidaId, nuevoNombre) => {
+    if (!nuevoNombre.trim()) {
+      setToast({ type: 'error', message: 'El nombre no puede estar vacío' });
+      setComidaEnEdicion(null);
+      return;
+    }
+
+    try {
+      const comida = comidasCongeladas.find(c => c.id === comidaId);
+      await axios.put(`${API_URL}/comidas-congeladas/${comidaId}`, {
+        nombre: nuevoNombre,
+        notas: comida.notas
+      });
+      cargarComidasCongeladas();
+      setToast({ type: 'success', message: 'Nombre actualizado ✓' });
+      setComidaEnEdicion(null);
+    } catch (err) {
+      setToast({ type: 'error', message: 'Error al actualizar nombre' });
+    }
+  };
+
+  // Memoizar getComidasPlanificadas para evitar recálculos
+  const getComidasPlanificadasMemo = useCallback((fecha, tipoComida) => {
+    const fechaStr = fecha.toISOString().split('T')[0];
+    return comidasPlanificadas.filter(
+      c => c.fecha && c.fecha.split('T')[0] === fechaStr && c.tipo_comida === tipoComida
+    );
+  }, [comidasPlanificadas]);
+
+  // Memoizar listas filtradas de comidas para evitar recalcular en cada render
+  const comidasNoUsadas = useMemo(() => 
+    comidasCongeladas.filter(c => !c.tachada), 
+    [comidasCongeladas]
+  );
+
+  const comidasUsadas = useMemo(() => 
+    comidasCongeladas.filter(c => c.tachada), 
+    [comidasCongeladas]
+  );
+
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      background: '#f5f5f7', 
-      padding: isMobile ? '20px 12px' : '40px 20px', 
+    <div style={{
+      background: '#f5f5f7',
+      padding: isMobile ? '20px 12px' : '40px 20px',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       position: 'relative'
     }}>
@@ -382,6 +601,139 @@ function CalendarioComidas({ onBack }) {
           }
         }
       `}</style>
+
+      {/* Modal Mover/Repetir */}
+      {moveModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.4)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          animation: 'fadeIn 0.2s ease-out'
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: 20,
+            padding: '32px 24px',
+            maxWidth: 400,
+            width: '90%',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+            animation: 'fadeIn 0.3s ease-out'
+          }}>
+            <h2 style={{
+              fontSize: 20,
+              fontWeight: 700,
+              color: '#1d1d1f',
+              marginBottom: 8,
+              textAlign: 'center'
+            }}>
+              ¿Mover o repetir?
+            </h2>
+            
+            <p style={{
+              fontSize: 14,
+              color: '#666',
+              marginBottom: 24,
+              textAlign: 'center',
+              fontWeight: 500
+            }}>
+              "{moveModal.item.comida_nombre || moveModal.item.nombre}"
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* Opción: Mover */}
+              <button
+                onClick={() => handleMoverORepetir('mover')}
+                disabled={loading}
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: 12,
+                  border: '1px solid #007AFF',
+                  background: '#fff',
+                  color: '#007AFF',
+                  fontSize: 15,
+                  fontWeight: 600,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s',
+                  opacity: loading ? 0.6 : 1
+                }}
+                onMouseEnter={(e) => {
+                  if (!loading) {
+                    e.target.style.background = '#f0f8ff';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = '#fff';
+                }}
+              >
+                {loading ? '⏳ Moviendo...' : '↔️ Mover (cambiar de lugar)'}
+              </button>
+
+              {/* Opción: Repetir */}
+              <button
+                onClick={() => handleMoverORepetir('repetir')}
+                disabled={loading}
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: 12,
+                  border: '1px solid #34C759',
+                  background: '#fff',
+                  color: '#34C759',
+                  fontSize: 15,
+                  fontWeight: 600,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s',
+                  opacity: loading ? 0.6 : 1
+                }}
+                onMouseEnter={(e) => {
+                  if (!loading) {
+                    e.target.style.background = '#f0fff4';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = '#fff';
+                }}
+              >
+                {loading ? '⏳ Repitiendo...' : '🔁 Repetir (mantener original)'}
+              </button>
+
+              {/* Botón Cancelar */}
+              <button
+                onClick={() => setMoveModal(null)}
+                disabled={loading}
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: 12,
+                  border: 'none',
+                  background: '#f5f5f7',
+                  color: '#1d1d1f',
+                  fontSize: 15,
+                  fontWeight: 600,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s',
+                  opacity: loading ? 0.6 : 1
+                }}
+                onMouseEnter={(e) => {
+                  if (!loading) {
+                    e.target.style.background = '#efefef';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = '#f5f5f7';
+                }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Eliminar */}
       {deleteModal && (
@@ -612,21 +964,22 @@ function CalendarioComidas({ onBack }) {
             </form>
 
             {/* Lista de comidas */}
+            {/* Lista de comidas */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {comidasCongeladas.map((comida) => (
+              {/* Items SIN USAR (arriba) */}
+              {comidasNoUsadas.map((comida) => (
                 <div key={comida.id}>
                   <div
-                    draggable={!comida.tachada}
+                    draggable={comidaEnEdicion?.id !== comida.id}
                     onDragStart={(e) => handleDragStart(e, comida, 'inventario')}
                     onClick={() => setComidaExpandida(comidaExpandida === comida.id ? null : comida.id)}
                     style={{
                       padding: '10px 12px',
-                      background: comida.tachada ? '#f5f5f7' : '#fff',
+                      background: '#fff',
                       border: '1px solid #e5e5e7',
                       borderRadius: 8,
-                      cursor: comida.tachada ? 'default' : 'grab',
-                      textDecoration: comida.tachada ? 'line-through' : 'none',
-                      color: comida.tachada ? '#999' : '#1d1d1f',
+                      cursor: comidaEnEdicion?.id === comida.id ? 'text' : 'grab',
+                      color: '#1d1d1f',
                       fontSize: 14,
                       fontWeight: 500,
                       display: 'flex',
@@ -636,14 +989,43 @@ function CalendarioComidas({ onBack }) {
                       transition: 'all 0.2s'
                     }}
                     onMouseOver={(e) => {
-                      if (!comida.tachada) e.currentTarget.style.background = '#f5f5f7';
+                      e.currentTarget.style.background = '#f5f5f7';
                     }}
                     onMouseOut={(e) => {
-                      if (!comida.tachada) e.currentTarget.style.background = '#fff';
+                      e.currentTarget.style.background = '#fff';
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
-                      <span>{comida.nombre}</span>
+                      {comidaEnEdicion?.id === comida.id ? (
+                        <input
+                          type="text"
+                          value={comidaEnEdicion.nuevoNombre}
+                          onChange={(e) => setComidaEnEdicion({ ...comidaEnEdicion, nuevoNombre: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleGuardarNombreComida(comida.id, comidaEnEdicion.nuevoNombre);
+                            }
+                            if (e.key === 'Escape') {
+                              setComidaEnEdicion(null);
+                            }
+                          }}
+                          onBlur={() => handleGuardarNombreComida(comida.id, comidaEnEdicion.nuevoNombre)}
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            flex: 1,
+                            padding: '6px 8px',
+                            borderRadius: 6,
+                            border: '2px solid #007AFF',
+                            fontSize: 14,
+                            fontWeight: 500,
+                            fontFamily: 'inherit',
+                            boxSizing: 'border-box'
+                          }}
+                        />
+                      ) : (
+                        <span>{comida.nombre}</span>
+                      )}
                       {comida.notas && (
                         <span style={{ 
                           fontSize: 11, 
@@ -668,36 +1050,51 @@ function CalendarioComidas({ onBack }) {
                       )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      {!comida.tachada && (
-                        <span style={{ fontSize: 12, color: '#007AFF', userSelect: 'none' }}>
-                          {comidaExpandida === comida.id ? '▲' : '▼'}
-                        </span>
-                      )}
-                      {!comida.tachada && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEliminarComida(comida.id);
-                          }}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontSize: 16,
-                            color: '#ff3b30',
-                            padding: 0,
-                            display: 'flex',
-                            alignItems: 'center'
-                          }}
-                        >
-                          🗑️
-                        </button>
-                      )}
+                      <span style={{ fontSize: 12, color: '#007AFF', userSelect: 'none' }}>
+                        {comidaExpandida === comida.id ? '▲' : '▼'}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setComidaEnEdicion({ id: comida.id, nuevoNombre: comida.nombre });
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: 14,
+                          color: '#007AFF',
+                          padding: 0,
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}
+                        title="Editar nombre"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEliminarComida(comida.id);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: 16,
+                          color: '#ff3b30',
+                          padding: 0,
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}
+                      >
+                        🗑️
+                      </button>
                     </div>
                   </div>
 
                   {/* Notas expandibles */}
-                  {comidaExpandida === comida.id && !comida.tachada && (
+                  {comidaExpandida === comida.id && (
                     <div style={{
                       padding: '8px',
                       background: '#f9f9f9',
@@ -732,6 +1129,169 @@ function CalendarioComidas({ onBack }) {
                 </div>
               ))}
 
+              {/* Separador y pestaña para items USADOS */}
+              {comidasUsadas.length > 0 && (
+                <>
+                  <div style={{ 
+                    height: 1, 
+                    background: '#e5e5e7', 
+                    margin: '8px 0' 
+                  }} />
+                  
+                  <button
+                    onClick={() => setMostrarUsados(!mostrarUsados)}
+                    style={{
+                      padding: '8px 12px',
+                      background: '#f5f5f7',
+                      border: '1px solid #e5e5e7',
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: '#666',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.background = '#efefef';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.background = '#f5f5f7';
+                    }}
+                  >
+                    <span>📋 Comidas ya planificadas ({comidasUsadas.length})</span>
+                    <span>{mostrarUsados ? '▲' : '▼'}</span>
+                  </button>
+                </>
+              )}
+
+              {/* Items USADOS (tachados) - solo si la pestaña está abierta */}
+              {mostrarUsados && comidasUsadas.map((comida) => (
+                <div key={comida.id}>
+                  <div
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, comida, 'inventario')}
+                    onClick={() => setComidaExpandida(comidaExpandida === comida.id ? null : comida.id)}
+                    style={{
+                      padding: '10px 12px',
+                      background: '#f5f5f7',
+                      border: '1px solid #e5e5e7',
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                      textDecoration: 'line-through',
+                      color: '#999',
+                      fontSize: 14,
+                      fontWeight: 500,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 8,
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.background = '#efefef';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.background = '#f5f5f7';
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <span>{comida.nombre}</span>
+                        {getFechaUltimaPlanificacion(comida.id) && (
+                          <span style={{ fontSize: 11, color: '#999' }}>
+                            📅 {getFechaUltimaPlanificacion(comida.id)}
+                          </span>
+                        )}
+                      </div>
+                      {comida.notas && (
+                        <span style={{ 
+                          fontSize: 11, 
+                          padding: '2px 6px',
+                          background: '#d0d0d0',
+                          borderRadius: 4,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }} 
+                        title="Tiene notas"
+                        onMouseEnter={(e) => {
+                          e.target.style.background = '#007AFF';
+                          e.target.style.color = '#fff';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.background = '#d0d0d0';
+                          e.target.style.color = 'inherit';
+                        }}
+                        >
+                          📝
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ fontSize: 12, color: '#999', userSelect: 'none' }}>
+                        {comidaExpandida === comida.id ? '▲' : '▼'}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEliminarComidaTachada(comida);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: 16,
+                          color: '#ff3b30',
+                          padding: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          opacity: 0.7
+                        }}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Notas expandibles para items tachados */}
+                  {comidaExpandida === comida.id && (
+                    <div style={{
+                      padding: '8px',
+                      background: '#fafafa',
+                      borderRadius: 8,
+                      marginTop: 4,
+                      border: '1px solid #e5e5e7'
+                    }}>
+                      <textarea
+                        value={comida.notas || ''}
+                        onChange={(e) => {
+                          const nuevasNotas = e.target.value;
+                          setComidasCongeladas(prev =>
+                            prev.map(c => c.id === comida.id ? { ...c, notas: nuevasNotas } : c)
+                          );
+                        }}
+                        onBlur={() => handleActualizarNotas(comida.id, comida.notas)}
+                        placeholder={t('anadirNotas')}
+                        style={{
+                          width: '100%',
+                          minHeight: 50,
+                          padding: 6,
+                          borderRadius: 6,
+                          border: '1px solid #e5e5e7',
+                          fontSize: 12,
+                          fontFamily: 'inherit',
+                          resize: 'vertical',
+                          boxSizing: 'border-box',
+                          background: '#fff'
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+
               {comidasCongeladas.length === 0 && (
                 <div style={{
                   padding: 20,
@@ -743,6 +1303,7 @@ function CalendarioComidas({ onBack }) {
                 </div>
               )}
             </div>
+
           </div>
 
           {/* CALENDARIO BISEMANAL */}
@@ -878,7 +1439,7 @@ function CalendarioComidas({ onBack }) {
                       🍽️<br/>{t('comida')}
                     </td>
                     {fechasQuincena.map((fecha, idx) => {
-                      const comidas = getComidasPlanificadas(fecha, 'comida');
+                      const comidas = getComidasPlanificadasMemo(fecha, 'comida');
                       const isDropTarget = dropTarget?.fecha?.getTime() === fecha.getTime() && dropTarget?.tipoComida === 'comida';
                       const isPulsing = pulseCell?.fecha === fecha.getTime() && pulseCell?.tipoComida === 'comida';
                       const isTextoLibreMode = modoTextoLibre?.fecha?.getTime() === fecha.getTime() && modoTextoLibre?.tipoComida === 'comida';
@@ -955,45 +1516,103 @@ function CalendarioComidas({ onBack }) {
                           ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                               {comidas.map((comida) => (
-                                <div
-                                  key={comida.id}
-                                  draggable
-                                  onDragStart={(e) => handleDragStart(e, comida, 'calendario')}
-                                  style={{
-                                    background: comida.comida_id 
-                                      ? 'linear-gradient(135deg, #ffeaa7 0%, #ffd93d 100%)' 
-                                      : 'linear-gradient(135deg, #b3e5fc 0%, #81d4fa 100%)',
-                                    padding: isMobile ? '4px 6px' : '6px 8px',
-                                    borderRadius: 6,
-                                    fontSize: isMobile ? 10 : 12,
-                                    fontWeight: 600,
-                                    color: '#1d1d1f',
-                                    cursor: 'grab',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    gap: 4,
-                                    border: '1px solid rgba(0,0,0,0.08)',
-                                    animation: 'fadeIn 0.3s ease-in',
-                                    pointerEvents: 'auto'
-                                  }}
-                                >
-                                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
-                                    {comida.comida_nombre}
-                                  </span>
-                                  <button
-                                    onClick={() => handleEliminarPlanificada(comida)}
+                                <div key={comida.id} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                  <div
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, comida, 'calendario')}
                                     style={{
-                                      background: 'none',
-                                      border: 'none',
-                                      cursor: 'pointer',
-                                      fontSize: 12,
-                                      padding: 0,
-                                      color: '#d32f2f'
+                                      background: comida.comida_id 
+                                        ? 'linear-gradient(135deg, #ffeaa7 0%, #ffd93d 100%)' 
+                                        : 'linear-gradient(135deg, #b3e5fc 0%, #81d4fa 100%)',
+                                      padding: isMobile ? '4px 6px' : '6px 8px',
+                                      borderRadius: 6,
+                                      fontSize: isMobile ? 10 : 12,
+                                      fontWeight: 600,
+                                      color: '#1d1d1f',
+                                      cursor: 'grab',
+                                      display: 'flex',
+                                      justifyContent: 'space-between',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      border: '1px solid rgba(0,0,0,0.08)',
+                                      animation: 'fadeIn 0.3s ease-in',
+                                      pointerEvents: 'auto'
                                     }}
                                   >
-                                    ✕
-                                  </button>
+                                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+                                      {comida.comida_nombre}
+                                    </span>
+                                    <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setNotasCalendarioAbiertas(notasCalendarioAbiertas === comida.id ? null : comida.id);
+                                        }}
+                                        style={{
+                                          background: 'none',
+                                          border: 'none',
+                                          cursor: 'pointer',
+                                          fontSize: 11,
+                                          padding: 0,
+                                          color: comida.notas ? '#007AFF' : '#999',
+                                          opacity: notasCalendarioAbiertas === comida.id ? 1 : 0.7
+                                        }}
+                                        title={comida.notas ? 'Ver notas' : 'Añadir notas'}
+                                      >
+                                        📝
+                                      </button>
+                                      <button
+                                        onClick={() => handleEliminarPlanificada(comida)}
+                                        style={{
+                                          background: 'none',
+                                          border: 'none',
+                                          cursor: 'pointer',
+                                          fontSize: 12,
+                                          padding: 0,
+                                          color: '#d32f2f'
+                                        }}
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Notas desplegables del calendario */}
+                                  {notasCalendarioAbiertas === comida.id && (
+                                    <div style={{
+                                      padding: '6px',
+                                      background: '#fff',
+                                      borderRadius: 6,
+                                      border: '1px solid #e5e5e7',
+                                      marginTop: 2
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <textarea
+                                        value={comida.notas || ''}
+                                        onChange={(e) => {
+                                          const nuevasNotas = e.target.value;
+                                          setComidasPlanificadas(prev =>
+                                            prev.map(c => c.id === comida.id ? { ...c, notas: nuevasNotas } : c)
+                                          );
+                                        }}
+                                        onBlur={() => handleActualizarNotasPlanificada(comida.id, comida.notas)}
+                                        placeholder="Añadir notas..."
+                                        autoFocus
+                                        style={{
+                                          width: '100%',
+                                          minHeight: 40,
+                                          padding: 4,
+                                          borderRadius: 4,
+                                          border: '1px solid #007AFF',
+                                          fontSize: 11,
+                                          fontFamily: 'inherit',
+                                          resize: 'vertical',
+                                          boxSizing: 'border-box'
+                                        }}
+                                      />
+                                    </div>
+                                  )}
                                 </div>
                               ))}  
                             </div>
@@ -1018,7 +1637,7 @@ function CalendarioComidas({ onBack }) {
                       🌙<br/>{t('cena')}
                     </td>
                     {fechasQuincena.map((fecha, idx) => {
-                      const comidas = getComidasPlanificadas(fecha, 'cena');
+                      const comidas = getComidasPlanificadasMemo(fecha, 'cena');
                       const isDropTarget = dropTarget?.fecha?.getTime() === fecha.getTime() && dropTarget?.tipoComida === 'cena';
                       const isPulsing = pulseCell?.fecha === fecha.getTime() && pulseCell?.tipoComida === 'cena';
                       const isTextoLibreMode = modoTextoLibre?.fecha?.getTime() === fecha.getTime() && modoTextoLibre?.tipoComida === 'cena';
@@ -1098,46 +1717,104 @@ function CalendarioComidas({ onBack }) {
                           ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                               {comidas.map((comida) => (
-                                <div
-                                  key={comida.id}
-                                  draggable
-                                  onDragStart={(e) => handleDragStart(e, comida, 'calendario')}
-                                  style={{
-                                    background: comida.comida_id 
-                                      ? 'linear-gradient(135deg, #c5e1a5 0%, #aed581 100%)' 
-                                      : 'linear-gradient(135deg, #b3e5fc 0%, #81d4fa 100%)',
-                                    padding: isMobile ? '4px 6px' : '6px 8px',
-                                    borderRadius: 6,
-                                    fontSize: isMobile ? 10 : 12,
-                                    fontWeight: 600,
-                                    color: '#1d1d1f',
-                                    cursor: 'grab',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    gap: 4,
-                                    border: '1px solid rgba(0,0,0,0.08)',
-                                    opacity: loading ? 0.6 : 1,
-                                    animation: 'fadeIn 0.3s ease-in',
-                                    pointerEvents: 'auto'
-                                  }}
-                                >
-                                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
-                                    {comida.comida_nombre}
-                                  </span>
-                                  <button
-                                    onClick={() => handleEliminarPlanificada(comida)}
+                                <div key={comida.id} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                  <div
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, comida, 'calendario')}
                                     style={{
-                                      background: 'none',
-                                      border: 'none',
-                                      cursor: 'pointer',
-                                      fontSize: 12,
-                                      padding: 0,
-                                      color: '#d32f2f'
+                                      background: comida.comida_id 
+                                        ? 'linear-gradient(135deg, #c5e1a5 0%, #aed581 100%)' 
+                                        : 'linear-gradient(135deg, #b3e5fc 0%, #81d4fa 100%)',
+                                      padding: isMobile ? '4px 6px' : '6px 8px',
+                                      borderRadius: 6,
+                                      fontSize: isMobile ? 10 : 12,
+                                      fontWeight: 600,
+                                      color: '#1d1d1f',
+                                      cursor: 'grab',
+                                      display: 'flex',
+                                      justifyContent: 'space-between',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      border: '1px solid rgba(0,0,0,0.08)',
+                                      opacity: loading ? 0.6 : 1,
+                                      animation: 'fadeIn 0.3s ease-in',
+                                      pointerEvents: 'auto'
                                     }}
                                   >
-                                    ✕
-                                  </button>
+                                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+                                      {comida.comida_nombre}
+                                    </span>
+                                    <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setNotasCalendarioAbiertas(notasCalendarioAbiertas === comida.id ? null : comida.id);
+                                        }}
+                                        style={{
+                                          background: 'none',
+                                          border: 'none',
+                                          cursor: 'pointer',
+                                          fontSize: 11,
+                                          padding: 0,
+                                          color: comida.notas ? '#007AFF' : '#999',
+                                          opacity: notasCalendarioAbiertas === comida.id ? 1 : 0.7
+                                        }}
+                                        title={comida.notas ? 'Ver notas' : 'Añadir notas'}
+                                      >
+                                        📝
+                                      </button>
+                                      <button
+                                        onClick={() => handleEliminarPlanificada(comida)}
+                                        style={{
+                                          background: 'none',
+                                          border: 'none',
+                                          cursor: 'pointer',
+                                          fontSize: 12,
+                                          padding: 0,
+                                          color: '#d32f2f'
+                                        }}
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Notas desplegables del calendario */}
+                                  {notasCalendarioAbiertas === comida.id && (
+                                    <div style={{
+                                      padding: '6px',
+                                      background: '#fff',
+                                      borderRadius: 6,
+                                      border: '1px solid #e5e5e7',
+                                      marginTop: 2
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <textarea
+                                        value={comida.notas || ''}
+                                        onChange={(e) => {
+                                          const nuevasNotas = e.target.value;
+                                          setComidasPlanificadas(prev =>
+                                            prev.map(c => c.id === comida.id ? { ...c, notas: nuevasNotas } : c)
+                                          );
+                                        }}
+                                        onBlur={() => handleActualizarNotasPlanificada(comida.id, comida.notas)}
+                                        placeholder="Añadir notas..."
+                                        autoFocus
+                                        style={{
+                                          width: '100%',
+                                          minHeight: 40,
+                                          padding: 4,
+                                          borderRadius: 4,
+                                          border: '1px solid #007AFF',
+                                          fontSize: 11,
+                                          fontFamily: 'inherit',
+                                          resize: 'vertical',
+                                          boxSizing: 'border-box'
+                                        }}
+                                      />
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                             </div>
