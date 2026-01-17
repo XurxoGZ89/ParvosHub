@@ -1288,7 +1288,7 @@ function CalendarioComidas({ onBack }) {
                 </>
               )}
 
-              {/* Items USADOS (tachados) - solo si la pestaña está abierta */}
+              {/* Items USADOS (planificados) - solo si la pestaña está abierta */}
               {mostrarUsados && comidasUsadas.map((comida) => (
                 <div key={comida.id}>
                   <div
@@ -1296,33 +1296,64 @@ function CalendarioComidas({ onBack }) {
                     onDragStart={(e) => handleDragStart(e, comida, 'inventario')}
                     onClick={() => setComidaExpandida(comidaExpandida === comida.id ? null : comida.id)}
                     style={{
-                      padding: '10px 12px',
-                      background: '#f5f5f7',
+                      padding: '12px 14px',
+                      background: '#fff',
                       border: '1px solid #e5e5e7',
                       borderRadius: 8,
                       cursor: 'pointer',
-                      textDecoration: 'line-through',
-                      color: '#999',
+                      color: '#1d1d1f',
                       fontSize: 14,
                       fontWeight: 500,
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      gap: 8,
-                      transition: 'all 0.2s'
+                      gap: 10,
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
                     }}
                     onMouseOver={(e) => {
-                      e.currentTarget.style.background = '#efefef';
+                      e.currentTarget.style.background = '#fafafa';
+                      e.currentTarget.style.borderColor = '#d0d0d0';
+                      e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.08)';
+                      const deleteBtn = e.currentTarget.querySelector('[data-delete-btn]');
+                      if (deleteBtn) deleteBtn.style.opacity = '1';
                     }}
                     onMouseOut={(e) => {
-                      e.currentTarget.style.background = '#f5f5f7';
+                      e.currentTarget.style.background = '#fff';
+                      e.currentTarget.style.borderColor = '#e5e5e7';
+                      e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.04)';
+                      const deleteBtn = e.currentTarget.querySelector('[data-delete-btn]');
+                      if (deleteBtn) deleteBtn.style.opacity = '0';
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <span>{comida.nombre}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                      <div style={{ 
+                        display: 'flex', 
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 8,
+                        flex: 1,
+                        minWidth: 0
+                      }}>
+                        <span style={{ 
+                          fontWeight: 500,
+                          color: '#1d1d1f',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {comida.nombre}
+                        </span>
                         {getFechaUltimaPlanificacion(comida.id) && (
-                          <span style={{ fontSize: 11, color: '#999' }}>
+                          <span style={{ 
+                            fontSize: 11, 
+                            color: '#86868b',
+                            background: '#f5f5f7',
+                            padding: '3px 6px',
+                            borderRadius: 4,
+                            whiteSpace: 'nowrap',
+                            fontWeight: 500
+                          }}>
                             📅 {getFechaUltimaPlanificacion(comida.id)}
                           </span>
                         )}
@@ -1330,60 +1361,84 @@ function CalendarioComidas({ onBack }) {
                       {comida.notas && (
                         <span style={{ 
                           fontSize: 11, 
-                          padding: '2px 6px',
-                          background: '#d0d0d0',
-                          borderRadius: 4,
+                          padding: '4px 7px',
+                          background: '#e8f5e9',
+                          borderRadius: 5,
                           cursor: 'pointer',
                           transition: 'all 0.2s',
-                          whiteSpace: 'nowrap'
+                          whiteSpace: 'nowrap',
+                          color: '#2e7d32',
+                          fontWeight: 500,
+                          border: '1px solid #c8e6c9'
                         }} 
                         title="Tiene notas"
                         onMouseEnter={(e) => {
                           e.target.style.background = '#007AFF';
                           e.target.style.color = '#fff';
+                          e.target.style.borderColor = '#007AFF';
                         }}
                         onMouseLeave={(e) => {
-                          e.target.style.background = '#d0d0d0';
-                          e.target.style.color = 'inherit';
+                          e.target.style.background = '#e8f5e9';
+                          e.target.style.color = '#2e7d32';
+                          e.target.style.borderColor = '#c8e6c9';
                         }}
                         >
                           📝
                         </span>
                       )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ fontSize: 12, color: '#999', userSelect: 'none' }}>
-                        {comidaExpandida === comida.id ? '▲' : '▼'}
-                      </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <button
+                        data-delete-btn
                         onClick={(e) => {
                           e.stopPropagation();
                           handleEliminarComidaTachada(comida);
                         }}
                         style={{
-                          background: 'none',
+                          background: 'rgba(255, 59, 48, 0.1)',
                           border: 'none',
                           cursor: 'pointer',
-                          fontSize: 16,
+                          fontSize: 12,
                           color: '#ff3b30',
-                          padding: 0,
+                          padding: '4px 6px',
+                          borderRadius: 5,
                           display: 'flex',
                           alignItems: 'center',
-                          opacity: 0.7
+                          justifyContent: 'center',
+                          opacity: 0,
+                          transition: 'all 0.2s',
+                          fontWeight: 500
                         }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = '#ff3b30';
+                          e.currentTarget.style.color = '#fff';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'rgba(255, 59, 48, 0.1)';
+                          e.currentTarget.style.color = '#ff3b30';
+                        }}
+                        title="Eliminar"
                       >
                         🗑️
                       </button>
+                      <span style={{ 
+                        fontSize: 13, 
+                        color: '#86868b', 
+                        userSelect: 'none',
+                        fontWeight: 600
+                      }}>
+                        {comidaExpandida === comida.id ? '▲' : '▼'}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Notas expandibles para items tachados */}
+                  {/* Notas expandibles */}
                   {comidaExpandida === comida.id && (
                     <div style={{
-                      padding: '8px',
+                      padding: '10px',
                       background: '#fafafa',
                       borderRadius: 8,
-                      marginTop: 4,
+                      marginTop: 6,
                       border: '1px solid #e5e5e7'
                     }}>
                       <textarea
@@ -1398,15 +1453,16 @@ function CalendarioComidas({ onBack }) {
                         placeholder={t('anadirNotas')}
                         style={{
                           width: '100%',
-                          minHeight: 50,
-                          padding: 6,
+                          minHeight: 60,
+                          padding: 8,
                           borderRadius: 6,
-                          border: '1px solid #e5e5e7',
-                          fontSize: 12,
+                          border: '1px solid #d0d0d0',
+                          fontSize: 13,
                           fontFamily: 'inherit',
                           resize: 'vertical',
                           boxSizing: 'border-box',
-                          background: '#fff'
+                          background: '#fff',
+                          lineHeight: 1.5
                         }}
                       />
                     </div>
@@ -1667,57 +1723,90 @@ function CalendarioComidas({ onBack }) {
                                 </button>
                               )}
                               {comidas.map((comida) => (
-                                <div key={comida.id} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <div key={comida.id} style={{ width: '100%' }}>
                                   <div
                                     draggable
                                     onDragStart={(e) => handleDragStart(e, comida, 'calendario')}
-                                    title={comida.comida_nombre.length > 15 ? comida.comida_nombre : ''}
+                                    title={comida.comida_nombre}
                                     style={{
                                       background: comida.comida_id 
                                         ? 'linear-gradient(135deg, #ffeaa7 0%, #ffd93d 100%)' 
                                         : 'linear-gradient(135deg, #b3e5fc 0%, #81d4fa 100%)',
-                                      padding: isMobile ? '6px' : '8px',
-                                      borderRadius: 8,
-                                      fontSize: isMobile ? 10.5 : 12,
-                                      fontWeight: 600,
-                                      color: '#1d1d1f',
+                                      padding: isMobile ? '6px 8px' : '8px 10px',
+                                      borderRadius: 6,
+                                      fontSize: isMobile ? 11 : 12,
+                                      fontWeight: 500,
+                                      color: '#2c2c2c',
                                       cursor: 'grab',
                                       display: 'flex',
-                                      flexDirection: 'column',
-                                      justifyContent: 'space-between',
                                       alignItems: 'center',
-                                      gap: 4,
-                                      border: '1px solid rgba(0,0,0,0.08)',
-                                      animation: 'fadeIn 0.3s ease-in',
-                                      pointerEvents: 'auto',
-                                      minHeight: isMobile ? 60 : 70,
-                                      textAlign: 'center',
-                                      boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                                      gap: 6,
+                                      border: '1px solid rgba(0,0,0,0.06)',
+                                      transition: 'all 0.15s ease',
+                                      minHeight: isMobile ? 32 : 35,
+                                      maxHeight: isMobile ? 32 : 35,
+                                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                      position: 'relative',
+                                      overflow: 'hidden'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.12)';
+                                      e.currentTarget.style.transform = 'translateY(-1px)';
+                                      const btn = e.currentTarget.querySelector('button');
+                                      if (btn) btn.style.opacity = '1';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
+                                      e.currentTarget.style.transform = 'translateY(0)';
+                                      const btn = e.currentTarget.querySelector('button');
+                                      if (btn) btn.style.opacity = '0';
                                     }}
                                   >
-                                    <div style={{ display: 'flex', gap: 2, alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                                      <span style={{ 
-                                        flex: 1, 
-                                        display: 'flex', 
+                                    <span style={{ 
+                                      flex: 1,
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                      lineHeight: '1.4',
+                                      paddingRight: '4px',
+                                      userSelect: 'none'
+                                    }}>
+                                      {comida.comida_nombre}
+                                    </span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEliminarPlanificada(comida);
+                                      }}
+                                      style={{
+                                        background: 'rgba(211, 47, 47, 0.1)',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        fontSize: 11,
+                                        width: 18,
+                                        height: 18,
+                                        borderRadius: 3,
+                                        display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        overflow: comida.comida_nombre.length > 15 ? 'hidden' : 'visible',
-                                        textOverflow: comida.comida_nombre.length > 15 ? 'ellipsis' : 'clip',
-                                        wordBreak: comida.comida_nombre.length > 15 ? 'normal' : 'break-word',
-                                        whiteSpace: comida.comida_nombre.length > 15 ? 'nowrap' : 'normal',
-                                        pointerEvents: 'none',
-                                        lineHeight: '1.3',
-                                        padding: '0 2px'
-                                      }}>
-                                        {comida.comida_nombre}
-                                      </span>
-                                      <button
-                                        onClick={() => handleEliminarPlanificada(comida)}
-                                        style={{
-                                          background: 'transparent',
-                                          border: 'none',
-                                          cursor: 'pointer',
-                                          fontSize: isMobile ? 12 : 14,
+                                        color: '#d32f2f',
+                                        transition: 'all 0.15s',
+                                        flexShrink: 0,
+                                        opacity: 0,
+                                        padding: 0
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.background = '#d32f2f';
+                                        e.currentTarget.style.color = '#fff';
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = 'rgba(211, 47, 47, 0.1)';
+                                        e.currentTarget.style.color = '#d32f2f';
+                                      }}
+                                      title="Eliminar"
+                                    >
+                                      ✕
+                                    </button>
                                           padding: isMobile ? '3px 5px' : '4px 6px',
                                           color: '#d32f2f',
                                           transition: 'all 0.2s',
@@ -1865,49 +1954,91 @@ function CalendarioComidas({ onBack }) {
                                 </button>
                               )}
                               {comidas.map((comida) => (
-                                <div key={comida.id} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <div key={comida.id} style={{ width: '100%' }}>
                                   <div
                                     draggable
                                     onDragStart={(e) => handleDragStart(e, comida, 'calendario')}
-                                    title={comida.comida_nombre.length > 15 ? comida.comida_nombre : ''}
+                                    title={comida.comida_nombre}
                                     style={{
                                       background: comida.comida_id 
                                         ? 'linear-gradient(135deg, #c5e1a5 0%, #aed581 100%)' 
                                         : 'linear-gradient(135deg, #b3e5fc 0%, #81d4fa 100%)',
-                                      padding: isMobile ? '6px' : '8px',
-                                      borderRadius: 8,
-                                      fontSize: isMobile ? 10.5 : 12,
-                                      fontWeight: 600,
-                                      color: '#1d1d1f',
+                                      padding: isMobile ? '6px 8px' : '8px 10px',
+                                      borderRadius: 6,
+                                      fontSize: isMobile ? 11 : 12,
+                                      fontWeight: 500,
+                                      color: '#2c2c2c',
                                       cursor: 'grab',
                                       display: 'flex',
-                                      flexDirection: 'column',
-                                      justifyContent: 'space-between',
                                       alignItems: 'center',
-                                      gap: 4,
-                                      border: '1px solid rgba(0,0,0,0.08)',
-                                      opacity: loading ? 0.6 : 1,
-                                      animation: 'fadeIn 0.3s ease-in',
-                                      pointerEvents: 'auto',
-                                      minHeight: isMobile ? 60 : 70,
-                                      textAlign: 'center',
-                                      boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                                      gap: 6,
+                                      border: '1px solid rgba(0,0,0,0.06)',
+                                      transition: 'all 0.15s ease',
+                                      minHeight: isMobile ? 32 : 35,
+                                      maxHeight: isMobile ? 32 : 35,
+                                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                      position: 'relative',
+                                      overflow: 'hidden',
+                                      opacity: loading ? 0.6 : 1
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.12)';
+                                      e.currentTarget.style.transform = 'translateY(-1px)';
+                                      const btn = e.currentTarget.querySelector('button');
+                                      if (btn) btn.style.opacity = '1';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
+                                      e.currentTarget.style.transform = 'translateY(0)';
+                                      const btn = e.currentTarget.querySelector('button');
+                                      if (btn) btn.style.opacity = '0';
                                     }}
                                   >
-                                    <div style={{ display: 'flex', gap: 2, alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                                      <span style={{ 
-                                        flex: 1, 
-                                        display: 'flex', 
+                                    <span style={{ 
+                                      flex: 1,
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                      lineHeight: '1.4',
+                                      paddingRight: '4px',
+                                      userSelect: 'none'
+                                    }}>
+                                      {comida.comida_nombre}
+                                    </span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEliminarPlanificada(comida);
+                                      }}
+                                      style={{
+                                        background: 'rgba(211, 47, 47, 0.1)',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        fontSize: 11,
+                                        width: 18,
+                                        height: 18,
+                                        borderRadius: 3,
+                                        display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        overflow: comida.comida_nombre.length > 15 ? 'hidden' : 'visible',
-                                        textOverflow: comida.comida_nombre.length > 15 ? 'ellipsis' : 'clip',
-                                        wordBreak: comida.comida_nombre.length > 15 ? 'normal' : 'break-word',
-                                        whiteSpace: comida.comida_nombre.length > 15 ? 'nowrap' : 'normal',
-                                        pointerEvents: 'none',
-                                        lineHeight: '1.3',
-                                        padding: '0 2px'
-                                      }}>
+                                        color: '#d32f2f',
+                                        transition: 'all 0.15s',
+                                        flexShrink: 0,
+                                        opacity: 0,
+                                        padding: 0
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.background = '#d32f2f';
+                                        e.currentTarget.style.color = '#fff';
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = 'rgba(211, 47, 47, 0.1)';
+                                        e.currentTarget.style.color = '#d32f2f';
+                                      }}
+                                      title="Eliminar"
+                                    >
+                                      ✕
+                                    </button>
                                         {comida.comida_nombre}
                                       </span>
                                       <button
