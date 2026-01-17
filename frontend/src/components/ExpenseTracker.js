@@ -935,7 +935,7 @@ function ExpenseTracker({ onBack }) {
                 />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip formatter={v => `${formatearMoneda(v)} €`} contentStyle={{ borderRadius: 8 }} />
-                <Bar dataKey="value" radius={[8, 8, 0, 0]} shape={<BarWithColor presupuestos={presupuestos} />} />
+                <Bar dataKey="value" radius={[8, 8, 0, 0]} shape={<BarWithBudgetLine presupuestos={presupuestos} />} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -1202,36 +1202,58 @@ function ExpenseTracker({ onBack }) {
 }
 
 // Componente personalizado para Bar con colores y línea de presupuesto
-function BarWithColor(props) {
-  const { x, y, width, height, payload, presupuestos } = props;
+function BarWithBudgetLine(props) {
+  const { x, y, width, height, payload, background, presupuestos } = props;
   const color = colorsPorCategoria[payload.name] || '#999';
   const presupuesto = presupuestos?.[payload.name] || 0;
   
-  // Solo dibujar línea si hay presupuesto y el gasto lo supera
-  const shouldDrawLine = presupuesto > 0 && payload.value > presupuesto;
+  // Calcular posición Y de la línea de presupuesto
+  // El eje Y va de background.y (top) a background.y + background.height (bottom)
+  // background.height es la altura total del área del gráfico
+  // Necesitamos mapear el valor del presupuesto a una posición Y
+  let lineY = null;
+  
+  if (presupuesto > 0 && background) {
+    const chartHeight = background.height;
+    const chartTop = background.y;
+    
+    // Calcular proporción del presupuesto en el gráfico
+    // Usamos una aproximación basada en la barra actual
+    if (height > 0 && payload.value > 0) {
+      const estimatedMaxValue = payload.value * (chartHeight / height);
+      const proportion = presupuesto / estimatedMaxValue;
+      lineY = chartTop + (1 - proportion) * chartHeight;
+    }
+  }
   
   return (
-    <>
+    <g>
       <rect
         x={x}
         y={y}
         width={width}
         height={height}
         fill={color}
-        radius={[8, 8, 0, 0]}
+        rx={8}
+        ry={8}
       />
-      {shouldDrawLine && (
-        <line
-          x1={x}
-          y1={y}
-          x2={x + width}
-          y2={y}
-          stroke="#d32f2f"
-          strokeWidth={3}
-          strokeDasharray="5 3"
-        />
+      {lineY !== null && (
+        <>
+          <line
+            x1={x - 2}
+            y1={lineY}
+            x2={x + width + 2}
+            y2={lineY}
+            stroke="#ff9800"
+            strokeWidth={3}
+            strokeDasharray="6 3"
+          />
+          {/* Pequeño indicador visual en los extremos */}
+          <circle cx={x - 2} cy={lineY} r={3} fill="#ff9800" />
+          <circle cx={x + width + 2} cy={lineY} r={3} fill="#ff9800" />
+        </>
       )}
-    </>
+    </g>
   );
 }
 

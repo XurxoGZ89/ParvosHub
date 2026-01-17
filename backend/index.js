@@ -283,7 +283,7 @@ app.get('/comidas-congeladas', async (req, res) => {
 
 // Crear una nueva comida congelada
 app.post('/comidas-congeladas', async (req, res) => {
-  const { nombre, notas } = req.body;
+  const { nombre, notas, categoria, fecha_caducidad, cantidad } = req.body;
   
   if (!nombre) {
     return res.status(400).json({ error: 'El nombre es obligatorio' });
@@ -291,8 +291,8 @@ app.post('/comidas-congeladas', async (req, res) => {
 
   try {
     const result = await db.query(
-      'INSERT INTO comidas_congeladas (nombre, notas) VALUES ($1, $2) RETURNING *',
-      [nombre, notas || null]
+      'INSERT INTO comidas_congeladas (nombre, notas, categoria, fecha_caducidad, cantidad) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [nombre, notas || null, categoria || 'otros', fecha_caducidad || null, cantidad || 1]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -304,7 +304,7 @@ app.post('/comidas-congeladas', async (req, res) => {
 // Actualizar una comida congelada (notas o estado tachada)
 app.put('/comidas-congeladas/:id', async (req, res) => {
   const { id } = req.params;
-  const { nombre, notas, tachada } = req.body;
+  const { nombre, notas, tachada, categoria, fecha_caducidad, cantidad } = req.body;
 
   try {
     let query, params;
@@ -314,9 +314,9 @@ app.put('/comidas-congeladas/:id', async (req, res) => {
       query = 'UPDATE comidas_congeladas SET tachada = $1, fecha_tachada = $2 WHERE id = $3 RETURNING *';
       params = [tachada, tachada ? new Date().toISOString() : null, id];
     } else {
-      // Actualizar nombre y notas
-      query = 'UPDATE comidas_congeladas SET nombre = $1, notas = $2 WHERE id = $3 RETURNING *';
-      params = [nombre, notas || null, id];
+      // Actualizar todos los campos
+      query = 'UPDATE comidas_congeladas SET nombre = $1, notas = $2, categoria = $3, fecha_caducidad = $4, cantidad = $5 WHERE id = $6 RETURNING *';
+      params = [nombre, notas || null, categoria || 'otros', fecha_caducidad || null, cantidad || 1, id];
     }
     
     const result = await db.query(query, params);

@@ -15,6 +15,8 @@ function CalendarioComidas({ onBack }) {
   const [comidaExpandida, setComidaExpandida] = useState(null);
   const [draggedItem, setDraggedItem] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
+  const [modoTextoLibre, setModoTextoLibre] = useState(null); // {fecha, tipoComida}
+  const [textoLibre, setTextoLibre] = useState('');
 
   // Detectar cambios de tamaño de ventana
   useEffect(() => {
@@ -136,6 +138,27 @@ function CalendarioComidas({ onBack }) {
     setDropTarget(null);
   };
 
+  // A\u00f1adir comida de texto libre al calendario
+  const handleA\u00f1adirTextoLibre = async () => {
+    if (!textoLibre.trim() || !modoTextoLibre) return;
+
+    try {
+      const fechaStr = modoTextoLibre.fecha.toISOString().split('T')[0];
+      await axios.post(`${API_URL}/comidas-planificadas`, {
+        comida_id: null,
+        comida_nombre: textoLibre,
+        fecha: fechaStr,
+        tipo_comida: modoTextoLibre.tipoComida
+      });
+      
+      setTextoLibre('');
+      setModoTextoLibre(null);
+      cargarComidasPlanificadas();
+    } catch (err) {
+      alert(t('errorPlanificarComida'));
+    }
+  };
+
   const handleDrop = async (e, fecha, tipoComida) => {
     e.preventDefault();
     setDropTarget(null);
@@ -225,11 +248,11 @@ function CalendarioComidas({ onBack }) {
     }
   };
 
-  // Obtener comida planificada para una fecha y tipo
-  const getComidaPlanificada = (fecha, tipoComida) => {
+  // Obtener comidas planificadas para una fecha y tipo (puede haber m\u00faltiples)
+  const getComidasPlanificadas = (fecha, tipoComida) => {
     const fechaStr = fecha.toISOString().split('T')[0];
-    return comidasPlanificadas.find(
-      c => c.fecha === fechaStr && c.tipo_comida === tipoComida
+    return comidasPlanificadas.filter(
+      c => c.fecha && c.fecha.split('T')[0] === fechaStr && c.tipo_comida === tipoComida
     );
   };
 
@@ -547,8 +570,9 @@ function CalendarioComidas({ onBack }) {
                       🍽️<br/>{t('comida')}
                     </td>
                     {fechasQuincena.map((fecha, idx) => {
-                      const comida = getComidaPlanificada(fecha, 'comida');
+                      const comidas = getComidasPlanificadas(fecha, 'comida');
                       const isDropTarget = dropTarget?.fecha?.getTime() === fecha.getTime() && dropTarget?.tipoComida === 'comida';
+                      const isTextoLibreMode = modoTextoLibre?.fecha?.getTime() === fecha.getTime() && modoTextoLibre?.tipoComida === 'comida';
                       
                       return (
                         <td
@@ -557,48 +581,117 @@ function CalendarioComidas({ onBack }) {
                           onDragEnter={() => handleDragEnter(fecha, 'comida')}
                           onDragLeave={handleDragLeave}
                           onDrop={(e) => handleDrop(e, fecha, 'comida')}
+                          onDoubleClick={() => {
+                            if (!isTextoLibreMode) {
+                              setModoTextoLibre({ fecha, tipoComida: 'comida' });
+                            }
+                          }}
                           style={{
                             padding: 8,
                             minHeight: 60,
                             border: '1px solid #e5e5e7',
                             background: isDropTarget ? '#e3f2fd' : (fecha.getDay() === 0 || fecha.getDay() === 6 ? '#fafafa' : '#fff'),
                             transition: 'background 0.2s',
-                            verticalAlign: 'top'
+                            verticalAlign: 'top',
+                            cursor: comidas.length === 0 ? 'pointer' : 'default',
+                            position: 'relative'
                           }}
                         >
-                          {comida && (
-                            <div
-                              draggable
-                              onDragStart={(e) => handleDragStart(e, comida, 'calendario')}
-                              style={{
-                                background: 'linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%)',
-                                padding: '6px 8px',
-                                borderRadius: 6,
-                                fontSize: 12,
-                                fontWeight: 500,
-                                cursor: 'grab',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                gap: 4
-                              }}
-                            >
-                              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {comida.comida_nombre}
-                              </span>
-                              <button
-                                onClick={() => handleEliminarPlanificada(comida)}
+                          {isTextoLibreMode ? (
+                            <div style={{ display: 'flex', gap: 4 }} onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="text"
+                                value={textoLibre}
+                                onChange={(e) => setTextoLibre(e.target.value)}
+                                placeholder={t('escribirProducto')}
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleAñadirTextoLibre();
+                                  if (e.key === 'Escape') { setTextoLibre(''); setModoTextoLibre(null); }
+                                }}
                                 style={{
-                                  background: 'none',
+                                  flex: 1,
+                                  padding: '4px 6px',
+                                  borderRadius: 4,
+                                  border: '1px solid #007AFF',
+                                  fontSize: 11,
+                                  boxSizing: 'border-box'
+                                }}
+                              />
+                              <button
+                                onClick={handleAñadirTextoLibre}
+                                style={{
+                                  padding: '2px 8px',
+                                  background: '#007AFF',
+                                  color: '#fff',
                                   border: 'none',
-                                  cursor: 'pointer',
-                                  fontSize: 12,
-                                  padding: 0,
-                                  color: '#d32f2f'
+                                  borderRadius: 4,
+                                  fontSize: 11,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ✓
+                              </button>
+                              <button
+                                onClick={() => { setTextoLibre(''); setModoTextoLibre(null); }}
+                                style={{
+                                  padding: '2px 8px',
+                                  background: '#ccc',
+                                  color: '#fff',
+                                  border: 'none',
+                                  borderRadius: 4,
+                                  fontSize: 11,
+                                  cursor: 'pointer'
                                 }}
                               >
                                 ✕
                               </button>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              {comidas.map((comida) => (
+                                <div
+                                  key={comida.id}
+                                  draggable
+                                  onDragStart={(e) => handleDragStart(e, comida, 'calendario')}
+                                  style={{
+                                    background: comida.comida_id 
+                                      ? 'linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%)' 
+                                      : 'linear-gradient(135deg, #e1f5fe 0%, #b3e5fc 100%)',
+                                    padding: '6px 8px',
+                                    borderRadius: 6,
+                                    fontSize: 12,
+                                    fontWeight: 500,
+                                    cursor: 'grab',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    gap: 4
+                                  }}
+                                >
+                                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {comida.comida_nombre}
+                                  </span>
+                                  <button
+                                    onClick={() => handleEliminarPlanificada(comida)}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      fontSize: 12,
+                                      padding: 0,
+                                      color: '#d32f2f'
+                                    }}
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ))}
+                              {comidas.length === 0 && (
+                                <div style={{ fontSize: 10, color: '#999', textAlign: 'center', padding: 8, fontStyle: 'italic' }}>
+                                  {t('textoLibre')}
+                                </div>
+                              )}
                             </div>
                           )}
                         </td>
@@ -620,8 +713,9 @@ function CalendarioComidas({ onBack }) {
                       🌙<br/>{t('cena')}
                     </td>
                     {fechasQuincena.map((fecha, idx) => {
-                      const comida = getComidaPlanificada(fecha, 'cena');
+                      const comidas = getComidasPlanificadas(fecha, 'cena');
                       const isDropTarget = dropTarget?.fecha?.getTime() === fecha.getTime() && dropTarget?.tipoComida === 'cena';
+                      const isTextoLibreMode = modoTextoLibre?.fecha?.getTime() === fecha.getTime() && modoTextoLibre?.tipoComida === 'cena';
                       
                       return (
                         <td
@@ -630,48 +724,116 @@ function CalendarioComidas({ onBack }) {
                           onDragEnter={() => handleDragEnter(fecha, 'cena')}
                           onDragLeave={handleDragLeave}
                           onDrop={(e) => handleDrop(e, fecha, 'cena')}
+                          onDoubleClick={() => {
+                            if (!isTextoLibreMode) {
+                              setModoTextoLibre({ fecha, tipoComida: 'cena' });
+                            }
+                          }}
                           style={{
                             padding: 8,
                             minHeight: 60,
                             border: '1px solid #e5e5e7',
                             background: isDropTarget ? '#e3f2fd' : (fecha.getDay() === 0 || fecha.getDay() === 6 ? '#fafafa' : '#fff'),
                             transition: 'background 0.2s',
-                            verticalAlign: 'top'
+                            verticalAlign: 'top',
+                            cursor: comidas.length === 0 ? 'pointer' : 'default'
                           }}
                         >
-                          {comida && (
-                            <div
-                              draggable
-                              onDragStart={(e) => handleDragStart(e, comida, 'calendario')}
-                              style={{
-                                background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
-                                padding: '6px 8px',
-                                borderRadius: 6,
-                                fontSize: 12,
-                                fontWeight: 500,
-                                cursor: 'grab',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                gap: 4
-                              }}
-                            >
-                              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {comida.comida_nombre}
-                              </span>
-                              <button
-                                onClick={() => handleEliminarPlanificada(comida)}
+                          {isTextoLibreMode ? (
+                            <div style={{ display: 'flex', gap: 4 }} onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="text"
+                                value={textoLibre}
+                                onChange={(e) => setTextoLibre(e.target.value)}
+                                placeholder={t('escribirProducto')}
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleAñadirTextoLibre();
+                                  if (e.key === 'Escape') { setTextoLibre(''); setModoTextoLibre(null); }
+                                }}
                                 style={{
-                                  background: 'none',
+                                  flex: 1,
+                                  padding: '4px 6px',
+                                  borderRadius: 4,
+                                  border: '1px solid #007AFF',
+                                  fontSize: 11,
+                                  boxSizing: 'border-box'
+                                }}
+                              />
+                              <button
+                                onClick={handleAñadirTextoLibre}
+                                style={{
+                                  padding: '2px 8px',
+                                  background: '#007AFF',
+                                  color: '#fff',
                                   border: 'none',
-                                  cursor: 'pointer',
-                                  fontSize: 12,
-                                  padding: 0,
-                                  color: '#d32f2f'
+                                  borderRadius: 4,
+                                  fontSize: 11,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ✓
+                              </button>
+                              <button
+                                onClick={() => { setTextoLibre(''); setModoTextoLibre(null); }}
+                                style={{
+                                  padding: '2px 8px',
+                                  background: '#ccc',
+                                  color: '#fff',
+                                  border: 'none',
+                                  borderRadius: 4,
+                                  fontSize: 11,
+                                  cursor: 'pointer'
                                 }}
                               >
                                 ✕
                               </button>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              {comidas.map((comida) => (
+                                <div
+                                  key={comida.id}
+                                  draggable
+                                  onDragStart={(e) => handleDragStart(e, comida, 'calendario')}
+                                  style={{
+                                    background: comida.comida_id 
+                                      ? 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)' 
+                                      : 'linear-gradient(135deg, #e1f5fe 0%, #b3e5fc 100%)',
+                                    padding: '6px 8px',
+                                    borderRadius: 6,
+                                    fontSize: 12,
+                                    fontWeight: 500,
+                                    cursor: 'grab',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    gap: 4
+                                  }}
+                                >
+                                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {comida.comida_nombre}
+                                  </span>
+                                  <button
+                                    onClick={() => handleEliminarPlanificada(comida)}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      fontSize: 12,
+                                      padding: 0,
+                                      color: '#d32f2f'
+                                    }}
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ))}
+                              {comidas.length === 0 && (
+                                <div style={{ fontSize: 10, color: '#999', textAlign: 'center', padding: 8, fontStyle: 'italic' }}>
+                                  {t('textoLibre')}
+                                </div>
+                              )}
                             </div>
                           )}
                         </td>
