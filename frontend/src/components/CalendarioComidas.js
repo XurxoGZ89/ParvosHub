@@ -249,7 +249,7 @@ function CalendarioComidas({ onBack }) {
     setLoading(true);
     try {
       const fechaStr = modoTextoLibre.fecha.toISOString().split('T')[0];
-      await axios.post(`${API_URL}/comidas-planificadas`, {
+      const response = await axios.post(`${API_URL}/comidas-planificadas`, {
         comida_id: null,
         comida_nombre: textoLibre,
         fecha: fechaStr,
