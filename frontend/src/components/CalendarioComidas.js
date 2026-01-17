@@ -73,20 +73,9 @@ function CalendarioComidas({ onBack }) {
   // Limpiar comidas planificadas vencidas (fecha anterior a hoy)
   const limpiarComidasVencidas = useCallback(async () => {
     try {
-      const hoy = new Date();
-      const diaSemana = hoy.getDay() === 0 ? 7 : hoy.getDay();
-      
-      // Calcular el lunes de la semana actual
-      const lunesActual = new Date(hoy);
-      lunesActual.setDate(hoy.getDate() - diaSemana + 1);
-      lunesActual.setHours(0, 0, 0, 0);
-      
-      const response = await axios.get(`${API_URL}/comidas-planificadas`);
-      const comidasVencidas = response.data.filter(comida => {
-        const fechaComida = new Date(comida.fecha);
-        fechaComida.setHours(0, 0, 0, 0);
-        return fechaComida < lunesActual; // Anterior al lunes de la semana actual
-      });
+      // Obtener directamente del backend las comidas vencidas (1 sola llamada)
+      const response = await axios.get(`${API_URL}/comidas-planificadas/vencidas`);
+      const comidasVencidas = response.data;
 
       if (comidasVencidas.length === 0) return;
 
@@ -101,16 +90,20 @@ function CalendarioComidas({ onBack }) {
         }
       });
 
-      // Eliminar las comidas vencidas
+      // Eliminar las comidas vencidas en paralelo
       await Promise.all(comidasVencidas.map(comida => 
         axios.delete(`${API_URL}/comidas-planificadas/${comida.id}`)
       ));
 
       // Verificar qué comidas del inventario destachar
       const comidasADestachar = [];
+      
+      // Obtener estado actual de planificadas (para verificar si hay otras activas)
+      const todasPlanificadas = await axios.get(`${API_URL}/comidas-planificadas`);
+      
       for (const [comidaId, idsVencidos] of comidasPorId.entries()) {
         // Verificar si hay otras planificaciones NO vencidas de esta comida
-        const otrasPlanificaciones = response.data.filter(
+        const otrasPlanificaciones = todasPlanificadas.data.filter(
           cp => cp.comida_id === comidaId && !idsVencidos.includes(cp.id)
         );
         
@@ -175,9 +168,10 @@ function CalendarioComidas({ onBack }) {
     if (!nuevaComida.trim()) return;
 
     try {
-      await axios.post(`${API_URL}/comidas-congeladas`, { nombre: nuevaComida });
+      const response = await axios.post(`${API_URL}/comidas-congeladas`, { nombre: nuevaComida });
+      // Actualizar estado local en lugar de recargar
+      setComidasCongeladas(prev => [response.data, ...prev]);
       setNuevaComida('');
-      cargarComidasCongeladas();
     } catch (err) {
       alert(t('errorAnadirComida'));
     }
@@ -203,7 +197,8 @@ function CalendarioComidas({ onBack }) {
 
     try {
       await axios.delete(`${API_URL}/comidas-congeladas/${id}`);
-      cargarComidasCongeladas();
+      // Actualizar estado local en lugar de recargar
+      setComidasCongeladas(prev => prev.filter(c => c.id !== id));
     } catch (err) {
       alert(t('errorEliminarComida'));
     }
@@ -261,10 +256,12 @@ function CalendarioComidas({ onBack }) {
         tipo_comida: modoTextoLibre.tipoComida
       });
       
+      // Actualizar estado local en lugar de recargar
+      setComidasPlanificadas(prev => [...prev, response.data]);
+      
       setToast({ type: 'success', message: `"${textoLibre}" añadido ✓` });
       setTextoLibre('');
       setModoTextoLibre(null);
-      cargarComidasPlanificadas();
     } catch (err) {
       setToast({ type: 'error', message: 'Error al añadir' });
     } finally {
@@ -287,20 +284,26 @@ function CalendarioComidas({ onBack }) {
     if (draggedItem.source === 'inventario' && !draggedItem.item.tachada) {
       setLoading(true);
       try {
-        await axios.post(`${API_URL}/comidas-planificadas`, {
+        const newPlanificada = await axios.post(`${API_URL}/comidas-planificadas`, {
           comida_id: draggedItem.item.id,
           comida_nombre: draggedItem.item.nombre,
           fecha: fechaStr,
           tipo_comida: tipoComida
         });
         setToast({ type: 'success', message: `"${draggedItem.item.nombre}" añadido al calendario ✓` });
-        cargarComidasPlanificadas();
+        
+        // Actualizar estado local de planificadas
+        setComidasPlanificadas(prev => [...prev, newPlanificada.data]);
         
         // Tachar comida en inventario
         await axios.put(`${API_URL}/comidas-congeladas/${draggedItem.item.id}`, {
           tachada: true
         });
-        cargarComidasCongeladas();
+        
+        // Actualizar estado local de congeladas
+        setComidasCongeladas(prev =>
+          prev.map(c => c.id === draggedItem.item.id ? { ...c, tachada: true } : c)
+        );
       } catch (err) {
         setToast({ type: 'error', message: 'Error al añadir la comida' });
       } finally {
@@ -338,16 +341,22 @@ function CalendarioComidas({ onBack }) {
     try {
       await axios.delete(`${API_URL}/comidas-planificadas/${comida.id}`);
 
+      // Actualizar estado local: eliminar de planificadas
+      setComidasPlanificadas(prev => prev.filter(c => c.id !== comida.id));
+
       if (opcion === 'quitar' && comida.comida_id) {
         // Volver al listado - destachar
         await axios.put(`${API_URL}/comidas-congeladas/${comida.comida_id}`, {
           tachada: false
         });
+        
+        // Actualizar estado local de congeladas
+        setComidasCongeladas(prev =>
+          prev.map(c => c.id === comida.comida_id ? { ...c, tachada: false } : c)
+        );
       }
 
       setToast({ type: 'success', message: `"${comida.comida_nombre}" ${opcion === 'quitar' ? 'quitado del calendario ✓' : 'eliminado ✓'}` });
-      cargarComidasCongeladas();
-      cargarComidasPlanificadas();
     } catch (err) {
       setToast({ type: 'error', message: 'Error al eliminar' });
     } finally {
@@ -375,8 +384,9 @@ function CalendarioComidas({ onBack }) {
     try {
       if (accion === 'repetir') {
         // Crear nueva entrada planificada
+        let response;
         if (moveModal.source === 'calendario') {
-          await axios.post(`${API_URL}/comidas-planificadas`, {
+          response = await axios.post(`${API_URL}/comidas-planificadas`, {
             comida_id: moveModal.item.comida_id,
             comida_nombre: moveModal.item.comida_nombre,
             fecha: fechaStr,
@@ -384,13 +394,15 @@ function CalendarioComidas({ onBack }) {
           });
         } else {
           // Desde inventario tachado
-          await axios.post(`${API_URL}/comidas-planificadas`, {
+          response = await axios.post(`${API_URL}/comidas-planificadas`, {
             comida_id: moveModal.item.id,
             comida_nombre: moveModal.item.nombre,
             fecha: fechaStr,
             tipo_comida: moveModal.tipoComida
           });
         }
+        // Actualizar estado local
+        setComidasPlanificadas(prev => [...prev, response.data]);
         setToast({ type: 'success', message: 'Item repetido ✓' });
       } else {
         // Mover
@@ -399,19 +411,27 @@ function CalendarioComidas({ onBack }) {
             fecha: fechaStr,
             tipo_comida: moveModal.tipoComida
           });
+          // Actualizar estado local
+          setComidasPlanificadas(prev =>
+            prev.map(c => c.id === moveModal.item.id 
+              ? { ...c, fecha: fechaStr, tipo_comida: moveModal.tipoComida }
+              : c
+            )
+          );
           setToast({ type: 'success', message: 'Item movido ✓' });
         } else {
           // Desde inventario tachado - crear nueva y dejar tachado
-          await axios.post(`${API_URL}/comidas-planificadas`, {
+          const response = await axios.post(`${API_URL}/comidas-planificadas`, {
             comida_id: moveModal.item.id,
             comida_nombre: moveModal.item.nombre,
             fecha: fechaStr,
             tipo_comida: moveModal.tipoComida
           });
+          // Actualizar estado local
+          setComidasPlanificadas(prev => [...prev, response.data]);
           setToast({ type: 'success', message: 'Item añadido ✓' });
         }
       }
-      cargarComidasPlanificadas();
     } catch (err) {
       setToast({ type: 'error', message: 'Error al procesar' });
     } finally {
@@ -445,17 +465,63 @@ function CalendarioComidas({ onBack }) {
     }
   };
 
-  // Actualizar notas de comida planificada
-  const handleActualizarNotasPlanificada = async (id, notas) => {
+  // Actualizar notas de comida planificada - Persistencia inteligente
+  const handleActualizarNotasPlanificada = async (comidasPlanificadasId, notasOriginales, comidaObj) => {
     try {
-      await axios.put(`${API_URL}/comidas-planificadas/${id}`, { notas });
-      // No necesita recargar porque ya se actualiza en el onChange
-      // Solo mostramos toast de confirmación
+      // Obtener las notas actuales del estado
+      let notasActuales = '';
+      if (comidaObj.comida_id) {
+        const comidasFrescas = comidasCongeladas.find(c => c.id === comidaObj.comida_id);
+        notasActuales = comidasFrescas?.notas || '';
+      } else {
+        const comidaFresca = comidasPlanificadas.find(c => c.id === comidasPlanificadasId);
+        notasActuales = comidaFresca?.notas || '';
+      }
+
+      // Solo guardar si las notas realmente cambiaron
+      if (notasActuales === notasOriginales) {
+        return; // Sin cambios, no hacer nada
+      }
+
+      // Si viene del inventario (comida_id), guardar en comidasCongeladas
+      // Si no, guardar en comidasPlanificadas (texto libre)
+      if (comidaObj.comida_id) {
+        // Actualizar en el inventario (donde persisten las notas principales)
+        await axios.put(`${API_URL}/comidas-congeladas/${comidaObj.comida_id}`, {
+          nombre: comidaObj.comida_nombre,
+          notas: notasActuales
+        });
+        
+        // Actualizar estado local en lugar de recargar
+        setComidasCongeladas(prev =>
+          prev.map(c => c.id === comidaObj.comida_id 
+            ? { ...c, notas: notasActuales } 
+            : c
+          )
+        );
+      } else {
+        // Actualizar en planificadas (texto libre)
+        await axios.put(`${API_URL}/comidas-planificadas/${comidasPlanificadasId}`, { notas: notasActuales });
+        
+        // Actualizar estado local en lugar de recargar
+        setComidasPlanificadas(prev =>
+          prev.map(c => c.id === comidasPlanificadasId 
+            ? { ...c, notas: notasActuales } 
+            : c
+          )
+        );
+      }
       setToast({ type: 'success', message: 'Notas guardadas ✓' });
     } catch (err) {
       setToast({ type: 'error', message: 'Error al guardar notas' });
-      // En caso de error, recargar para recuperar el estado original
-      cargarComidasPlanificadas();
+      // En caso de error, recargar para recuperar el estado original solo si es error 5xx
+      if (err.response?.status >= 500) {
+        if (comidaObj.comida_id) {
+          cargarComidasCongeladas();
+        } else {
+          cargarComidasPlanificadas();
+        }
+      }
     }
   };
 
@@ -486,7 +552,12 @@ function CalendarioComidas({ onBack }) {
         nombre: nuevoNombre,
         notas: comida.notas
       });
-      cargarComidasCongeladas();
+      
+      // Actualizar estado local en lugar de recargar
+      setComidasCongeladas(prev =>
+        prev.map(c => c.id === comidaId ? { ...c, nombre: nuevoNombre } : c)
+      );
+      
       setToast({ type: 'success', message: 'Nombre actualizado ✓' });
       setComidaEnEdicion(null);
     } catch (err) {
@@ -1596,7 +1667,7 @@ function CalendarioComidas({ onBack }) {
                                             prev.map(c => c.id === comida.id ? { ...c, notas: nuevasNotas } : c)
                                           );
                                         }}
-                                        onBlur={() => handleActualizarNotasPlanificada(comida.id, comida.notas)}
+                                        onBlur={() => handleActualizarNotasPlanificada(comida.id, comida.notas, comida)}
                                         placeholder="Añadir notas..."
                                         autoFocus
                                         style={{
@@ -1798,7 +1869,7 @@ function CalendarioComidas({ onBack }) {
                                             prev.map(c => c.id === comida.id ? { ...c, notas: nuevasNotas } : c)
                                           );
                                         }}
-                                        onBlur={() => handleActualizarNotasPlanificada(comida.id, comida.notas)}
+                                        onBlur={() => handleActualizarNotasPlanificada(comida.id, comida.notas, comida)}
                                         placeholder="Añadir notas..."
                                         autoFocus
                                         style={{
