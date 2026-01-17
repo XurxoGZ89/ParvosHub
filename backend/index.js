@@ -368,6 +368,31 @@ app.delete('/comidas-congeladas/limpiar/pasadas', async (req, res) => {
   }
 });
 
+// Obtener comidas planificadas vencidas (anteriores al lunes de esta semana)
+app.get('/comidas-planificadas/vencidas', async (req, res) => {
+  try {
+    // Calcular el lunes de la semana actual
+    const hoy = new Date();
+    const diaSemana = hoy.getDay() === 0 ? 7 : hoy.getDay();
+    const lunesActual = new Date(hoy);
+    lunesActual.setDate(hoy.getDate() - diaSemana + 1);
+    lunesActual.setHours(0, 0, 0, 0);
+
+    const result = await db.query(`
+      SELECT cp.*, cc.nombre as comida_nombre 
+      FROM comidas_planificadas cp
+      LEFT JOIN comidas_congeladas cc ON cp.comida_id = cc.id
+      WHERE cp.fecha < $1
+      ORDER BY cp.fecha ASC, cp.tipo_comida ASC
+    `, [lunesActual.toISOString()]);
+    
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error al obtener comidas vencidas:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Obtener todas las comidas planificadas
 app.get('/comidas-planificadas', async (req, res) => {
   try {
