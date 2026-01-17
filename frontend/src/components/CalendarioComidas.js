@@ -157,8 +157,11 @@ function CalendarioComidas({ onBack }) {
       fechas.push(fecha);
     }
     
+    console.log('📅 Semana mostrada:', fechas.map(f => f.toISOString().split('T')[0]));
+    console.log('🍽️ Comidas planificadas:', comidasPlanificadas);
+    
     return fechas;
-  }, [semanaActual]); // Solo recalcular cuando cambia la semana
+  }, [semanaActual, comidasPlanificadas]); // Solo recalcular cuando cambia la semana
 
   const diasSemana = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
