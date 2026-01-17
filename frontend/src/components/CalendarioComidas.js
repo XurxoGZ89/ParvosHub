@@ -16,6 +16,8 @@ function CalendarioComidas({ onBack }) {
   const [draggedItem, setDraggedItem] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
   const [pulseCell, setPulseCell] = useState(null); // {fecha, tipoComida} para animación pulse
+  const [modoTextoLibre, setModoTextoLibre] = useState(null); // {fecha, tipoComida}
+  const [textoLibre, setTextoLibre] = useState('');
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null); // {type: 'success'|'error', message: string}
   const [deleteModal, setDeleteModal] = useState(null); // {comida, type: 'complete'|'both'}
