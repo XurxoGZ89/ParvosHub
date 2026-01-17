@@ -1565,12 +1565,18 @@ function CalendarioComidas({ onBack }) {
             </div>
 
             {/* Calendario */}
-            <div style={{ overflowX: 'auto', margin: isMobile ? '0 -20px' : 0, padding: isMobile ? '0 20px' : 0 }}>
+            <div style={{ 
+              overflowX: 'auto', 
+              WebkitOverflowScrolling: 'touch',
+              margin: isMobile ? '0 -20px' : 0, 
+              padding: isMobile ? '0 20px' : 0,
+              scrollbarWidth: 'thin',
+              scrollbarColor: '#cbd5e0 #f7fafc'
+            }}>
               <table style={{ 
-                width: '100%', 
+                width: 'auto',
                 borderCollapse: 'collapse',
-                minWidth: isMobile ? '100%' : 'auto',
-                tableLayout: 'fixed'
+                minWidth: '100%'
               }}>
                 <thead>
                   <tr style={{ background: '#f1f3f4' }}>
@@ -1584,13 +1590,13 @@ function CalendarioComidas({ onBack }) {
                     }}></th>
                     {fechasQuincena.map((fecha, idx) => (
                       <th key={idx} style={{
-                        padding: isMobile ? '6px 4px' : '10px 8px',
+                        padding: isMobile ? '8px 6px' : '10px 8px',
                         fontWeight: 600,
                         fontSize: isMobile ? 11 : 13,
                         borderBottom: '2px solid #e5e5e7',
                         textAlign: 'center',
-                        width: isMobile ? '12%' : '13%',
-                        maxWidth: isMobile ? 80 : 120,
+                        minWidth: isMobile ? 120 : 140,
+                        width: isMobile ? 120 : 140,
                         background: fecha.getDay() === 0 || fecha.getDay() === 6 ? '#f9f9f9' : '#f1f3f4'
                       }}>
                         <div>{diasSemana[fecha.getDay() === 0 ? 6 : fecha.getDay() - 1]}</div>
@@ -1630,7 +1636,9 @@ function CalendarioComidas({ onBack }) {
                           onDragLeave={handleDragLeave}
                           onDrop={(e) => handleDrop(e, fecha, 'comida')}
                           style={{
-                            padding: isMobile ? 4 : 8,
+                            padding: isMobile ? 6 : 8,
+                            minWidth: isMobile ? 120 : 140,
+                            width: isMobile ? 120 : 140,
                             minHeight: isMobile ? 50 : 60,
                             border: isDropTarget ? '3px solid #007AFF' : '1px solid #e5e5e7',
                             background: isDropTarget ? '#e3f2fd' : (fecha.getDay() === 0 || fecha.getDay() === 6 ? '#fafafa' : '#fff'),
@@ -1743,8 +1751,8 @@ function CalendarioComidas({ onBack }) {
                                       gap: 6,
                                       border: '1px solid rgba(0,0,0,0.06)',
                                       transition: 'all 0.15s ease',
-                                      minHeight: isMobile ? 32 : 35,
-                                      maxHeight: isMobile ? 32 : 35,
+                                      minHeight: isMobile ? 40 : 45,
+                                      maxHeight: isMobile ? 52 : 60,
                                       boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
                                       position: 'relative',
                                       overflow: 'hidden'
@@ -1845,7 +1853,9 @@ function CalendarioComidas({ onBack }) {
                           onDragLeave={handleDragLeave}
                           onDrop={(e) => handleDrop(e, fecha, 'cena')}
                           style={{
-                            padding: isMobile ? 4 : 8,
+                            padding: isMobile ? 6 : 8,
+                            minWidth: isMobile ? 120 : 140,
+                            width: isMobile ? 120 : 140,
                             minHeight: isMobile ? 50 : 60,
                             border: isDropTarget ? '3px solid #007AFF' : '1px solid #e5e5e7',
                             background: isDropTarget ? '#e3f2fd' : (fecha.getDay() === 0 || fecha.getDay() === 6 ? '#fafafa' : '#fff'),
