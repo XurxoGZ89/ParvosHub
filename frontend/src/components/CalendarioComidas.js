@@ -17,6 +17,16 @@ function CalendarioComidas({ onBack }) {
   const [dropTarget, setDropTarget] = useState(null);
   const [modoTextoLibre, setModoTextoLibre] = useState(null); // {fecha, tipoComida}
   const [textoLibre, setTextoLibre] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState(null); // {type: 'success'|'error', message: string}
+
+  // Toast automático
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   // Detectar cambios de tamaño de ventana
   useEffect(() => {
@@ -63,11 +73,11 @@ function CalendarioComidas({ onBack }) {
     const lunesActual = new Date(hoy);
     lunesActual.setDate(hoy.getDate() - diaSemana + 1);
     
-    // Ajustar según semanaActual
-    lunesActual.setDate(lunesActual.getDate() + (semanaActual * 14));
+    // Ajustar según semanaActual (ahora en semanas de 7 días)
+    lunesActual.setDate(lunesActual.getDate() + (semanaActual * 7));
     
     const fechas = [];
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < 7; i++) {
       const fecha = new Date(lunesActual);
       fecha.setDate(lunesActual.getDate() + i);
       fechas.push(fecha);
@@ -123,6 +133,21 @@ function CalendarioComidas({ onBack }) {
   const handleDragStart = (e, item, source) => {
     setDraggedItem({ item, source });
     e.dataTransfer.effectAllowed = 'move';
+    
+    // Crear imagen de arrastre personalizada
+    const dragImage = document.createElement('div');
+    dragImage.style.background = 'linear-gradient(135deg, #ffeaa7 0%, #ffd93d 100%)';
+    dragImage.style.padding = '6px 8px';
+    dragImage.style.borderRadius = '6px';
+    dragImage.style.fontSize = '12px';
+    dragImage.style.fontWeight = '600';
+    dragImage.style.color = '#1d1d1f';
+    dragImage.style.position = 'absolute';
+    dragImage.style.left = '-9999px';
+    dragImage.textContent = item.nombre || item.comida_nombre;
+    document.body.appendChild(dragImage);
+    e.dataTransfer.setDragImage(dragImage, 0, 0);
+    setTimeout(() => document.body.removeChild(dragImage), 0);
   };
 
   const handleDragOver = (e) => {
@@ -142,6 +167,7 @@ function CalendarioComidas({ onBack }) {
   const handleA\u00f1adirTextoLibre = async () => {
     if (!textoLibre.trim() || !modoTextoLibre) return;
 
+    setLoading(true);
     try {
       const fechaStr = modoTextoLibre.fecha.toISOString().split('T')[0];
       await axios.post(`${API_URL}/comidas-planificadas`, {
@@ -151,11 +177,14 @@ function CalendarioComidas({ onBack }) {
         tipo_comida: modoTextoLibre.tipoComida
       });
       
+      setToast({ type: 'success', message: `"${textoLibre}" añadido ✓` });
       setTextoLibre('');
       setModoTextoLibre(null);
       cargarComidasPlanificadas();
     } catch (err) {
-      alert(t('errorPlanificarComida'));
+      setToast({ type: 'error', message: 'Error al añadir' });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -165,76 +194,64 @@ function CalendarioComidas({ onBack }) {
 
     if (!draggedItem) return;
 
+    setLoading(true);
     const fechaStr = fecha.toISOString().split('T')[0];
 
-    if (draggedItem.source === 'inventario') {
-      // Arrastrar desde inventario al calendario
-      const mensaje = `${draggedItem.item.nombre}\n\n${t('esPara')} ${tipoComida === 'comida' ? t('comida') : t('cena')}?`;
-      const confirmar = window.confirm(mensaje);
-      
-      if (!confirmar) {
-        // Si cancela, preguntamos si quiere el otro tipo
-        const otroTipo = tipoComida === 'comida' ? 'cena' : 'comida';
-        const otroMensaje = `${t('entoncesEsPara')} ${otroTipo === 'comida' ? t('comida') : t('cena')}?`;
-        const confirmarOtro = window.confirm(otroMensaje);
-        
-        if (!confirmarOtro) {
-          setDraggedItem(null);
-          return;
-        }
-        tipoComida = otroTipo;
-      }
-
-      try {
-        // Crear comida planificada
+    try {
+      if (draggedItem.source === 'inventario') {
+        // Arrastrar desde inventario al calendario (sin confirmación)
         await axios.post(`${API_URL}/comidas-planificadas`, {
           comida_id: draggedItem.item.id,
           comida_nombre: draggedItem.item.nombre,
           fecha: fechaStr,
           tipo_comida: tipoComida
         });
-
+        setToast({ type: 'success', message: `"${draggedItem.item.nombre}" añadido al calendario ✓` });
+        cargarComidasPlanificadas();
+        
         // Tachar comida en inventario
         await axios.put(`${API_URL}/comidas-congeladas/${draggedItem.item.id}`, {
           tachada: true
         });
-
         cargarComidasCongeladas();
-        cargarComidasPlanificadas();
-      } catch (err) {
-        alert(t('errorPlanificarComida'));
-      }
-    } else if (draggedItem.source === 'calendario') {
-      // Mover dentro del calendario
-      try {
+      } else if (draggedItem.source === 'calendario') {
+        // Mover dentro del calendario
         await axios.put(`${API_URL}/comidas-planificadas/${draggedItem.item.id}`, {
           fecha: fechaStr,
           tipo_comida: tipoComida
         });
+        setToast({ type: 'success', message: 'Comida movida ✓' });
         cargarComidasPlanificadas();
-      } catch (err) {
-        alert(t('errorMoverComida'));
       }
+    } catch (err) {
+      setToast({ type: 'error', message: 'Error al mover la comida' });
+    } finally {
+      setLoading(false);
+      setDraggedItem(null);
     }
-
-    setDraggedItem(null);
   };
 
   // Eliminar comida planificada
   const handleEliminarPlanificada = async (comida) => {
-    const opciones = [
-      `1 - ${t('eliminarCompletamente')}`,
-      `2 - ${t('volverAlListado')}`
-    ].join('\n');
+    const mensaje = comida.comida_id 
+      ? `¿Qué quieres hacer con "${comida.comida_nombre}"?\n\nEscribe:\n- "eliminar" para eliminar completamente\n- "quitar" para quitarla del calendario y devolverla a la despensa`
+      : `¿Eliminar "${comida.comida_nombre}" del calendario?`;
+    
+    const respuesta = window.prompt(mensaje, comida.comida_id ? 'quitar' : 'eliminar');
 
-    const opcion = window.prompt(`${t('queHacerConComida')}:\n\n${opciones}`, '2');
+    if (!respuesta) return;
 
-    if (!opcion || (opcion !== '1' && opcion !== '2')) return;
+    const opcion = respuesta.toLowerCase().trim();
+
+    if (opcion !== 'eliminar' && opcion !== 'quitar') {
+      alert('¡Respuesta no válida! Escribe "eliminar" o "quitar"');
+      return;
+    }
 
     try {
       await axios.delete(`${API_URL}/comidas-planificadas/${comida.id}`);
 
-      if (opcion === '2' && comida.comida_id) {
+      if (opcion === 'quitar' && comida.comida_id) {
         // Volver al listado - destachar
         await axios.put(`${API_URL}/comidas-congeladas/${comida.comida_id}`, {
           tachada: false
@@ -260,9 +277,44 @@ function CalendarioComidas({ onBack }) {
     <div style={{ 
       minHeight: '100vh', 
       background: '#f5f5f7', 
-      padding: '40px 20px', 
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' 
+      padding: isMobile ? '20px 12px' : '40px 20px', 
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      position: 'relative'
     }}>
+      {/* Toast Notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          bottom: 20,
+          right: 20,
+          background: toast.type === 'success' ? '#34C759' : '#FF3B30',
+          color: '#fff',
+          padding: '12px 16px',
+          borderRadius: 8,
+          fontSize: 14,
+          fontWeight: 500,
+          zIndex: 9999,
+          animation: 'slideIn 0.3s ease-out',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          maxWidth: isMobile ? 'calc(100% - 40px)' : '300px'
+        }}>
+          {toast.message}
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slideIn {
+          from {
+            transform: translateX(400px);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
+
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
         <Header title={t('calendarioComidas')} />
 
@@ -377,6 +429,7 @@ function CalendarioComidas({ onBack }) {
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
+                      gap: 8,
                       transition: 'all 0.2s'
                     }}
                     onMouseOver={(e) => {
@@ -386,30 +439,45 @@ function CalendarioComidas({ onBack }) {
                       if (!comida.tachada) e.currentTarget.style.background = '#fff';
                     }}
                   >
-                    <span>{comida.nombre}</span>
-                    {!comida.tachada && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEliminarComida(comida.id);
-                        }}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          fontSize: 16,
-                          color: '#ff3b30'
-                        }}
-                      >
-                        🗑️
-                      </button>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                      <span>{comida.nombre}</span>
+                      {comida.notas && (
+                        <span style={{ fontSize: 12, opacity: 0.6 }} title="Tiene notas">📝</span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      {!comida.tachada && (
+                        <span style={{ fontSize: 12, color: '#007AFF', userSelect: 'none' }}>
+                          {comidaExpandida === comida.id ? '▲' : '▼'}
+                        </span>
+                      )}
+                      {!comida.tachada && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEliminarComida(comida.id);
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: 16,
+                            color: '#ff3b30',
+                            padding: 0,
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Notas expandibles */}
                   {comidaExpandida === comida.id && !comida.tachada && (
                     <div style={{
-                      padding: '10px',
+                      padding: '8px',
                       background: '#f9f9f9',
                       borderRadius: 8,
                       marginTop: 4,
@@ -427,11 +495,11 @@ function CalendarioComidas({ onBack }) {
                         placeholder={t('anadirNotas')}
                         style={{
                           width: '100%',
-                          minHeight: 60,
-                          padding: 8,
+                          minHeight: 50,
+                          padding: 6,
                           borderRadius: 6,
                           border: '1px solid #e5e5e7',
-                          fontSize: 13,
+                          fontSize: 12,
                           fontFamily: 'inherit',
                           resize: 'vertical',
                           boxSizing: 'border-box'
@@ -468,17 +536,18 @@ function CalendarioComidas({ onBack }) {
               display: 'flex', 
               justifyContent: 'center', 
               alignItems: 'center', 
-              gap: 16, 
-              marginBottom: 24 
+              gap: isMobile ? 8 : 16, 
+              marginBottom: 24,
+              flexWrap: 'wrap'
             }}>
               <button
                 onClick={() => setSemanaActual(prev => prev - 1)}
                 style={{
                   background: '#f5f5f7',
                   border: 'none',
-                  fontSize: 16,
+                  fontSize: isMobile ? 14 : 16,
                   cursor: 'pointer',
-                  padding: '8px 16px',
+                  padding: isMobile ? '6px 12px' : '8px 16px',
                   color: '#007AFF',
                   borderRadius: 8,
                   fontWeight: 600,
@@ -487,17 +556,31 @@ function CalendarioComidas({ onBack }) {
                 onMouseOver={(e) => e.target.style.background = '#efefef'}
                 onMouseOut={(e) => e.target.style.background = '#f5f5f7'}
               >
-                ◀ {t('anterior')}
+                ◀ {isMobile ? '' : t('anterior')}
               </button>
 
               <div style={{ 
-                fontSize: 16, 
+                fontSize: isMobile ? 13 : 16, 
                 fontWeight: 600, 
                 color: '#1d1d1f',
                 textAlign: 'center',
-                minWidth: 200
+                minWidth: isMobile ? 150 : 250,
+                flex: isMobile ? '1 0 100%' : 'initial',
+                order: isMobile ? -1 : 0
               }}>
-                {fechasQuincena[0].getDate()}/{fechasQuincena[0].getMonth() + 1} - {fechasQuincena[13].getDate()}/{fechasQuincena[13].getMonth() + 1}
+                {(() => {
+                  const inicio = fechasQuincena[0];
+                  const fin = fechasQuincena[6];
+                  const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+                  const mesInicio = meses[inicio.getMonth()];
+                  const mesFin = meses[fin.getMonth()];
+                  
+                  if (inicio.getMonth() === fin.getMonth()) {
+                    return `${inicio.getDate()} - ${fin.getDate()} ${mesInicio}`;
+                  } else {
+                    return `${inicio.getDate()} ${mesInicio} - ${fin.getDate()} ${mesFin}`;
+                  }
+                })()}
               </div>
 
               <button
@@ -505,9 +588,9 @@ function CalendarioComidas({ onBack }) {
                 style={{
                   background: '#f5f5f7',
                   border: 'none',
-                  fontSize: 16,
+                  fontSize: isMobile ? 14 : 16,
                   cursor: 'pointer',
-                  padding: '8px 16px',
+                  padding: isMobile ? '6px 12px' : '8px 16px',
                   color: '#007AFF',
                   borderRadius: 8,
                   fontWeight: 600,
@@ -516,16 +599,16 @@ function CalendarioComidas({ onBack }) {
                 onMouseOver={(e) => e.target.style.background = '#efefef'}
                 onMouseOut={(e) => e.target.style.background = '#f5f5f7'}
               >
-                {t('siguiente')} ▶
+                {isMobile ? '' : t('siguiente')} ▶
               </button>
             </div>
 
             {/* Calendario */}
-            <div style={{ overflowX: 'auto' }}>
+            <div style={{ overflowX: 'auto', margin: isMobile ? '0 -20px' : 0, padding: isMobile ? '0 20px' : 0 }}>
               <table style={{ 
                 width: '100%', 
                 borderCollapse: 'collapse',
-                minWidth: isMobile ? 600 : 'auto'
+                minWidth: isMobile ? '100%' : 'auto'
               }}>
                 <thead>
                   <tr style={{ background: '#f1f3f4' }}>
@@ -539,16 +622,16 @@ function CalendarioComidas({ onBack }) {
                     }}></th>
                     {fechasQuincena.map((fecha, idx) => (
                       <th key={idx} style={{
-                        padding: '10px 8px',
+                        padding: isMobile ? '6px 4px' : '10px 8px',
                         fontWeight: 600,
-                        fontSize: 13,
+                        fontSize: isMobile ? 11 : 13,
                         borderBottom: '2px solid #e5e5e7',
                         textAlign: 'center',
-                        minWidth: 80,
+                        minWidth: isMobile ? 50 : 80,
                         background: fecha.getDay() === 0 || fecha.getDay() === 6 ? '#f9f9f9' : '#f1f3f4'
                       }}>
                         <div>{diasSemana[fecha.getDay() === 0 ? 6 : fecha.getDay() - 1]}</div>
-                        <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
+                        <div style={{ fontSize: isMobile ? 9 : 11, color: '#666', marginTop: 2 }}>
                           {fecha.getDate()}/{fecha.getMonth() + 1}
                         </div>
                       </th>
@@ -559,13 +642,14 @@ function CalendarioComidas({ onBack }) {
                   {/* Fila COMIDA */}
                   <tr>
                     <td style={{
-                      padding: '8px',
+                      padding: isMobile ? '4px' : '8px',
                       fontWeight: 600,
-                      fontSize: 12,
+                      fontSize: isMobile ? 10 : 12,
                       background: '#fff3cd',
                       borderRight: '1px solid #e5e5e7',
                       textAlign: 'center',
-                      color: '#856404'
+                      color: '#856404',
+                      minWidth: isMobile ? 40 : 50
                     }}>
                       🍽️<br/>{t('comida')}
                     </td>
@@ -587,14 +671,15 @@ function CalendarioComidas({ onBack }) {
                             }
                           }}
                           style={{
-                            padding: 8,
-                            minHeight: 60,
-                            border: '1px solid #e5e5e7',
+                            padding: isMobile ? 4 : 8,
+                            minHeight: isMobile ? 50 : 60,
+                            border: isDropTarget ? '3px solid #007AFF' : '1px solid #e5e5e7',
                             background: isDropTarget ? '#e3f2fd' : (fecha.getDay() === 0 || fecha.getDay() === 6 ? '#fafafa' : '#fff'),
-                            transition: 'background 0.2s',
+                            transition: 'all 0.2s',
                             verticalAlign: 'top',
                             cursor: comidas.length === 0 ? 'pointer' : 'default',
-                            position: 'relative'
+                            position: 'relative',
+                            boxShadow: isDropTarget ? '0 0 8px rgba(0, 122, 255, 0.3)' : 'none'
                           }}
                         >
                           {isTextoLibreMode ? (
@@ -656,17 +741,19 @@ function CalendarioComidas({ onBack }) {
                                   onDragStart={(e) => handleDragStart(e, comida, 'calendario')}
                                   style={{
                                     background: comida.comida_id 
-                                      ? 'linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%)' 
-                                      : 'linear-gradient(135deg, #e1f5fe 0%, #b3e5fc 100%)',
-                                    padding: '6px 8px',
+                                      ? 'linear-gradient(135deg, #ffeaa7 0%, #ffd93d 100%)' 
+                                      : 'linear-gradient(135deg, #b3e5fc 0%, #81d4fa 100%)',
+                                    padding: isMobile ? '4px 6px' : '6px 8px',
                                     borderRadius: 6,
-                                    fontSize: 12,
-                                    fontWeight: 500,
+                                    fontSize: isMobile ? 10 : 12,
+                                    fontWeight: 600,
+                                    color: '#1d1d1f',
                                     cursor: 'grab',
                                     display: 'flex',
                                     justifyContent: 'space-between',
                                     alignItems: 'center',
-                                    gap: 4
+                                    gap: 4,
+                                    border: '1px solid rgba(0,0,0,0.08)'
                                   }}
                                 >
                                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -686,10 +773,27 @@ function CalendarioComidas({ onBack }) {
                                     ✕
                                   </button>
                                 </div>
-                              ))}
+                              ))}  
                               {comidas.length === 0 && (
-                                <div style={{ fontSize: 10, color: '#999', textAlign: 'center', padding: 8, fontStyle: 'italic' }}>
-                                  {t('textoLibre')}
+                                <div style={{ 
+                                  fontSize: 10, 
+                                  color: '#999', 
+                                  textAlign: 'center', 
+                                  padding: 8, 
+                                  fontStyle: 'italic',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.color = '#007AFF';
+                                  e.currentTarget.style.fontWeight = '600';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.color = '#999';
+                                  e.currentTarget.style.fontWeight = '400';
+                                }}
+                                >
+                                  + Doble clic para añadir
                                 </div>
                               )}
                             </div>
@@ -702,13 +806,14 @@ function CalendarioComidas({ onBack }) {
                   {/* Fila CENA */}
                   <tr>
                     <td style={{
-                      padding: '8px',
+                      padding: isMobile ? '4px' : '8px',
                       fontWeight: 600,
-                      fontSize: 12,
+                      fontSize: isMobile ? 10 : 12,
                       background: '#e3f2fd',
                       borderRight: '1px solid #e5e5e7',
                       textAlign: 'center',
-                      color: '#1565c0'
+                      color: '#1565c0',
+                      minWidth: isMobile ? 40 : 50
                     }}>
                       🌙<br/>{t('cena')}
                     </td>
@@ -730,13 +835,14 @@ function CalendarioComidas({ onBack }) {
                             }
                           }}
                           style={{
-                            padding: 8,
-                            minHeight: 60,
-                            border: '1px solid #e5e5e7',
+                            padding: isMobile ? 4 : 8,
+                            minHeight: isMobile ? 50 : 60,
+                            border: isDropTarget ? '3px solid #007AFF' : '1px solid #e5e5e7',
                             background: isDropTarget ? '#e3f2fd' : (fecha.getDay() === 0 || fecha.getDay() === 6 ? '#fafafa' : '#fff'),
-                            transition: 'background 0.2s',
+                            transition: 'all 0.2s',
                             verticalAlign: 'top',
-                            cursor: comidas.length === 0 ? 'pointer' : 'default'
+                            cursor: comidas.length === 0 ? 'pointer' : 'default',
+                            boxShadow: isDropTarget ? '0 0 8px rgba(0, 122, 255, 0.3)' : 'none'
                           }}
                         >
                           {isTextoLibreMode ? (
@@ -747,8 +853,9 @@ function CalendarioComidas({ onBack }) {
                                 onChange={(e) => setTextoLibre(e.target.value)}
                                 placeholder={t('escribirProducto')}
                                 autoFocus
+                                disabled={loading}
                                 onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleAñadirTextoLibre();
+                                  if (e.key === 'Enter' && !loading) handleAñadirTextoLibre();
                                   if (e.key === 'Escape') { setTextoLibre(''); setModoTextoLibre(null); }
                                 }}
                                 style={{
@@ -757,22 +864,25 @@ function CalendarioComidas({ onBack }) {
                                   borderRadius: 4,
                                   border: '1px solid #007AFF',
                                   fontSize: 11,
-                                  boxSizing: 'border-box'
+                                  boxSizing: 'border-box',
+                                  opacity: loading ? 0.6 : 1
                                 }}
                               />
                               <button
                                 onClick={handleAñadirTextoLibre}
+                                disabled={loading}
                                 style={{
                                   padding: '2px 8px',
-                                  background: '#007AFF',
+                                  background: loading ? '#ccc' : '#007AFF',
                                   color: '#fff',
                                   border: 'none',
                                   borderRadius: 4,
                                   fontSize: 11,
-                                  cursor: 'pointer'
+                                  cursor: loading ? 'not-allowed' : 'pointer',
+                                  opacity: loading ? 0.6 : 1
                                 }}
                               >
-                                ✓
+                                {loading ? '...' : '✓'}
                               </button>
                               <button
                                 onClick={() => { setTextoLibre(''); setModoTextoLibre(null); }}
@@ -798,17 +908,20 @@ function CalendarioComidas({ onBack }) {
                                   onDragStart={(e) => handleDragStart(e, comida, 'calendario')}
                                   style={{
                                     background: comida.comida_id 
-                                      ? 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)' 
-                                      : 'linear-gradient(135deg, #e1f5fe 0%, #b3e5fc 100%)',
-                                    padding: '6px 8px',
+                                      ? 'linear-gradient(135deg, #c5e1a5 0%, #aed581 100%)' 
+                                      : 'linear-gradient(135deg, #b3e5fc 0%, #81d4fa 100%)',
+                                    padding: isMobile ? '4px 6px' : '6px 8px',
                                     borderRadius: 6,
-                                    fontSize: 12,
-                                    fontWeight: 500,
+                                    fontSize: isMobile ? 10 : 12,
+                                    fontWeight: 600,
+                                    color: '#1d1d1f',
                                     cursor: 'grab',
                                     display: 'flex',
                                     justifyContent: 'space-between',
                                     alignItems: 'center',
-                                    gap: 4
+                                    gap: 4,
+                                    border: '1px solid rgba(0,0,0,0.08)',
+                                    opacity: loading ? 0.6 : 1
                                   }}
                                 >
                                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -830,8 +943,25 @@ function CalendarioComidas({ onBack }) {
                                 </div>
                               ))}
                               {comidas.length === 0 && (
-                                <div style={{ fontSize: 10, color: '#999', textAlign: 'center', padding: 8, fontStyle: 'italic' }}>
-                                  {t('textoLibre')}
+                                <div style={{ 
+                                  fontSize: 10, 
+                                  color: '#999', 
+                                  textAlign: 'center', 
+                                  padding: 8, 
+                                  fontStyle: 'italic',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.color = '#007AFF';
+                                  e.currentTarget.style.fontWeight = '600';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.color = '#999';
+                                  e.currentTarget.style.fontWeight = '400';
+                                }}
+                                >
+                                  + Doble clic para añadir
                                 </div>
                               )}
                             </div>
