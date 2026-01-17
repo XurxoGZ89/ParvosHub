@@ -1807,19 +1807,6 @@ function CalendarioComidas({ onBack }) {
                                     >
                                       ✕
                                     </button>
-                                          padding: isMobile ? '3px 5px' : '4px 6px',
-                                          color: '#d32f2f',
-                                          transition: 'all 0.2s',
-                                          flexShrink: 0,
-                                          opacity: 0.5
-                                        }}
-                                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.5'}
-                                        title="Eliminar"
-                                      >
-                                        ✕
-                                      </button>
-                                    </div>
                                   </div>
                                 </div>
                               ))}  
@@ -2039,66 +2026,7 @@ function CalendarioComidas({ onBack }) {
                                     >
                                       ✕
                                     </button>
-                                        {comida.comida_nombre}
-                                      </span>
-                                      <button
-                                        onClick={() => handleEliminarPlanificada(comida)}
-                                        style={{
-                                          background: 'transparent',
-                                          border: 'none',
-                                          cursor: 'pointer',
-                                          fontSize: isMobile ? 12 : 14,
-                                          padding: isMobile ? '3px 5px' : '4px 6px',
-                                          color: '#d32f2f',
-                                          transition: 'all 0.2s',
-                                          flexShrink: 0,
-                                          opacity: 0.5
-                                        }}
-                                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.5'}
-                                        title="Eliminar"
-                                      >
-                                        ✕
-                                      </button>
-                                    </div>
                                   </div>
-
-                                  {/* Notas desplegables del calendario */}
-                                  {notasCalendarioAbiertas === comida.id && (
-                                    <div style={{
-                                      padding: '6px',
-                                      background: '#fff',
-                                      borderRadius: 6,
-                                      border: '1px solid #e5e5e7',
-                                      marginTop: 2
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <textarea
-                                        value={comida.notas || ''}
-                                        onChange={(e) => {
-                                          const nuevasNotas = e.target.value;
-                                          setComidasPlanificadas(prev =>
-                                            prev.map(c => c.id === comida.id ? { ...c, notas: nuevasNotas } : c)
-                                          );
-                                        }}
-                                        onBlur={() => handleActualizarNotasPlanificada(comida.id, comida.notas, comida)}
-                                        placeholder="Añadir notas..."
-                                        autoFocus
-                                        style={{
-                                          width: '100%',
-                                          minHeight: 40,
-                                          padding: 4,
-                                          borderRadius: 4,
-                                          border: '1px solid #007AFF',
-                                          fontSize: 11,
-                                          fontFamily: 'inherit',
-                                          resize: 'vertical',
-                                          boxSizing: 'border-box'
-                                        }}
-                                      />
-                                    </div>
-                                  )}
                                 </div>
                               ))}
                             </div>
