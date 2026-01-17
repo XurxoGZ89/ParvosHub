@@ -273,8 +273,15 @@ function CalendarioComidas({ onBack }) {
         tipo_comida: modoTextoLibre.tipoComida
       });
       
+      // Asegurar que el objeto tiene todos los campos necesarios
+      const nuevoItem = {
+        ...response.data,
+        comida_nombre: response.data.comida_nombre || textoLibre,
+        notas: response.data.notas || ''
+      };
+      
       // Actualizar estado local en lugar de recargar
-      setComidasPlanificadas(prev => [...prev, response.data]);
+      setComidasPlanificadas(prev => [...prev, nuevoItem]);
       
       setToast({ type: 'success', message: `"${textoLibre}" añadido ✓` });
       setTextoLibre('');
@@ -1130,7 +1137,14 @@ function CalendarioComidas({ onBack }) {
                           }}
                         />
                       ) : (
-                        <span>{comida.nombre}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+                          <span>{comida.nombre}</span>
+                          {getFechaUltimaPlanificacion(comida.id) && (
+                            <span style={{ fontSize: 11, color: '#999' }}>
+                              📅 {getFechaUltimaPlanificacion(comida.id)}
+                            </span>
+                          )}
+                        </div>
                       )}
                       {comida.notas && (
                         <span style={{ 
@@ -1139,7 +1153,8 @@ function CalendarioComidas({ onBack }) {
                           background: '#e8e8ed',
                           borderRadius: 4,
                           cursor: 'pointer',
-                          transition: 'all 0.2s'
+                          transition: 'all 0.2s',
+                          whiteSpace: 'nowrap'
                         }} 
                         title="Tiene notas"
                         onMouseEnter={(e) => {
@@ -1319,7 +1334,8 @@ function CalendarioComidas({ onBack }) {
                           background: '#d0d0d0',
                           borderRadius: 4,
                           cursor: 'pointer',
-                          transition: 'all 0.2s'
+                          transition: 'all 0.2s',
+                          whiteSpace: 'nowrap'
                         }} 
                         title="Tiene notas"
                         onMouseEnter={(e) => {
@@ -1679,96 +1695,43 @@ function CalendarioComidas({ onBack }) {
                                       boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
                                     }}
                                   >
-                                    <span style={{ 
-                                      flex: 1, 
-                                      display: 'flex', 
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      overflow: comida.comida_nombre.length > 15 ? 'hidden' : 'visible',
-                                      textOverflow: comida.comida_nombre.length > 15 ? 'ellipsis' : 'clip',
-                                      wordBreak: comida.comida_nombre.length > 15 ? 'normal' : 'break-word',
-                                      whiteSpace: comida.comida_nombre.length > 15 ? 'nowrap' : 'normal',
-                                      pointerEvents: 'none',
-                                      lineHeight: '1.3',
-                                      width: '100%',
-                                      padding: '0 2px'
-                                    }}>
-                                      {comida.comida_nombre}
-                                    </span>
-                                    <div style={{ display: 'flex', gap: 3, alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setNotasCalendarioAbiertas(notasCalendarioAbiertas === comida.id ? null : comida.id);
-                                        }}
-                                        style={{
-                                          background: comida.notas ? 'rgba(0, 122, 255, 0.15)' : 'rgba(0,0,0,0.05)',
-                                          border: 'none',
-                                          cursor: 'pointer',
-                                          fontSize: isMobile ? 12 : 14,
-                                          padding: isMobile ? '3px 5px' : '4px 6px',
-                                          borderRadius: 4,
-                                          color: comida.notas ? '#007AFF' : '#999',
-                                          transition: 'all 0.2s'
-                                        }}
-                                        title={comida.notas ? 'Ver notas' : 'Añadir notas'}
-                                      >
-                                        📝
-                                      </button>
+                                    <div style={{ display: 'flex', gap: 2, alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                                      <span style={{ 
+                                        flex: 1, 
+                                        display: 'flex', 
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        overflow: comida.comida_nombre.length > 15 ? 'hidden' : 'visible',
+                                        textOverflow: comida.comida_nombre.length > 15 ? 'ellipsis' : 'clip',
+                                        wordBreak: comida.comida_nombre.length > 15 ? 'normal' : 'break-word',
+                                        whiteSpace: comida.comida_nombre.length > 15 ? 'nowrap' : 'normal',
+                                        pointerEvents: 'none',
+                                        lineHeight: '1.3',
+                                        padding: '0 2px'
+                                      }}>
+                                        {comida.comida_nombre}
+                                      </span>
                                       <button
                                         onClick={() => handleEliminarPlanificada(comida)}
                                         style={{
-                                          background: 'rgba(211, 47, 47, 0.1)',
+                                          background: 'transparent',
                                           border: 'none',
                                           cursor: 'pointer',
                                           fontSize: isMobile ? 12 : 14,
                                           padding: isMobile ? '3px 5px' : '4px 6px',
-                                          borderRadius: 4,
                                           color: '#d32f2f',
-                                          transition: 'all 0.2s'
+                                          transition: 'all 0.2s',
+                                          flexShrink: 0,
+                                          opacity: 0.5
                                         }}
+                                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.5'}
+                                        title="Eliminar"
                                       >
                                         ✕
                                       </button>
                                     </div>
                                   </div>
-
-                                  {/* Notas desplegables del calendario */}
-                                  {notasCalendarioAbiertas === comida.id && (
-                                    <div style={{
-                                      padding: '6px',
-                                      background: '#fff',
-                                      borderRadius: 6,
-                                      border: '1px solid #e5e5e7',
-                                      marginTop: 2
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <textarea
-                                        value={comida.notas || ''}
-                                        onChange={(e) => {
-                                          const nuevasNotas = e.target.value;
-                                          setComidasPlanificadas(prev =>
-                                            prev.map(c => c.id === comida.id ? { ...c, notas: nuevasNotas } : c)
-                                          );
-                                        }}
-                                        onBlur={() => handleActualizarNotasPlanificada(comida.id, comida.notas, comida)}
-                                        placeholder="Añadir notas..."
-                                        autoFocus
-                                        style={{
-                                          width: '100%',
-                                          minHeight: 40,
-                                          padding: 4,
-                                          borderRadius: 4,
-                                          border: '1px solid #007AFF',
-                                          fontSize: 11,
-                                          fontFamily: 'inherit',
-                                          resize: 'vertical',
-                                          boxSizing: 'border-box'
-                                        }}
-                                      />
-                                    </div>
-                                  )}
                                 </div>
                               ))}  
                             </div>
@@ -1931,54 +1894,38 @@ function CalendarioComidas({ onBack }) {
                                       boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
                                     }}
                                   >
-                                    <span style={{ 
-                                      flex: 1, 
-                                      display: 'flex', 
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      overflow: comida.comida_nombre.length > 15 ? 'hidden' : 'visible',
-                                      textOverflow: comida.comida_nombre.length > 15 ? 'ellipsis' : 'clip',
-                                      wordBreak: comida.comida_nombre.length > 15 ? 'normal' : 'break-word',
-                                      whiteSpace: comida.comida_nombre.length > 15 ? 'nowrap' : 'normal',
-                                      pointerEvents: 'none',
-                                      lineHeight: '1.3',
-                                      width: '100%',
-                                      padding: '0 2px'
-                                    }}>
-                                      {comida.comida_nombre}
-                                    </span>
-                                    <div style={{ display: 'flex', gap: 3, alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setNotasCalendarioAbiertas(notasCalendarioAbiertas === comida.id ? null : comida.id);
-                                        }}
-                                        style={{
-                                          background: comida.notas ? 'rgba(0, 122, 255, 0.15)' : 'rgba(0,0,0,0.05)',
-                                          border: 'none',
-                                          cursor: 'pointer',
-                                          fontSize: isMobile ? 12 : 14,
-                                          padding: isMobile ? '3px 5px' : '4px 6px',
-                                          borderRadius: 4,
-                                          color: comida.notas ? '#007AFF' : '#999',
-                                          transition: 'all 0.2s'
-                                        }}
-                                        title={comida.notas ? 'Ver notas' : 'Añadir notas'}
-                                      >
-                                        📝
-                                      </button>
+                                    <div style={{ display: 'flex', gap: 2, alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                                      <span style={{ 
+                                        flex: 1, 
+                                        display: 'flex', 
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        overflow: comida.comida_nombre.length > 15 ? 'hidden' : 'visible',
+                                        textOverflow: comida.comida_nombre.length > 15 ? 'ellipsis' : 'clip',
+                                        wordBreak: comida.comida_nombre.length > 15 ? 'normal' : 'break-word',
+                                        whiteSpace: comida.comida_nombre.length > 15 ? 'nowrap' : 'normal',
+                                        pointerEvents: 'none',
+                                        lineHeight: '1.3',
+                                        padding: '0 2px'
+                                      }}>
+                                        {comida.comida_nombre}
+                                      </span>
                                       <button
                                         onClick={() => handleEliminarPlanificada(comida)}
                                         style={{
-                                          background: 'rgba(211, 47, 47, 0.1)',
+                                          background: 'transparent',
                                           border: 'none',
                                           cursor: 'pointer',
                                           fontSize: isMobile ? 12 : 14,
                                           padding: isMobile ? '3px 5px' : '4px 6px',
-                                          borderRadius: 4,
                                           color: '#d32f2f',
-                                          transition: 'all 0.2s'
+                                          transition: 'all 0.2s',
+                                          flexShrink: 0,
+                                          opacity: 0.5
                                         }}
+                                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.5'}
+                                        title="Eliminar"
                                       >
                                         ✕
                                       </button>

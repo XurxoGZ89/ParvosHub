@@ -432,13 +432,36 @@ app.post('/comidas-planificadas', async (req, res) => {
 // Actualizar una comida planificada (mover en el calendario)
 app.put('/comidas-planificadas/:id', async (req, res) => {
   const { id } = req.params;
-  const { fecha, tipo_comida } = req.body;
+  const { fecha, tipo_comida, notas } = req.body;
 
   try {
-    const result = await db.query(
-      'UPDATE comidas_planificadas SET fecha = $1, tipo_comida = $2 WHERE id = $3 RETURNING *',
-      [fecha, tipo_comida, id]
-    );
+    // Construir UPDATE dinámico según qué campos se envíen
+    let updateQuery = 'UPDATE comidas_planificadas SET ';
+    const params = [];
+    let paramIndex = 1;
+
+    if (fecha !== undefined) {
+      updateQuery += `fecha = $${paramIndex}`;
+      params.push(fecha);
+      paramIndex++;
+    }
+    if (tipo_comida !== undefined) {
+      if (params.length > 0) updateQuery += ', ';
+      updateQuery += `tipo_comida = $${paramIndex}`;
+      params.push(tipo_comida);
+      paramIndex++;
+    }
+    if (notas !== undefined) {
+      if (params.length > 0) updateQuery += ', ';
+      updateQuery += `notas = $${paramIndex}`;
+      params.push(notas);
+      paramIndex++;
+    }
+
+    updateQuery += ` WHERE id = $${paramIndex} RETURNING *`;
+    params.push(id);
+
+    const result = await db.query(updateQuery, params);
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Comida planificada no encontrada' });
     }
