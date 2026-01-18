@@ -2,9 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import axios from 'axios';
 import { useLanguage } from '../contexts/LanguageContext';
 import Header from './Header';
-
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-
 function CalendarioComidas({ onBack }) {
   const { t } = useLanguage();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -21,15 +19,12 @@ function CalendarioComidas({ onBack }) {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null); // {type: 'success'|'error', message: string}
   const [deleteModal, setDeleteModal] = useState(null); // {comida, type: 'complete'|'both'}
-  const [mostrarUsados, setMostrarUsados] = useState(false);
   const [moveModal, setMoveModal] = useState(null);
+  const [notaEditandose, setNotaEditandose] = useState(null); // ID de la comida planificada cuya nota se está editando
   const [comidaEnEdicion, setComidaEnEdicion] = useState(null); // {id, nuevoNombre}
-  const [tooltip, setTooltip] = useState(null); // {text, x, y}
-  
   // Refs para focus management
   const moveModalRef = useRef(null);
   const deleteModalRef = useRef(null);
-
   // Toast automático
   useEffect(() => {
     if (toast) {
@@ -37,7 +32,6 @@ function CalendarioComidas({ onBack }) {
       return () => clearTimeout(timer);
     }
   }, [toast]);
-
   // Limpiar animación pulse después de 600ms
   useEffect(() => {
     if (pulseCell) {
@@ -45,7 +39,6 @@ function CalendarioComidas({ onBack }) {
       return () => clearTimeout(timer);
     }
   }, [pulseCell]);
-
   // Detectar cambios de tamaño de ventana
   useEffect(() => {
     const handleResize = () => {
@@ -54,13 +47,11 @@ function CalendarioComidas({ onBack }) {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
   // Atajos de teclado
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Solo procesar si no hay inputs activos
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      
       switch(e.key) {
         case 'ArrowLeft':
           e.preventDefault();
@@ -85,11 +76,9 @@ function CalendarioComidas({ onBack }) {
           break;
       }
     };
-    
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [deleteModal, moveModal, modoTextoLibre, comidaEnEdicion]);
-  
   // Focus automático en modales
   useEffect(() => {
     if (moveModal && moveModalRef.current) {
@@ -97,14 +86,12 @@ function CalendarioComidas({ onBack }) {
       if (firstButton) firstButton.focus();
     }
   }, [moveModal]);
-  
   useEffect(() => {
     if (deleteModal && deleteModalRef.current) {
       const firstButton = deleteModalRef.current.querySelector('button:last-child'); // Botón de confirmar
       if (firstButton) firstButton.focus();
     }
   }, [deleteModal]);
-
   // Cargar datos
   const cargarComidasCongeladas = useCallback(async () => {
     try {
@@ -114,7 +101,6 @@ function CalendarioComidas({ onBack }) {
       console.error('Error al cargar comidas congeladas:', err);
     }
   }, []);
-
   const cargarComidasPlanificadas = useCallback(async () => {
     try {
       const res = await axios.get(`${API_URL}/comidas-planificadas`);
@@ -123,16 +109,13 @@ function CalendarioComidas({ onBack }) {
       console.error('Error al cargar comidas planificadas:', err);
     }
   }, []);
-
   // Limpiar comidas planificadas vencidas (fecha anterior a hoy)
   const limpiarComidasVencidas = useCallback(async () => {
     try {
       // Obtener directamente del backend las comidas vencidas (1 sola llamada)
       const response = await axios.get(`${API_URL}/comidas-planificadas/vencidas`);
       const comidasVencidas = response.data;
-
       if (comidasVencidas.length === 0) return;
-
       // Agrupar comidas vencidas por comida_id para optimizar
       const comidasPorId = new Map();
       comidasVencidas.forEach(comida => {
@@ -143,43 +126,35 @@ function CalendarioComidas({ onBack }) {
           comidasPorId.get(comida.comida_id).push(comida.id);
         }
       });
-
       // Eliminar las comidas vencidas en paralelo
       await Promise.all(comidasVencidas.map(comida => 
         axios.delete(`${API_URL}/comidas-planificadas/${comida.id}`)
       ));
-
       // Verificar qué comidas del inventario destachar
       const comidasADestachar = [];
-      
       // Obtener estado actual de planificadas (para verificar si hay otras activas)
       const todasPlanificadas = await axios.get(`${API_URL}/comidas-planificadas`);
-      
       for (const [comidaId, idsVencidos] of comidasPorId.entries()) {
         // Verificar si hay otras planificaciones NO vencidas de esta comida
         const otrasPlanificaciones = todasPlanificadas.data.filter(
           cp => cp.comida_id === comidaId && !idsVencidos.includes(cp.id)
         );
-        
         // Solo destachar si no hay otras planificaciones activas
         if (otrasPlanificaciones.length === 0) {
           comidasADestachar.push(comidaId);
         }
       }
-
       // Destachar comidas del inventario en paralelo
       if (comidasADestachar.length > 0) {
         await Promise.all(comidasADestachar.map(comidaId =>
           axios.put(`${API_URL}/comidas-congeladas/${comidaId}`, { tachada: false })
         ));
       }
-
       console.log(`✓ Limpiadas ${comidasVencidas.length} comidas vencidas`);
     } catch (err) {
       console.error('Error al limpiar comidas vencidas:', err);
     }
   }, []);
-
   useEffect(() => {
     // Primero limpiar comidas vencidas
     limpiarComidasVencidas().then(() => {
@@ -187,40 +162,31 @@ function CalendarioComidas({ onBack }) {
       cargarComidasCongeladas();
       cargarComidasPlanificadas();
     });
-    
     // Limpiar comidas tachadas de semanas pasadas
     axios.delete(`${API_URL}/comidas-congeladas/limpiar/pasadas`).catch(console.error);
   }, [cargarComidasCongeladas, cargarComidasPlanificadas, limpiarComidasVencidas]);
-
   // Calcular fechas de la quincena (2 semanas) - MEMOIZADO
   const fechasQuincena = useMemo(() => {
     const hoy = new Date();
     const diaSemana = hoy.getDay() === 0 ? 7 : hoy.getDay();
-    
     // Calcular el lunes de la semana actual
     const lunesActual = new Date(hoy);
     lunesActual.setDate(hoy.getDate() - diaSemana + 1);
-    
     // Ajustar según semanaActual (ahora en semanas de 7 días)
     lunesActual.setDate(lunesActual.getDate() + (semanaActual * 7));
-    
     const fechas = [];
     for (let i = 0; i < 7; i++) {
       const fecha = new Date(lunesActual);
       fecha.setDate(lunesActual.getDate() + i);
       fechas.push(fecha);
     }
-    
     return fechas;
-  }, [semanaActual, comidasPlanificadas]); // Solo recalcular cuando cambia la semana
-
+  }, [semanaActual]); // Solo recalcular cuando cambia la semana
   const diasSemana = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-
   // Añadir comida al inventario
   const handleAñadirComida = async (e) => {
     e.preventDefault();
     if (!nuevaComida.trim()) return;
-
     try {
       const response = await axios.post(`${API_URL}/comidas-congeladas`, { nombre: nuevaComida });
       // Actualizar estado local en lugar de recargar
@@ -230,42 +196,55 @@ function CalendarioComidas({ onBack }) {
       alert(t('errorAnadirComida'));
     }
   };
-
   // Actualizar notas de una comida del inventario
   const handleActualizarNotas = async (id, notas) => {
     try {
       const comida = comidasCongeladas.find(c => c.id === id);
-      
       // Verificar si las notas realmente cambiaron
       if (comida.notas === notas) {
         return; // Sin cambios, no hacer nada
       }
-      
       await axios.put(`${API_URL}/comidas-congeladas/${id}`, {
         nombre: comida.nombre,
         notas
       });
-      
       // Actualizar estado local en lugar de recargar
       setComidasCongeladas(prev =>
         prev.map(c => c.id === id ? { ...c, notas } : c)
       );
-      
       // Sincronizar con items planificados que vienen de este inventario
       setComidasPlanificadas(prev =>
         prev.map(cp => cp.comida_id === id ? { ...cp, notas } : cp)
       );
-      
       setToast({ type: 'success', message: 'Notas guardadas ✓' });
     } catch (err) {
       setToast({ type: 'error', message: 'Error al guardar notas' });
     }
   };
 
+  // Actualizar notas de una comida planificada
+  const handleActualizarNotasPlanificada = async (id, notas) => {
+    try {
+      const comida = comidasPlanificadas.find(c => c.id === id);
+      // Verificar si las notas realmente cambiaron
+      if (comida.notas === notas) {
+        return; // Sin cambios, no hacer nada
+      }
+      await axios.put(`${API_URL}/comidas-planificadas/${id}/notas`, {
+        notas
+      });
+      // Actualizar estado local
+      setComidasPlanificadas(prev =>
+        prev.map(c => c.id === id ? { ...c, notas } : c)
+      );
+      setToast({ type: 'success', message: 'Notas guardadas ✓' });
+    } catch (err) {
+      setToast({ type: 'error', message: 'Error al guardar notas' });
+    }
+  };
   // Eliminar comida del inventario
   const handleEliminarComida = async (id) => {
     if (!window.confirm(t('seguro'))) return;
-
     try {
       await axios.delete(`${API_URL}/comidas-congeladas/${id}`);
       // Actualizar estado local en lugar de recargar
@@ -274,12 +253,10 @@ function CalendarioComidas({ onBack }) {
       alert(t('errorEliminarComida'));
     }
   };
-
   // Drag & Drop - Inicio
   const handleDragStart = (e, item, source) => {
     setDraggedItem({ item, source });
     e.dataTransfer.effectAllowed = 'move';
-    
     // Crear imagen de arrastre personalizada
     const dragImage = document.createElement('div');
     dragImage.style.background = 'linear-gradient(135deg, #ffeaa7 0%, #ffd93d 100%)';
@@ -295,16 +272,13 @@ function CalendarioComidas({ onBack }) {
     e.dataTransfer.setDragImage(dragImage, 0, 0);
     setTimeout(() => document.body.removeChild(dragImage), 0);
   };
-
   const handleDragOver = (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
-
   const handleDragEnter = (fecha, tipoComida) => {
     setDropTarget({ fecha, tipoComida });
   };
-
   const handleDragLeave = (e) => {
     // Solo limpia el drop target si se sale completamente de la celda
     // (no cuando entras en un elemento hijo)
@@ -312,52 +286,47 @@ function CalendarioComidas({ onBack }) {
       setDropTarget(null);
     }
   };
-
   // Añadir comida de texto libre al calendario
   const handleAñadirTextoLibre = async () => {
     if (!textoLibre.trim() || !modoTextoLibre) return;
-
     setLoading(true);
     try {
       const fechaStr = modoTextoLibre.fecha.toISOString().split('T')[0];
+      const nombreComida = textoLibre.trim();
       const response = await axios.post(`${API_URL}/comidas-planificadas`, {
         comida_id: null,
-        comida_nombre: textoLibre,
+        comida_nombre: nombreComida,
         fecha: fechaStr,
         tipo_comida: modoTextoLibre.tipoComida
       });
-      
-      // Asegurar que el objeto tiene todos los campos necesarios
+      // Asegurar que el objeto tiene el nombre correcto
       const nuevoItem = {
-        ...response.data,
-        comida_nombre: response.data.comida_nombre || textoLibre,
-        notas: response.data.notas || ''
+        id: response.data.id,
+        comida_id: null,
+        comida_nombre: nombreComida, // Usar siempre nuestro texto original
+        fecha: fechaStr,
+        tipo: modoTextoLibre.tipoComida,
+        notas: null
       };
-      
       // Actualizar estado local en lugar de recargar
       setComidasPlanificadas(prev => [...prev, nuevoItem]);
-      
-      setToast({ type: 'success', message: `"${textoLibre}" añadido ✓` });
+      setToast({ type: 'success', message: `"${nombreComida}" añadido ✓` });
       setTextoLibre('');
       setModoTextoLibre(null);
     } catch (err) {
+      console.error('Error al añadir texto libre:', err);
       setToast({ type: 'error', message: 'Error al añadir' });
     } finally {
       setLoading(false);
     }
   };
-
   const handleDrop = async (e, fecha, tipoComida) => {
     e.preventDefault();
     setDropTarget(null);
-
     if (!draggedItem) return;
-
     // Activar animación pulse en la celda
     setPulseCell({ fecha: fecha.getTime(), tipoComida });
-
     const fechaStr = fecha.toISOString().split('T')[0];
-
     // Si es desde inventario sin tachar, añadir directamente sin modal
     if (draggedItem.source === 'inventario' && !draggedItem.item.tachada) {
       setLoading(true);
@@ -369,15 +338,12 @@ function CalendarioComidas({ onBack }) {
           tipo_comida: tipoComida
         });
         setToast({ type: 'success', message: `"${draggedItem.item.nombre}" añadido al calendario ✓` });
-        
         // Actualizar estado local de planificadas
         setComidasPlanificadas(prev => [...prev, newPlanificada.data]);
-        
         // Tachar comida en inventario
         await axios.put(`${API_URL}/comidas-congeladas/${draggedItem.item.id}`, {
           tachada: true
         });
-        
         // Actualizar estado local de congeladas
         setComidasCongeladas(prev =>
           prev.map(c => c.id === draggedItem.item.id ? { ...c, tachada: true } : c)
@@ -399,7 +365,6 @@ function CalendarioComidas({ onBack }) {
       setDraggedItem(null);
     }
   };
-
   // Eliminar comida planificada
   const handleEliminarPlanificada = async (comida) => {
     // Abrir modal con las opciones
@@ -408,32 +373,25 @@ function CalendarioComidas({ onBack }) {
       type: comida.comida_id ? 'both' : 'complete' // 'both' = opciones, 'complete' = solo eliminar
     });
   };
-
   // Confirmar eliminación desde el modal
   const handleConfirmarEliminar = async (opcion) => {
     if (!deleteModal) return;
-
     const comida = deleteModal.comida;
     setLoading(true);
-
     try {
       await axios.delete(`${API_URL}/comidas-planificadas/${comida.id}`);
-
       // Actualizar estado local: eliminar de planificadas
       setComidasPlanificadas(prev => prev.filter(c => c.id !== comida.id));
-
       if (opcion === 'quitar' && comida.comida_id) {
         // Volver al listado - destachar
         await axios.put(`${API_URL}/comidas-congeladas/${comida.comida_id}`, {
           tachada: false
         });
-        
         // Actualizar estado local de congeladas
         setComidasCongeladas(prev =>
           prev.map(c => c.id === comida.comida_id ? { ...c, tachada: false } : c)
         );
       }
-
       setToast({ type: 'success', message: `"${comida.comida_nombre}" ${opcion === 'quitar' ? 'quitado del calendario ✓' : 'eliminado ✓'}` });
     } catch (err) {
       setToast({ type: 'error', message: 'Error al eliminar' });
@@ -442,15 +400,12 @@ function CalendarioComidas({ onBack }) {
       setDeleteModal(null);
     }
   };
-
   // Obtener comidas planificadas para una fecha y tipo (puede haber m\u00faltiples)
   // Manejar mover/repetir item
   const handleMoverORepetir = async (accion) => {
     if (!moveModal) return;
-
     setLoading(true);
     const fechaStr = moveModal.fecha.toISOString().split('T')[0];
-
     try {
       if (accion === 'repetir') {
         // Crear nueva entrada planificada
@@ -510,37 +465,10 @@ function CalendarioComidas({ onBack }) {
     }
   };
 
-  // Eliminar comida tachada del inventario con warning
-  const handleEliminarComidaTachada = async (comida) => {
-    const comidaPlanificada = comidasPlanificadas.find(cp => cp.comida_id === comida.id);
-    const mensaje = comidaPlanificada 
-      ? `Si eliminas "${comida.nombre}", también se borrará del calendario. ¿Continuar?`
-      : `¿Eliminar "${comida.nombre}"?`;
-    
-    if (!window.confirm(mensaje)) return;
-
-    setLoading(true);
-    try {
-      // Eliminar del inventario
-      await axios.delete(`${API_URL}/comidas-congeladas/${comida.id}`);
-      
-      // Las comidas planificadas se eliminarán automáticamente por la FK CASCADE
-      setToast({ type: 'success', message: 'Eliminado ✓' });
-      cargarComidasCongeladas();
-      cargarComidasPlanificadas();
-    } catch (err) {
-      setToast({ type: 'error', message: 'Error al eliminar' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Actualizar notas de comida planificada - Persistencia inteligente
   // Obtener la fecha más reciente de planificación para una comida - MEMOIZADO
   const getFechaUltimaPlanificacion = useCallback((comidaId) => {
     const planificaciones = comidasPlanificadas.filter(cp => cp.comida_id === comidaId);
     if (planificaciones.length === 0) return null;
-    
     // Ordenar por fecha descendente y coger la más reciente (sin mutar el array original)
     const fechaStr = [...planificaciones].sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0].fecha;
     const fecha = new Date(fechaStr);
@@ -548,7 +476,6 @@ function CalendarioComidas({ onBack }) {
     const mes = String(fecha.getMonth() + 1).padStart(2, '0');
     return `${dia}/${mes}`;
   }, [comidasPlanificadas]);
-
   // Guardar nombre editado de una comida
   const handleGuardarNombreComida = async (comidaId, nuevoNombre) => {
     if (!nuevoNombre.trim()) {
@@ -556,26 +483,22 @@ function CalendarioComidas({ onBack }) {
       setComidaEnEdicion(null);
       return;
     }
-
     try {
       const comida = comidasCongeladas.find(c => c.id === comidaId);
       await axios.put(`${API_URL}/comidas-congeladas/${comidaId}`, {
         nombre: nuevoNombre,
         notas: comida.notas
       });
-      
       // Actualizar estado local en lugar de recargar
       setComidasCongeladas(prev =>
         prev.map(c => c.id === comidaId ? { ...c, nombre: nuevoNombre } : c)
       );
-      
       setToast({ type: 'success', message: 'Nombre actualizado ✓' });
       setComidaEnEdicion(null);
     } catch (err) {
       setToast({ type: 'error', message: 'Error al actualizar nombre' });
     }
   };
-
   // Memoizar getComidasPlanificadas para evitar recálculos
   const getComidasPlanificadasMemo = useCallback((fecha, tipoComida) => {
     const fechaStr = fecha.toISOString().split('T')[0];
@@ -583,18 +506,11 @@ function CalendarioComidas({ onBack }) {
       c => c.fecha && c.fecha.split('T')[0] === fechaStr && c.tipo_comida === tipoComida
     );
   }, [comidasPlanificadas]);
-
   // Memoizar listas filtradas de comidas para evitar recalcular en cada render
   const comidasNoUsadas = useMemo(() => 
     comidasCongeladas.filter(c => !c.tachada), 
     [comidasCongeladas]
   );
-
-  const comidasUsadas = useMemo(() => 
-    comidasCongeladas.filter(c => c.tachada), 
-    [comidasCongeladas]
-  );
-
   return (
     <div style={{
       background: '#f5f5f7',
@@ -614,7 +530,6 @@ function CalendarioComidas({ onBack }) {
             transform: translateY(0);
           }
         }
-
         @keyframes pulse {
           0% {
             transform: scale(1);
@@ -629,7 +544,6 @@ function CalendarioComidas({ onBack }) {
             box-shadow: 0 0 0 rgba(0, 122, 255, 0);
           }
         }
-
         @keyframes slideIn {
           from {
             transform: translateX(100%);
@@ -640,7 +554,6 @@ function CalendarioComidas({ onBack }) {
             opacity: 1;
           }
         }
-
         @keyframes spin {
           from {
             transform: rotate(0deg);
@@ -649,7 +562,6 @@ function CalendarioComidas({ onBack }) {
             transform: rotate(360deg);
           }
         }
-        
         .tooltip {
           position: fixed;
           background: rgba(0, 0, 0, 0.9);
@@ -666,7 +578,6 @@ function CalendarioComidas({ onBack }) {
           animation: fadeIn 0.2s ease-out;
         }
       `}</style>
-
       {/* Toast Notification */}
       {toast && (
         <div style={{
@@ -687,7 +598,6 @@ function CalendarioComidas({ onBack }) {
           {toast.message}
         </div>
       )}
-
       <style>{`
         @keyframes slideIn {
           from {
@@ -708,7 +618,6 @@ function CalendarioComidas({ onBack }) {
           }
         }
       `}</style>
-
       {/* Modal Mover/Repetir */}
       {moveModal && (
         <div 
@@ -744,7 +653,6 @@ function CalendarioComidas({ onBack }) {
             }}>
               ¿Mover o repetir?
             </h2>
-            
             <p style={{
               fontSize: 14,
               color: '#666',
@@ -754,7 +662,6 @@ function CalendarioComidas({ onBack }) {
             }}>
               "{moveModal.item.comida_nombre || moveModal.item.nombre}"
             </p>
-
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {/* Opción: Mover */}
               <button
@@ -783,7 +690,6 @@ function CalendarioComidas({ onBack }) {
               >
                 {loading ? '⏳ Moviendo...' : '↔️ Mover (cambiar de lugar)'}
               </button>
-
               {/* Opción: Repetir */}
               <button
                 onClick={() => handleMoverORepetir('repetir')}
@@ -811,7 +717,6 @@ function CalendarioComidas({ onBack }) {
               >
                 {loading ? '⏳ Repitiendo...' : '🔁 Repetir (mantener original)'}
               </button>
-
               {/* Botón Cancelar */}
               <button
                 onClick={() => setMoveModal(null)}
@@ -843,7 +748,6 @@ function CalendarioComidas({ onBack }) {
           </div>
         </div>
       )}
-
       {/* Modal de Eliminar */}
       {deleteModal && (
         <div 
@@ -879,7 +783,6 @@ function CalendarioComidas({ onBack }) {
             }}>
               ¿Qué acción quieres realizar?
             </h2>
-            
             <p style={{
               fontSize: 14,
               color: '#666',
@@ -889,7 +792,6 @@ function CalendarioComidas({ onBack }) {
             }}>
               Con "{deleteModal.comida.comida_nombre}"
             </p>
-
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {/* Opción 1: Eliminar completamente */}
               <button
@@ -918,7 +820,6 @@ function CalendarioComidas({ onBack }) {
               >
                 {loading ? '⏳ Eliminando...' : '🗑️ Eliminar completamente'}
               </button>
-
               {/* Opción 2: Quitar del calendario (solo si viene del inventario) */}
               {deleteModal.type === 'both' && (
                 <button
@@ -948,7 +849,6 @@ function CalendarioComidas({ onBack }) {
                   {loading ? '⏳ Quitando...' : '↩️ Quitarlo del calendario'}
                 </button>
               )}
-
               {/* Botón Cancelar */}
               <button
                 onClick={() => setDeleteModal(null)}
@@ -980,10 +880,8 @@ function CalendarioComidas({ onBack }) {
           </div>
         </div>
       )}
-
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
         <Header title={t('calendarioComidas')} />
-
         {/* Botón atrás */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
           <button
@@ -1011,7 +909,6 @@ function CalendarioComidas({ onBack }) {
             ← {t('volver')}
           </button>
         </div>
-
         {/* CALENDARIO - Sección principal arriba */}
         <div style={{
           background: '#fff',
@@ -1048,7 +945,6 @@ function CalendarioComidas({ onBack }) {
             >
               ◀ {isMobile ? '' : t('anterior')}
             </button>
-
             <div style={{ 
               fontSize: isMobile ? 13 : 16, 
               fontWeight: 600, 
@@ -1064,7 +960,6 @@ function CalendarioComidas({ onBack }) {
                 const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
                 const mesInicio = meses[inicio.getMonth()];
                 const mesFin = meses[fin.getMonth()];
-                
                 if (inicio.getMonth() === fin.getMonth()) {
                   return `${inicio.getDate()} - ${fin.getDate()} de ${mesInicio}`;
                 } else {
@@ -1072,7 +967,6 @@ function CalendarioComidas({ onBack }) {
                 }
               })()}
             </div>
-
             <button
               onClick={() => setSemanaActual(0)}
               style={{
@@ -1095,7 +989,6 @@ function CalendarioComidas({ onBack }) {
             >
               🏠 Hoy
             </button>
-
             <button
               onClick={() => setSemanaActual(prev => prev + 1)}
               style={{
@@ -1115,7 +1008,6 @@ function CalendarioComidas({ onBack }) {
               {isMobile ? '' : t('siguiente')} ▶
             </button>
           </div>
-
           {/* Calendario con scroll interno */}
           <div style={{ 
             overflowX: 'auto',
@@ -1190,7 +1082,6 @@ function CalendarioComidas({ onBack }) {
                     const isDropTarget = dropTarget?.fecha?.getTime() === fecha.getTime() && dropTarget?.tipoComida === 'comida';
                     const isPulsing = pulseCell?.fecha === fecha.getTime() && pulseCell?.tipoComida === 'comida';
                     const isTextoLibreMode = modoTextoLibre?.fecha?.getTime() === fecha.getTime() && modoTextoLibre?.tipoComida === 'comida';
-                    
                     return (
                       <td
                         key={idx}
@@ -1351,9 +1242,7 @@ function CalendarioComidas({ onBack }) {
                                     flex: 1,
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
-                                    display: '-webkit-box',
-                                    WebkitLineClamp: 2,
-                                    WebkitBoxOrient: 'vertical',
+                                    whiteSpace: 'nowrap',
                                     lineHeight: '1.3',
                                     wordBreak: 'break-word',
                                     userSelect: 'none',
@@ -1405,7 +1294,6 @@ function CalendarioComidas({ onBack }) {
                     );
                   })}
                 </tr>
-
                 {/* Fila CENA */}
                 <tr>
                   <td style={{
@@ -1428,7 +1316,6 @@ function CalendarioComidas({ onBack }) {
                     const isDropTarget = dropTarget?.fecha?.getTime() === fecha.getTime() && dropTarget?.tipoComida === 'cena';
                     const isPulsing = pulseCell?.fecha === fecha.getTime() && pulseCell?.tipoComida === 'cena';
                     const isTextoLibreMode = modoTextoLibre?.fecha?.getTime() === fecha.getTime() && modoTextoLibre?.tipoComida === 'cena';
-                    
                     return (
                       <td
                         key={idx}
@@ -1589,9 +1476,7 @@ function CalendarioComidas({ onBack }) {
                                     flex: 1,
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
-                                    display: '-webkit-box',
-                                    WebkitLineClamp: 2,
-                                    WebkitBoxOrient: 'vertical',
+                                    whiteSpace: 'nowrap',
                                     lineHeight: '1.3',
                                     wordBreak: 'break-word',
                                     userSelect: 'none',
@@ -1647,7 +1532,6 @@ function CalendarioComidas({ onBack }) {
             </table>
           </div>
         </div>
-
         {/* Grid de dos columnas: Inventario + Comidas Planificadas */}
         <div style={{ 
           display: 'grid', 
@@ -1674,7 +1558,6 @@ function CalendarioComidas({ onBack }) {
             }}>
               {t('comidasCongeladas')}
             </h3>
-
             {/* Formulario añadir comida */}
             <form onSubmit={handleAñadirComida} style={{ marginBottom: 20 }}>
               <input
@@ -1709,10 +1592,9 @@ function CalendarioComidas({ onBack }) {
                 + {t('anadir')}
               </button>
             </form>
-
             {/* Lista de comidas */}
             {/* Lista de comidas */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 4 : 6 }}>
               {/* Items SIN USAR (arriba) */}
               {comidasNoUsadas.map((comida) => (
                 <div key={comida.id}>
@@ -1721,19 +1603,20 @@ function CalendarioComidas({ onBack }) {
                     onDragStart={(e) => handleDragStart(e, comida, 'inventario')}
                     onClick={() => setComidaExpandida(comidaExpandida === comida.id ? null : comida.id)}
                     style={{
-                      padding: '10px 12px',
+                      padding: isMobile ? '6px 8px' : '8px 10px', // Reducido
                       background: '#fff',
                       border: '1px solid #e5e5e7',
-                      borderRadius: 8,
+                      borderRadius: 6, // Reducido
                       cursor: comidaEnEdicion?.id === comida.id ? 'text' : 'grab',
                       color: '#1d1d1f',
-                      fontSize: 14,
+                      fontSize: isMobile ? 12 : 13, // Reducido
                       fontWeight: 500,
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      gap: 8,
-                      transition: 'all 0.2s'
+                      gap: 6, // Reducido
+                      transition: 'all 0.2s',
+                      minHeight: isMobile ? '32px' : '36px' // Altura mínima reducida
                     }}
                     onMouseOver={(e) => {
                       e.currentTarget.style.background = '#f5f5f7';
@@ -1847,7 +1730,6 @@ function CalendarioComidas({ onBack }) {
                       </button>
                     </div>
                   </div>
-
                   {/* Notas expandibles */}
                   {comidaExpandida === comida.id && (
                     <div style={{
@@ -1883,227 +1765,6 @@ function CalendarioComidas({ onBack }) {
                   )}
                 </div>
               ))}
-
-              {/* Separador y pestaña para items USADOS */}
-              {comidasUsadas.length > 0 && (
-                <>
-                  <div style={{ 
-                    height: 1, 
-                    background: '#e5e5e7', 
-                    margin: '8px 0' 
-                  }} />
-                  
-                  <button
-                    onClick={() => setMostrarUsados(!mostrarUsados)}
-                    style={{
-                      padding: '8px 12px',
-                      background: '#f5f5f7',
-                      border: '1px solid #e5e5e7',
-                      borderRadius: 8,
-                      cursor: 'pointer',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: '#666',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseOver={(e) => {
-                      e.currentTarget.style.background = '#efefef';
-                    }}
-                    onMouseOut={(e) => {
-                      e.currentTarget.style.background = '#f5f5f7';
-                    }}
-                  >
-                    <span>📋 Comidas ya planificadas ({comidasUsadas.length})</span>
-                    <span>{mostrarUsados ? '▲' : '▼'}</span>
-                  </button>
-                </>
-              )}
-
-              {/* Items USADOS (planificados) - solo si la pestaña está abierta */}
-              {mostrarUsados && comidasUsadas.map((comida) => (
-                <div key={comida.id}>
-                  <div
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, comida, 'inventario')}
-                    onClick={() => setComidaExpandida(comidaExpandida === comida.id ? null : comida.id)}
-                    style={{
-                      padding: '12px 14px',
-                      background: '#fff',
-                      border: '1px solid #e5e5e7',
-                      borderRadius: 8,
-                      cursor: 'pointer',
-                      color: '#1d1d1f',
-                      fontSize: 14,
-                      fontWeight: 500,
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      gap: 10,
-                      transition: 'all 0.2s ease',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
-                    }}
-                    onMouseOver={(e) => {
-                      e.currentTarget.style.background = '#fafafa';
-                      e.currentTarget.style.borderColor = '#d0d0d0';
-                      e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.08)';
-                      const deleteBtn = e.currentTarget.querySelector('[data-delete-btn]');
-                      if (deleteBtn) deleteBtn.style.opacity = '1';
-                    }}
-                    onMouseOut={(e) => {
-                      e.currentTarget.style.background = '#fff';
-                      e.currentTarget.style.borderColor = '#e5e5e7';
-                      e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.04)';
-                      const deleteBtn = e.currentTarget.querySelector('[data-delete-btn]');
-                      if (deleteBtn) deleteBtn.style.opacity = '0';
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-                      <div style={{ 
-                        display: 'flex', 
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 8,
-                        flex: 1,
-                        minWidth: 0
-                      }}>
-                        <span style={{ 
-                          fontWeight: 500,
-                          color: '#1d1d1f',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {comida.nombre}
-                        </span>
-                        {getFechaUltimaPlanificacion(comida.id) && (
-                          <span style={{ 
-                            fontSize: 11, 
-                            color: '#86868b',
-                            background: '#f5f5f7',
-                            padding: '3px 6px',
-                            borderRadius: 4,
-                            whiteSpace: 'nowrap',
-                            fontWeight: 500
-                          }}>
-                            📅 {getFechaUltimaPlanificacion(comida.id)}
-                          </span>
-                        )}
-                      </div>
-                      {comida.notas && (
-                        <span style={{ 
-                          fontSize: 11, 
-                          padding: '4px 7px',
-                          background: '#e8f5e9',
-                          borderRadius: 5,
-                          cursor: 'pointer',
-                          transition: 'all 0.2s',
-                          whiteSpace: 'nowrap',
-                          color: '#2e7d32',
-                          fontWeight: 500,
-                          border: '1px solid #c8e6c9'
-                        }} 
-                        title="Tiene notas"
-                        onMouseEnter={(e) => {
-                          e.target.style.background = '#007AFF';
-                          e.target.style.color = '#fff';
-                          e.target.style.borderColor = '#007AFF';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.background = '#e8f5e9';
-                          e.target.style.color = '#2e7d32';
-                          e.target.style.borderColor = '#c8e6c9';
-                        }}
-                        >
-                          📝
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <button
-                        data-delete-btn
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEliminarComidaTachada(comida);
-                        }}
-                        style={{
-                          background: 'rgba(255, 59, 48, 0.1)',
-                          border: 'none',
-                          cursor: 'pointer',
-                          fontSize: 12,
-                          color: '#ff3b30',
-                          padding: '4px 6px',
-                          borderRadius: 5,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          opacity: 0,
-                          transition: 'all 0.2s',
-                          fontWeight: 500
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = '#ff3b30';
-                          e.currentTarget.style.color = '#fff';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'rgba(255, 59, 48, 0.1)';
-                          e.currentTarget.style.color = '#ff3b30';
-                        }}
-                        title="Eliminar"
-                      >
-                        🗑️
-                      </button>
-                      <span style={{ 
-                        fontSize: 13, 
-                        color: '#86868b', 
-                        userSelect: 'none',
-                        fontWeight: 600
-                      }}>
-                        {comidaExpandida === comida.id ? '▲' : '▼'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Notas expandibles */}
-                  {comidaExpandida === comida.id && (
-                    <div style={{
-                      padding: '10px',
-                      background: '#fafafa',
-                      borderRadius: 8,
-                      marginTop: 6,
-                      border: '1px solid #e5e5e7'
-                    }}>
-                      <textarea
-                        value={comida.notas || ''}
-                        onChange={(e) => {
-                          const nuevasNotas = e.target.value;
-                          setComidasCongeladas(prev =>
-                            prev.map(c => c.id === comida.id ? { ...c, notas: nuevasNotas } : c)
-                          );
-                        }}
-                        onBlur={() => handleActualizarNotas(comida.id, comida.notas)}
-                        placeholder={t('anadirNotas')}
-                        style={{
-                          width: '100%',
-                          minHeight: 60,
-                          padding: 8,
-                          borderRadius: 6,
-                          border: '1px solid #d0d0d0',
-                          fontSize: 13,
-                          fontFamily: 'inherit',
-                          resize: 'vertical',
-                          boxSizing: 'border-box',
-                          background: '#fff',
-                          lineHeight: 1.5
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
-
               {comidasCongeladas.length === 0 && (
                 <div style={{
                   padding: 20,
@@ -2116,7 +1777,6 @@ function CalendarioComidas({ onBack }) {
               )}
             </div>
           </div>
-
           {/* COMIDAS PLANIFICADAS - Nueva sección */}
           <div style={{
             background: '#fff',
@@ -2136,7 +1796,6 @@ function CalendarioComidas({ onBack }) {
             }}>
               📅 Comidas Planificadas
             </h3>
-
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {comidasPlanificadas.length === 0 ? (
                 <div style={{
@@ -2163,12 +1822,10 @@ function CalendarioComidas({ onBack }) {
                       comidasPorFecha[fechaStr].cenas.push(comida);
                     }
                   });
-
                   // Ordenar por fecha
                   const fechasOrdenadas = Object.entries(comidasPorFecha).sort((a, b) => 
                     a[1].fecha - b[1].fecha
                   );
-
                   return fechasOrdenadas.map(([fechaStr, { fecha, comidas, cenas }]) => (
                     <div key={fechaStr} style={{
                       background: '#f9f9f9',
@@ -2187,7 +1844,6 @@ function CalendarioComidas({ onBack }) {
                       }}>
                         📆 {fechaStr} - {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'][fecha.getDay()]}
                       </div>
-                      
                       {comidas.length > 0 && (
                         <div style={{ marginBottom: cenas.length > 0 ? 8 : 0 }}>
                           <div style={{ fontSize: 11, color: '#856404', fontWeight: 600, marginBottom: 4 }}>
@@ -2195,69 +1851,124 @@ function CalendarioComidas({ onBack }) {
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                             {comidas.map(comida => (
-                              <div key={comida.id} style={{
-                                background: comida.comida_id 
-                                  ? 'linear-gradient(135deg, #ffeaa7 0%, #ffd93d 100%)'
-                                  : 'linear-gradient(135deg, #b3e5fc 0%, #81d4fa 100%)',
-                                padding: '6px 8px',
-                                borderRadius: 6,
-                                fontSize: 12,
-                                color: '#2c2c2c',
-                                fontWeight: 500,
-                                border: '1px solid rgba(0,0,0,0.06)',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                transition: 'all 0.2s ease'
-                              }}>
-                                <span style={{ flex: 1 }}>{comida.comida_nombre}</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                  {comida.notas && (
-                                    <span style={{ fontSize: 10, color: '#666' }} title={comida.notas}>📝</span>
-                                  )}
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setMoveModal({ item: comida, fromDate: comida.fecha, fromType: comida.tipo });
-                                    }}
-                                    title="Mover a otra fecha"
-                                    style={{
-                                      background: 'rgba(0, 122, 255, 0.1)',
-                                      border: 'none',
-                                      borderRadius: 4,
-                                      padding: '2px 4px',
-                                      cursor: 'pointer',
-                                      fontSize: 10,
-                                      color: '#007AFF'
-                                    }}
-                                  >
-                                    🔄
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleEliminarPlanificada(comida);
-                                    }}
-                                    title="Eliminar"
-                                    style={{
-                                      background: 'rgba(255, 59, 48, 0.1)',
-                                      border: 'none',
-                                      borderRadius: 4,
-                                      padding: '2px 4px',
-                                      cursor: 'pointer',
-                                      fontSize: 10,
-                                      color: '#ff3b30'
-                                    }}
-                                  >
-                                    🗑️
-                                  </button>
+                              <div key={comida.id}>
+                                <div
+                                  onClick={() => setNotaEditandose(notaEditandose === comida.id ? null : comida.id)}
+                                  style={{
+                                    background: comida.comida_id 
+                                      ? 'linear-gradient(135deg, #ffeaa7 0%, #ffd93d 100%)'
+                                      : 'linear-gradient(135deg, #b3e5fc 0%, #81d4fa 100%)',
+                                    padding: '6px 8px',
+                                    borderRadius: 6,
+                                    fontSize: 12,
+                                    color: '#2c2c2c',
+                                    fontWeight: 500,
+                                    border: '1px solid rgba(0,0,0,0.06)',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    transition: 'all 0.2s ease',
+                                    cursor: 'pointer'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.1)';
+                                    e.currentTarget.style.transform = 'translateY(-1px)';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.boxShadow = 'none';
+                                    e.currentTarget.style.transform = 'translateY(0)';
+                                  }}
+                                >
+                                  <span style={{ flex: 1 }}>{comida.comida_nombre}</span>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                    {comida.notas && (
+                                      <span style={{ 
+                                        fontSize: 10, 
+                                        color: '#666',
+                                        background: 'rgba(255,255,255,0.8)',
+                                        padding: '2px 4px',
+                                        borderRadius: 3,
+                                        cursor: 'pointer'
+                                      }} 
+                                      title={comida.notas}>📝</span>
+                                    )}
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setMoveModal({ item: comida, fromDate: comida.fecha, fromType: comida.tipo });
+                                      }}
+                                      title="Mover a otra fecha"
+                                      style={{
+                                        background: 'rgba(0, 122, 255, 0.1)',
+                                        border: 'none',
+                                        borderRadius: 4,
+                                        padding: '2px 4px',
+                                        cursor: 'pointer',
+                                        fontSize: 10,
+                                        color: '#007AFF'
+                                      }}
+                                    >
+                                      🔄
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEliminarPlanificada(comida);
+                                      }}
+                                      title="Eliminar"
+                                      style={{
+                                        background: 'rgba(255, 59, 48, 0.1)',
+                                        border: 'none',
+                                        borderRadius: 4,
+                                        padding: '2px 4px',
+                                        cursor: 'pointer',
+                                        fontSize: 10,
+                                        color: '#ff3b30'
+                                      }}
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
                                 </div>
+                                {/* Área de notas expandible */}
+                                {notaEditandose === comida.id && (
+                                  <div style={{
+                                    marginTop: 4,
+                                    padding: 8,
+                                    background: '#fff',
+                                    borderRadius: 6,
+                                    border: '1px solid #e0e0e0'
+                                  }}>
+                                    <textarea
+                                      value={comida.notas || ''}
+                                      onChange={(e) => {
+                                        const nuevasNotas = e.target.value;
+                                        setComidasPlanificadas(prev =>
+                                          prev.map(c => c.id === comida.id ? { ...c, notas: nuevasNotas } : c)
+                                        );
+                                      }}
+                                      onBlur={() => handleActualizarNotasPlanificada(comida.id, comida.notas)}
+                                      placeholder="Añade notas para esta comida..."
+                                      style={{
+                                        width: '100%',
+                                        minHeight: 50,
+                                        padding: 6,
+                                        borderRadius: 4,
+                                        border: '1px solid #ddd',
+                                        fontSize: 11,
+                                        fontFamily: 'inherit',
+                                        resize: 'vertical',
+                                        boxSizing: 'border-box',
+                                        outline: 'none'
+                                      }}
+                                    />
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>
                         </div>
                       )}
-
                       {cenas.length > 0 && (
                         <div>
                           <div style={{ fontSize: 11, color: '#1565c0', fontWeight: 600, marginBottom: 4 }}>
@@ -2265,63 +1976,119 @@ function CalendarioComidas({ onBack }) {
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                             {cenas.map(comida => (
-                              <div key={comida.id} style={{
-                                background: comida.comida_id 
-                                  ? 'linear-gradient(135deg, #ffeaa7 0%, #ffd93d 100%)'
-                                  : 'linear-gradient(135deg, #b3e5fc 0%, #81d4fa 100%)',
-                                padding: '6px 8px',
-                                borderRadius: 6,
-                                fontSize: 12,
-                                color: '#2c2c2c',
-                                fontWeight: 500,
-                                border: '1px solid rgba(0,0,0,0.06)',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                transition: 'all 0.2s ease'
-                              }}>
-                                <span style={{ flex: 1 }}>{comida.comida_nombre}</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                  {comida.notas && (
-                                    <span style={{ fontSize: 10, color: '#666' }} title={comida.notas}>📝</span>
-                                  )}
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setMoveModal({ item: comida, fromDate: comida.fecha, fromType: comida.tipo });
-                                    }}
-                                    title="Mover a otra fecha"
-                                    style={{
-                                      background: 'rgba(0, 122, 255, 0.1)',
-                                      border: 'none',
-                                      borderRadius: 4,
-                                      padding: '2px 4px',
-                                      cursor: 'pointer',
-                                      fontSize: 10,
-                                      color: '#007AFF'
-                                    }}
-                                  >
-                                    🔄
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleEliminarPlanificada(comida);
-                                    }}
-                                    title="Eliminar"
-                                    style={{
-                                      background: 'rgba(255, 59, 48, 0.1)',
-                                      border: 'none',
-                                      borderRadius: 4,
-                                      padding: '2px 4px',
-                                      cursor: 'pointer',
-                                      fontSize: 10,
-                                      color: '#ff3b30'
-                                    }}
-                                  >
-                                    🗑️
-                                  </button>
+                              <div key={comida.id}>
+                                <div
+                                  onClick={() => setNotaEditandose(notaEditandose === comida.id ? null : comida.id)}
+                                  style={{
+                                    background: comida.comida_id 
+                                      ? 'linear-gradient(135deg, #ffeaa7 0%, #ffd93d 100%)'
+                                      : 'linear-gradient(135deg, #b3e5fc 0%, #81d4fa 100%)',
+                                    padding: '6px 8px',
+                                    borderRadius: 6,
+                                    fontSize: 12,
+                                    color: '#2c2c2c',
+                                    fontWeight: 500,
+                                    border: '1px solid rgba(0,0,0,0.06)',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    transition: 'all 0.2s ease',
+                                    cursor: 'pointer'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.1)';
+                                    e.currentTarget.style.transform = 'translateY(-1px)';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.boxShadow = 'none';
+                                    e.currentTarget.style.transform = 'translateY(0)';
+                                  }}
+                                >
+                                  <span style={{ flex: 1 }}>{comida.comida_nombre}</span>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                    {comida.notas && (
+                                      <span style={{ 
+                                        fontSize: 10, 
+                                        color: '#666',
+                                        background: 'rgba(255,255,255,0.8)',
+                                        padding: '2px 4px',
+                                        borderRadius: 3,
+                                        cursor: 'pointer'
+                                      }} 
+                                      title={comida.notas}>📝</span>
+                                    )}
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setMoveModal({ item: comida, fromDate: comida.fecha, fromType: comida.tipo });
+                                      }}
+                                      title="Mover a otra fecha"
+                                      style={{
+                                        background: 'rgba(0, 122, 255, 0.1)',
+                                        border: 'none',
+                                        borderRadius: 4,
+                                        padding: '2px 4px',
+                                        cursor: 'pointer',
+                                        fontSize: 10,
+                                        color: '#007AFF'
+                                      }}
+                                    >
+                                      🔄
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEliminarPlanificada(comida);
+                                      }}
+                                      title="Eliminar"
+                                      style={{
+                                        background: 'rgba(255, 59, 48, 0.1)',
+                                        border: 'none',
+                                        borderRadius: 4,
+                                        padding: '2px 4px',
+                                        cursor: 'pointer',
+                                        fontSize: 10,
+                                        color: '#ff3b30'
+                                      }}
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
                                 </div>
+                                {/* Área de notas expandible */}
+                                {notaEditandose === comida.id && (
+                                  <div style={{
+                                    marginTop: 4,
+                                    padding: 8,
+                                    background: '#fff',
+                                    borderRadius: 6,
+                                    border: '1px solid #e0e0e0'
+                                  }}>
+                                    <textarea
+                                      value={comida.notas || ''}
+                                      onChange={(e) => {
+                                        const nuevasNotas = e.target.value;
+                                        setComidasPlanificadas(prev =>
+                                          prev.map(c => c.id === comida.id ? { ...c, notas: nuevasNotas } : c)
+                                        );
+                                      }}
+                                      onBlur={() => handleActualizarNotasPlanificada(comida.id, comida.notas)}
+                                      placeholder="Añade notas para esta cena..."
+                                      style={{
+                                        width: '100%',
+                                        minHeight: 50,
+                                        padding: 6,
+                                        borderRadius: 4,
+                                        border: '1px solid #ddd',
+                                        fontSize: 11,
+                                        fontFamily: 'inherit',
+                                        resize: 'vertical',
+                                        boxSizing: 'border-box',
+                                        outline: 'none'
+                                      }}
+                                    />
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -2335,22 +2102,7 @@ function CalendarioComidas({ onBack }) {
           </div>
         </div>
       </div>
-      
-      {/* Tooltip */}
-      {tooltip && (
-        <div 
-          className="tooltip"
-          style={{
-            left: tooltip.x - 100, // Centrar
-            top: tooltip.y - 35,
-            transform: 'translateX(-50%)'
-          }}
-        >
-          {tooltip.text}
-        </div>
-      )}
     </div>
   );
 }
-
 export default CalendarioComidas; 

@@ -397,7 +397,8 @@ app.get('/comidas-planificadas/vencidas', async (req, res) => {
 app.get('/comidas-planificadas', async (req, res) => {
   try {
     const result = await db.query(`
-      SELECT cp.*, cc.nombre as comida_nombre 
+      SELECT cp.*, 
+             COALESCE(cp.comida_nombre, cc.nombre) as comida_nombre 
       FROM comidas_planificadas cp
       LEFT JOIN comidas_congeladas cc ON cp.comida_id = cc.id
       ORDER BY cp.fecha ASC, cp.tipo_comida ASC
@@ -468,6 +469,26 @@ app.put('/comidas-planificadas/:id', async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) {
     console.error('Error al actualizar comida planificada:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Actualizar solo las notas de una comida planificada
+app.put('/comidas-planificadas/:id/notas', async (req, res) => {
+  const { id } = req.params;
+  const { notas } = req.body;
+
+  try {
+    const result = await db.query(
+      'UPDATE comidas_planificadas SET notas = $1 WHERE id = $2 RETURNING *',
+      [notas || null, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Comida planificada no encontrada' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error al actualizar notas de comida planificada:', err);
     res.status(500).json({ error: err.message });
   }
 });

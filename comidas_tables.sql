@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS comidas_planificadas (
     comida_nombre TEXT NOT NULL,
     fecha DATE NOT NULL,
     tipo_comida TEXT NOT NULL CHECK (tipo_comida IN ('comida', 'cena')),
+    notas TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
