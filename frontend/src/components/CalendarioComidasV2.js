@@ -352,6 +352,29 @@ function CalendarioComidasV2({ onBack }) {
         setLoading(false);
         setDraggedItem(null);
       }
+    } else if (draggedItem.source === 'calendario' && draggedItem.item.id) {
+      // Devolver comida planificada al inventario
+      setLoading(true);
+      try {
+        await axios.delete(`${API_URL}/comidas-planificadas/${draggedItem.item.id}`);
+        setComidasPlanificadas(prev => prev.filter(c => c.id !== draggedItem.item.id));
+        
+        // Si la comida tiene comida_id, marcar como no tachada
+        if (draggedItem.item.comida_id) {
+          await axios.put(`${API_URL}/comidas-congeladas/${draggedItem.item.comida_id}`, { tachada: false });
+          setComidasCongeladas(prev =>
+            prev.map(c => c.id === draggedItem.item.comida_id ? { ...c, tachada: false } : c)
+          );
+        }
+        
+        setToast({ type: 'success', message: `✓ "${draggedItem.item.comida_nombre}" devuelto al inventario` });
+      } catch (err) {
+        console.error('Error al devolver comida:', err);
+        setToast({ type: 'error', message: err.response?.data?.error || 'Error al devolver' });
+      } finally {
+        setLoading(false);
+        setDraggedItem(null);
+      }
     } else {
       setMoveModal({
         item: draggedItem.item,
@@ -827,34 +850,25 @@ function CalendarioComidasV2({ onBack }) {
                             )}
                           </div>
                         )}
-                        {comida.notas && (
-                          <span style={{ 
-                            fontSize: 11, 
-                            padding: '2px 6px',
-                            background: '#e8e8ed',
-                            borderRadius: 4,
-                            cursor: 'pointer'
-                          }} 
-                          title="Tiene notas">
-                            📝
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setComidaExpandida(comidaExpandida === comida.id ? null : comida.id);
                           }}
                           style={{
-                            background: 'none',
+                            background: comida.notas ? '#007AFF' : 'rgba(0,0,0,0.1)',
                             border: 'none',
                             cursor: 'pointer',
                             fontSize: 14,
-                            padding: 0,
-                            color: comida.notas ? '#007AFF' : '#ccc',
-                            transition: 'color 0.2s'
+                            padding: '2px 6px',
+                            borderRadius: 4,
+                            color: comida.notas ? '#fff' : '#ccc',
+                            transition: 'all 0.2s'
                           }}
+                          title="Ver/editar notas"
+                        >
+                          📓
+                        </button>
                           title="Ver/editar notas"
                         >
                           📔
@@ -1611,13 +1625,12 @@ function CalendarioComidasV2({ onBack }) {
                           
                           {comidas.length > 0 && (
                             <div style={{ marginBottom: cenas.length > 0 ? 8 : 0 }}>
-                              <div style={{ fontSize: 11, color: '#856404', fontWeight: 600, marginBottom: 4 }}>
-                                🍽️ Comida:
-                              </div>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                 {comidas.map(comida => (
                                   <div key={comida.id}>
                                     <div
+                                      draggable
+                                      onDragStart={(e) => handleDragStart(e, comida, 'calendario')}
                                       onClick={() => setNotaEditandose(notaEditandose === comida.id ? null : comida.id)}
                                       style={{
                                         background: comida.comida_id 
@@ -1633,7 +1646,7 @@ function CalendarioComidasV2({ onBack }) {
                                         justifyContent: 'space-between',
                                         alignItems: 'center',
                                         transition: 'all 0.2s ease',
-                                        cursor: 'pointer'
+                                        cursor: 'grab'
                                       }}
                                       onMouseEnter={(e) => {
                                         e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.1)';
@@ -1646,16 +1659,25 @@ function CalendarioComidasV2({ onBack }) {
                                     >
                                       <span style={{ flex: 1 }}>{comida.comida_nombre}</span>
                                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                        {comida.notas && (
-                                          <span style={{ 
-                                            fontSize: 10, 
-                                            color: '#666',
-                                            background: 'rgba(255,255,255,0.8)',
-                                            padding: '2px 4px',
-                                            borderRadius: 3
-                                          }} 
-                                          title={comida.notas}>📝</span>
-                                        )}
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setNotaEditandose(notaEditandose === comida.id ? null : comida.id);
+                                          }}
+                                          title="Ver/editar notas"
+                                          style={{
+                                            background: comida.notas ? '#007AFF' : 'rgba(0,0,0,0.1)',
+                                            border: 'none',
+                                            borderRadius: 4,
+                                            padding: '2px 6px',
+                                            cursor: 'pointer',
+                                            fontSize: 12,
+                                            color: comida.notas ? '#fff' : '#ccc',
+                                            transition: 'all 0.2s'
+                                          }}
+                                        >
+                                          📝
+                                        </button>
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
@@ -1693,7 +1715,7 @@ function CalendarioComidasV2({ onBack }) {
                                               prev.map(c => c.id === comida.id ? { ...c, notas: nuevasNotas } : c)
                                             );
                                           }}
-                                          onBlur={() => handleActualizarNotasPlanificada(comida.id, comida.notas)}
+                                          onBlur={(e) => handleActualizarNotasPlanificada(comida.id, e.target.value)}
                                           placeholder="Añade notas..."
                                           style={{
                                             width: '100%',
@@ -1718,13 +1740,12 @@ function CalendarioComidasV2({ onBack }) {
                           
                           {cenas.length > 0 && (
                             <div>
-                              <div style={{ fontSize: 11, color: '#1565c0', fontWeight: 600, marginBottom: 4 }}>
-                                🌙 Cena:
-                              </div>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                 {cenas.map(comida => (
                                   <div key={comida.id}>
                                     <div
+                                      draggable
+                                      onDragStart={(e) => handleDragStart(e, comida, 'calendario')}
                                       onClick={() => setNotaEditandose(notaEditandose === comida.id ? null : comida.id)}
                                       style={{
                                         background: comida.comida_id 
@@ -1740,7 +1761,7 @@ function CalendarioComidasV2({ onBack }) {
                                         justifyContent: 'space-between',
                                         alignItems: 'center',
                                         transition: 'all 0.2s ease',
-                                        cursor: 'pointer'
+                                        cursor: 'grab'
                                       }}
                                       onMouseEnter={(e) => {
                                         e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.1)';
@@ -1753,16 +1774,25 @@ function CalendarioComidasV2({ onBack }) {
                                     >
                                       <span style={{ flex: 1 }}>{comida.comida_nombre}</span>
                                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                        {comida.notas && (
-                                          <span style={{ 
-                                            fontSize: 10, 
-                                            color: '#666',
-                                            background: 'rgba(255,255,255,0.8)',
-                                            padding: '2px 4px',
-                                            borderRadius: 3
-                                          }} 
-                                          title={comida.notas}>📝</span>
-                                        )}
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setNotaEditandose(notaEditandose === comida.id ? null : comida.id);
+                                          }}
+                                          title="Ver/editar notas"
+                                          style={{
+                                            background: comida.notas ? '#007AFF' : 'rgba(0,0,0,0.1)',
+                                            border: 'none',
+                                            borderRadius: 4,
+                                            padding: '2px 6px',
+                                            cursor: 'pointer',
+                                            fontSize: 12,
+                                            color: comida.notas ? '#fff' : '#ccc',
+                                            transition: 'all 0.2s'
+                                          }}
+                                        >
+                                          📓
+                                        </button>
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
@@ -1800,7 +1830,7 @@ function CalendarioComidasV2({ onBack }) {
                                               prev.map(c => c.id === comida.id ? { ...c, notas: nuevasNotas } : c)
                                             );
                                           }}
-                                          onBlur={() => handleActualizarNotasPlanificada(comida.id, comida.notas)}
+                                          onBlur={(e) => handleActualizarNotasPlanificada(comida.id, e.target.value)}
                                           placeholder="Añade notas..."
                                           style={{
                                             width: '100%',
@@ -2202,15 +2232,27 @@ function CalendarioComidasV2({ onBack }) {
                       e.currentTarget.style.background = '#f5f5f7';
                     }}
                   >
-                    <div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
                       <div>{comida.nombre}</div>
                       {comida.notas && (
                         <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>
-                          📝 {comida.notas.substring(0, 30)}...
+                          {comida.notas.substring(0, 40)}...
                         </div>
                       )}
                     </div>
-                    <span style={{ fontSize: 16 }}>→</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{
+                        background: comida.notas ? '#007AFF' : 'transparent',
+                        color: comida.notas ? '#fff' : 'transparent',
+                        padding: comida.notas ? '2px 6px' : '2px 6px',
+                        borderRadius: 4,
+                        fontSize: 12,
+                        transition: 'all 0.2s'
+                      }}>
+                        📓
+                      </span>
+                      <span style={{ fontSize: 16 }}>→</span>
+                    </div>
                   </button>
                 ))
               )}
