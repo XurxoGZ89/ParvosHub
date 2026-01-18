@@ -869,10 +869,6 @@ function CalendarioComidasV2({ onBack }) {
                         >
                           📓
                         </button>
-                          title="Ver/editar notas"
-                        >
-                          📔
-                        </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
