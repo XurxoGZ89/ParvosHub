@@ -178,8 +178,7 @@ function CalendarioComidasV2({ onBack }) {
   const handleActualizarNotas = async (id, notas) => {
     try {
       const comida = comidasCongeladas.find(c => c.id === id);
-      if (comida.notas === notas) return;
-
+      
       await axios.put(`${API_URL}/comidas-congeladas/${id}`, {
         nombre: comida.nombre,
         notas
@@ -574,13 +573,8 @@ function CalendarioComidasV2({ onBack }) {
   // Actualizar notas de comida planificada
   const handleActualizarNotasPlanificada = async (id, notas) => {
     try {
-      const comida = comidasPlanificadas.find(c => c.id === id);
-      if (comida.notas === notas) return;
-
+      // Enviar siempre, sin validar si cambió
       await axios.put(`${API_URL}/comidas-planificadas/${id}/notas`, { notas });
-      setComidasPlanificadas(prev =>
-        prev.map(c => c.id === id ? { ...c, notas } : c)
-      );
       setToast({ type: 'success', message: '✓ Notas guardadas' });
     } catch (err) {
       console.error('Error:', err);
@@ -1630,8 +1624,10 @@ function CalendarioComidasV2({ onBack }) {
                                       onClick={() => setNotaEditandose(notaEditandose === comida.id ? null : comida.id)}
                                       style={{
                                         background: comida.comida_id 
-                                          ? 'linear-gradient(135deg, #ffeaa7 0%, #ffd93d 100%)'
-                                          : 'linear-gradient(135deg, #b3e5fc 0%, #81d4fa 100%)',
+                                          ? (comida.tipo_comida === 'comida'
+                                            ? 'linear-gradient(135deg, #ffeaa7 0%, #ffd93d 100%)'
+                                            : 'linear-gradient(135deg, #81d4fa 0%, #4fc3f7 100%)')
+                                          : 'linear-gradient(135deg, #c8f7dc 0%, #a5ead7 100%)',
                                         padding: '6px 8px',
                                         borderRadius: 6,
                                         fontSize: 12,
@@ -1745,8 +1741,10 @@ function CalendarioComidasV2({ onBack }) {
                                       onClick={() => setNotaEditandose(notaEditandose === comida.id ? null : comida.id)}
                                       style={{
                                         background: comida.comida_id 
-                                          ? 'linear-gradient(135deg, #ffeaa7 0%, #ffd93d 100%)'
-                                          : 'linear-gradient(135deg, #b3e5fc 0%, #81d4fa 100%)',
+                                          ? (comida.tipo_comida === 'comida'
+                                            ? 'linear-gradient(135deg, #ffeaa7 0%, #ffd93d 100%)'
+                                            : 'linear-gradient(135deg, #81d4fa 0%, #4fc3f7 100%)')
+                                          : 'linear-gradient(135deg, #c8f7dc 0%, #a5ead7 100%)',
                                         padding: '6px 8px',
                                         borderRadius: 6,
                                         fontSize: 12,
