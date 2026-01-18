@@ -330,23 +330,7 @@ app.put('/comidas-congeladas/:id', async (req, res) => {
   }
 });
 
-// Eliminar una comida congelada
-app.delete('/comidas-congeladas/:id', async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const result = await db.query('DELETE FROM comidas_congeladas WHERE id = $1', [id]);
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: 'Comida no encontrada' });
-    }
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Error al eliminar comida congelada:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Limpiar comidas tachadas de semanas pasadas
+// Limpiar comidas tachadas de semanas pasadas - DEBE ESTAR ANTES DEL :id
 app.delete('/comidas-congeladas/limpiar/pasadas', async (req, res) => {
   try {
     // Calcular fecha límite (inicio de la semana actual - lunes)
@@ -364,6 +348,22 @@ app.delete('/comidas-congeladas/limpiar/pasadas', async (req, res) => {
     res.json({ success: true, deleted: result.rowCount });
   } catch (err) {
     console.error('Error al limpiar comidas pasadas:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Eliminar una comida congelada
+app.delete('/comidas-congeladas/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await db.query('DELETE FROM comidas_congeladas WHERE id = $1', [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Comida no encontrada' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error al eliminar comida congelada:', err);
     res.status(500).json({ error: err.message });
   }
 });

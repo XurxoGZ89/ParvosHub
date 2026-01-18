@@ -7,6 +7,7 @@ import ExpenseTracker from './components/ExpenseTracker';
 import ResumenAnual from './components/ResumenAnual';
 import Calendario from './components/Calendario';
 import CalendarioComidas from './components/CalendarioComidas';
+import CalendarioComidasV2 from './components/CalendarioComidasV2';
 import './App.css';
 
 function AppContent() {
@@ -20,6 +21,7 @@ function AppContent() {
         <Route path="/resumen" element={<ResumenAnual onBack={() => navigate('/')} />} />
         <Route path="/calendario" element={<Calendario onBack={() => navigate('/')} />} />
         <Route path="/calendariocomidas" element={<CalendarioComidas onBack={() => navigate('/')} />} />
+        <Route path="/calendariocomidasv2" element={<CalendarioComidasV2 onBack={() => navigate('/')} />} />
       </Routes>
     </div>
   );
