@@ -1320,8 +1320,8 @@ function CalendarioComidasV2({ onBack }) {
                                   >
                                     <span style={{
                                       fontSize: isMobile ? 12 : 14,
-                                      color: '#999',
-                                      opacity: 0.4,
+                                      color: '#555',
+                                      opacity: 0.8,
                                       flexShrink: 0
                                     }}>⋮⋮</span>
                                     <span style={{
@@ -1524,8 +1524,8 @@ function CalendarioComidasV2({ onBack }) {
                                   >
                                     <span style={{
                                       fontSize: isMobile ? 12 : 14,
-                                      color: '#999',
-                                      opacity: 0.4,
+                                      color: '#555',
+                                      opacity: 0.8,
                                       flexShrink: 0
                                     }}>⋮⋮</span>
                                     <span style={{
