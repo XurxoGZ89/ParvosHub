@@ -1109,22 +1109,23 @@ function CalendarioComidasV2({ onBack }) {
                                       fecha.getMonth() === new Date().getMonth() && 
                                       fecha.getFullYear() === new Date().getFullYear();
                         return (
-                        <th key={idx} style={{
-                          padding: isMobile ? '10px 6px' : '10px 6px',
-                          fontWeight: 600,
-                          fontSize: isMobile ? 12 : 13,
-                          borderBottom: esHoy ? '3px solid #007AFF' : '2px solid #e5e5e7',
-                          textAlign: 'center',
-                          minWidth: isMobile ? 120 : 110,
-                          width: isMobile ? 120 : 110,
-                          background: esHoy ? '#e3f2fd' : (fecha.getDay() === 0 || fecha.getDay() === 6 ? '#f9f9f9' : '#f1f3f4')
-                        }}>
-                          <div style={{ fontSize: isMobile ? 13 : 'inherit' }}>{diasSemana[fecha.getDay() === 0 ? 6 : fecha.getDay() - 1]}</div>
-                          <div style={{ fontSize: isMobile ? 11 : 11, color: '#666', marginTop: 2 }}>
-                            {fecha.getDate()}/{fecha.getMonth() + 1}
-                          </div>
-                        </th>
-                      ))}
+                          <th key={idx} style={{
+                            padding: isMobile ? '10px 6px' : '10px 6px',
+                            fontWeight: 600,
+                            fontSize: isMobile ? 12 : 13,
+                            borderBottom: esHoy ? '3px solid #007AFF' : '2px solid #e5e5e7',
+                            textAlign: 'center',
+                            minWidth: isMobile ? 120 : 110,
+                            width: isMobile ? 120 : 110,
+                            background: esHoy ? '#e3f2fd' : (fecha.getDay() === 0 || fecha.getDay() === 6 ? '#f9f9f9' : '#f1f3f4')
+                          }}>
+                            <div style={{ fontSize: isMobile ? 13 : 'inherit' }}>{diasSemana[fecha.getDay() === 0 ? 6 : fecha.getDay() - 1]}</div>
+                            <div style={{ fontSize: isMobile ? 11 : 11, color: '#666', marginTop: 2 }}>
+                              {fecha.getDate()}/{fecha.getMonth() + 1}
+                            </div>
+                          </th>
+                        );
+                      })}
                     </tr>
                   </thead>
                   <tbody>
