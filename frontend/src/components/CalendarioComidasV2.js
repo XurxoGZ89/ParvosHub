@@ -30,6 +30,7 @@ function CalendarioComidasV2({ onBack }) {
   const [moveModal, setMoveModal] = useState(null);
   const [notaEditandose, setNotaEditandose] = useState(null);
   const [comidaEnEdicion, setComidaEnEdicion] = useState(null);
+  const [mobileSelectModal, setMobileSelectModal] = useState(null);
 
   // Refs
   const moveModalRef = useRef(null);
@@ -407,6 +408,49 @@ function CalendarioComidasV2({ onBack }) {
     }
   };
 
+  // Planificar comida desde móvil (selector modal)
+  const handlePlanificarDesdeMobil = async (comidaId) => {
+    if (!mobileSelectModal) return;
+    setLoading(true);
+    
+    try {
+      const fechaStr = mobileSelectModal.fecha.toISOString().split('T')[0];
+      const comida = comidasCongeladas.find(c => c.id === comidaId);
+      
+      const response = await axios.post(`${API_URL}/comidas-planificadas`, {
+        comida_id: comidaId,
+        fecha: fechaStr,
+        tipo_comida: mobileSelectModal.tipoComida,
+        notas: comida.notas || ''
+      });
+      
+      const newPlanificada = response.data;
+      if (!newPlanificada || !newPlanificada.id) {
+        throw new Error('Respuesta inválida del servidor');
+      }
+      
+      setComidasPlanificadas(prev => [...prev, newPlanificada]);
+      setPulseCell({ fecha: mobileSelectModal.fecha.getTime(), tipoComida: mobileSelectModal.tipoComida });
+      
+      // Marcar comida como tachada si es la primera vez
+      const otrasPlanificaciones = comidasPlanificadas.filter(cp => cp.comida_id === comidaId);
+      if (otrasPlanificaciones.length === 0) {
+        await axios.put(`${API_URL}/comidas-congeladas/${comidaId}`, { tachada: true });
+        setComidasCongeladas(prev =>
+          prev.map(c => c.id === comidaId ? { ...c, tachada: true } : c)
+        );
+      }
+      
+      setToast({ type: 'success', message: `✓ ${comida.nombre} planificada` });
+      setMobileSelectModal(null);
+    } catch (err) {
+      console.error('Error al planificar:', err);
+      setToast({ type: 'error', message: err.response?.data?.error || 'Error al planificar' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Eliminar comida planificada
   const handleEliminarPlanificada = async (comida) => {
     setDeleteModal({
@@ -548,33 +592,63 @@ function CalendarioComidasV2({ onBack }) {
           from { transform: translateX(-100%); opacity: 0; }
           to { transform: translateX(0); opacity: 1; }
         }
+        @keyframes slideInUp {
+          from { transform: translateY(100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
       `}</style>
 
       {/* HEADER FIJO */}
       <div style={{
         background: '#fff',
         borderBottom: '1px solid #e5e5e7',
-        padding: '12px 20px',
+        padding: isMobile ? '10px 16px' : '12px 20px',
         display: 'flex',
         alignItems: 'center',
-        gap: 16,
+        gap: isMobile ? 10 : 16,
         position: 'sticky',
         top: 0,
         zIndex: 100,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+        minHeight: isMobile ? 56 : 'auto'
       }}>
+        {/* Botón menú a la izquierda - TÁCTIL OPTIMIZADO */}
+        <button
+          onClick={() => setSidebarAbierta(!sidebarAbierta)}
+          style={{
+            background: sidebarAbierta ? '#007AFF' : '#f5f5f7',
+            border: 'none',
+            borderRadius: isMobile ? 10 : 8,
+            padding: isMobile ? '10px 14px' : '8px 12px',
+            cursor: 'pointer',
+            color: sidebarAbierta ? '#fff' : '#007AFF',
+            fontWeight: 600,
+            fontSize: isMobile ? 22 : 18,
+            transition: 'all 0.2s',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            minWidth: isMobile ? 44 : 'auto',
+            minHeight: isMobile ? 44 : 'auto'
+          }}
+        >
+          {sidebarAbierta ? '✕' : '☰'}
+        </button>
+
         <button
           onClick={onBack}
           style={{
             background: '#f5f5f7',
             border: 'none',
-            borderRadius: 8,
-            padding: '8px 12px',
-            fontSize: 16,
+            borderRadius: isMobile ? 10 : 8,
+            padding: isMobile ? '10px 16px' : '8px 12px',
+            fontSize: isMobile ? 15 : 16,
             cursor: 'pointer',
             color: '#007AFF',
             fontWeight: 600,
-            transition: 'background 0.2s'
+            transition: 'background 0.2s',
+            minHeight: isMobile ? 44 : 'auto'
           }}
           onMouseEnter={(e) => e.target.style.background = '#e5e5e7'}
           onMouseLeave={(e) => e.target.style.background = '#f5f5f7'}
@@ -592,26 +666,6 @@ function CalendarioComidasV2({ onBack }) {
             {t('calendarioComidas')}
           </h1>
         </div>
-
-        <button
-          onClick={() => setSidebarAbierta(!sidebarAbierta)}
-          style={{
-            background: sidebarAbierta ? '#007AFF' : '#f5f5f7',
-            border: 'none',
-            borderRadius: 8,
-            padding: '8px 16px',
-            cursor: 'pointer',
-            color: sidebarAbierta ? '#fff' : '#007AFF',
-            fontWeight: 600,
-            fontSize: 14,
-            transition: 'all 0.2s',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6
-          }}
-        >
-          {sidebarAbierta ? '✕' : '☰'} {!isMobile && (sidebarAbierta ? 'Cerrar' : 'Menú')}
-        </button>
       </div>
 
       {/* CONTENEDOR PRINCIPAL */}
@@ -627,16 +681,16 @@ function CalendarioComidasV2({ onBack }) {
           <div style={{
             position: isMobile ? 'fixed' : 'relative',
             left: 0,
-            top: isMobile ? '64px' : 0,
-            width: isMobile ? '80%' : '300px',
-            maxWidth: isMobile ? '320px' : '300px',
-            height: isMobile ? 'calc(100vh - 64px)' : '100%',
+            top: isMobile ? '56px' : 0,
+            width: isMobile ? '85%' : '300px',
+            maxWidth: isMobile ? '360px' : '300px',
+            height: isMobile ? 'calc(100vh - 56px)' : '100%',
             background: '#fff',
             borderRight: '1px solid #e5e5e7',
             overflowY: 'auto',
             zIndex: isMobile ? 90 : 1,
-            boxShadow: isMobile ? '4px 0 12px rgba(0,0,0,0.15)' : 'none',
-            padding: '20px 16px',
+            boxShadow: isMobile ? '6px 0 20px rgba(0,0,0,0.25)' : 'none',
+            padding: isMobile ? '20px 20px' : '20px 16px',
             animation: isMobile ? 'slideInLeft 0.3s ease-out' : 'none'
           }}>
             <h3 style={{
@@ -787,9 +841,24 @@ function CalendarioComidasV2({ onBack }) {
                         )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span style={{ fontSize: 11, color: '#007AFF' }}>
-                          {comidaExpandida === comida.id ? '▲' : '▼'}
-                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setComidaExpandida(comidaExpandida === comida.id ? null : comida.id);
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: 14,
+                            padding: 0,
+                            color: comida.notas ? '#007AFF' : '#ccc',
+                            transition: 'color 0.2s'
+                          }}
+                          title="Ver/editar notas"
+                        >
+                          📔
+                        </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -873,10 +942,11 @@ function CalendarioComidasV2({ onBack }) {
             style={{
               position: 'fixed',
               inset: 0,
-              background: 'rgba(0,0,0,0.4)',
+              background: 'rgba(0,0,0,0.5)',
               zIndex: 80,
-              top: '64px',
-              animation: 'fadeIn 0.2s ease-out'
+              top: '56px',
+              animation: 'fadeIn 0.2s ease-out',
+              WebkitTapHighlightColor: 'transparent'
             }}
           />
         )}
@@ -1034,19 +1104,23 @@ function CalendarioComidasV2({ onBack }) {
                         background: '#f1f3f4',
                         zIndex: 2
                       }}></th>
-                      {fechasQuincena.map((fecha, idx) => (
+                      {fechasQuincena.map((fecha, idx) => {
+                        const esHoy = fecha.getDate() === new Date().getDate() && 
+                                      fecha.getMonth() === new Date().getMonth() && 
+                                      fecha.getFullYear() === new Date().getFullYear();
+                        return (
                         <th key={idx} style={{
-                          padding: isMobile ? '8px 4px' : '10px 6px',
+                          padding: isMobile ? '10px 6px' : '10px 6px',
                           fontWeight: 600,
-                          fontSize: isMobile ? 11 : 13,
-                          borderBottom: '2px solid #e5e5e7',
+                          fontSize: isMobile ? 12 : 13,
+                          borderBottom: esHoy ? '3px solid #007AFF' : '2px solid #e5e5e7',
                           textAlign: 'center',
-                          minWidth: isMobile ? 100 : 110,
-                          width: isMobile ? 100 : 110,
-                          background: fecha.getDay() === 0 || fecha.getDay() === 6 ? '#f9f9f9' : '#f1f3f4'
+                          minWidth: isMobile ? 120 : 110,
+                          width: isMobile ? 120 : 110,
+                          background: esHoy ? '#e3f2fd' : (fecha.getDay() === 0 || fecha.getDay() === 6 ? '#f9f9f9' : '#f1f3f4')
                         }}>
-                          <div>{diasSemana[fecha.getDay() === 0 ? 6 : fecha.getDay() - 1]}</div>
-                          <div style={{ fontSize: isMobile ? 9 : 11, color: '#666', marginTop: 2 }}>
+                          <div style={{ fontSize: isMobile ? 13 : 'inherit' }}>{diasSemana[fecha.getDay() === 0 ? 6 : fecha.getDay() - 1]}</div>
+                          <div style={{ fontSize: isMobile ? 11 : 11, color: '#666', marginTop: 2 }}>
                             {fecha.getDate()}/{fecha.getMonth() + 1}
                           </div>
                         </th>
@@ -1064,13 +1138,15 @@ function CalendarioComidasV2({ onBack }) {
                         borderRight: '1px solid #e5e5e7',
                         textAlign: 'center',
                         color: '#856404',
-                        position: 'sticky',
-                        left: 0,
-                        zIndex: 1
+                        minWidth: isMobile ? 40 : 50,
+                        width: isMobile ? 40 : 50
                       }}>
                         🍽️<br/>{t('comida') || 'Comida'}
                       </td>
                       {fechasQuincena.map((fecha, idx) => {
+                        const esHoy = fecha.getDate() === new Date().getDate() && 
+                                      fecha.getMonth() === new Date().getMonth() && 
+                                      fecha.getFullYear() === new Date().getFullYear();
                         const comidas = getComidasPlanificadas(fecha, 'comida');
                         const isDropTarget = dropTarget?.fecha?.getTime() === fecha.getTime() && dropTarget?.tipoComida === 'comida';
                         const isPulsing = pulseCell?.fecha === fecha.getTime() && pulseCell?.tipoComida === 'comida';
@@ -1083,13 +1159,25 @@ function CalendarioComidasV2({ onBack }) {
                             onDragEnter={() => handleDragEnter(fecha, 'comida')}
                             onDragLeave={handleDragLeave}
                             onDrop={(e) => handleDrop(e, fecha, 'comida')}
+                            onMouseEnter={(e) => {
+                              if (!isDropTarget && !isTextoLibreMode) {
+                                e.currentTarget.style.borderColor = '#b3d9ff';
+                                e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0, 122, 255, 0.2)';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isDropTarget && !isTextoLibreMode) {
+                                e.currentTarget.style.borderColor = '#e5e5e7';
+                                e.currentTarget.style.boxShadow = 'none';
+                              }
+                            }}
                             style={{
-                              padding: isMobile ? 4 : 6,
-                              minWidth: isMobile ? 100 : 110,
-                              width: isMobile ? 100 : 110,
-                              height: 65,
+                              padding: isMobile ? 6 : 6,
+                              minWidth: isMobile ? 120 : 110,
+                              width: isMobile ? 120 : 110,
+                              minHeight: isMobile ? 80 : 65,
                               border: isDropTarget ? '3px solid #007AFF' : '1px solid #e5e5e7',
-                              background: isDropTarget ? '#e3f2fd' : (fecha.getDay() === 0 || fecha.getDay() === 6 ? '#fafafa' : '#fff'),
+                              background: esHoy ? '#e3f2fd' : (isDropTarget ? '#e3f2fd' : (fecha.getDay() === 0 || fecha.getDay() === 6 ? '#fafafa' : '#fff')),
                               transition: 'all 0.2s',
                               verticalAlign: 'top',
                               position: 'relative',
@@ -1151,17 +1239,25 @@ function CalendarioComidasV2({ onBack }) {
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 3, height: '100%' }}>
                                 {comidas.length === 0 && (
                                   <button
-                                    onClick={() => setModoTextoLibre({ fecha, tipoComida: 'comida' })}
+                                    onClick={() => {
+                                      if (isMobile) {
+                                        setMobileSelectModal({ fecha, tipoComida: 'comida' });
+                                      } else {
+                                        setModoTextoLibre({ fecha, tipoComida: 'comida' });
+                                      }
+                                    }}
                                     style={{
                                       background: 'transparent',
                                       border: '2px dashed #007AFF',
                                       borderRadius: 6,
-                                      padding: isMobile ? '10px 6px' : '12px 8px',
+                                      padding: isMobile ? '14px 8px' : '12px 8px',
                                       cursor: 'pointer',
-                                      fontSize: isMobile ? 12 : 13,
+                                      fontSize: isMobile ? 13 : 13,
                                       color: '#007AFF',
                                       transition: 'all 0.2s',
-                                      flex: 1
+                                      flex: 1,
+                                      fontWeight: isMobile ? 600 : 'normal',
+                                      minHeight: isMobile ? 48 : 'auto'
                                     }}
                                     onMouseEnter={(e) => {
                                       e.currentTarget.style.background = '#f0f8ff';
@@ -1170,7 +1266,7 @@ function CalendarioComidasV2({ onBack }) {
                                       e.currentTarget.style.background = 'transparent';
                                     }}
                                   >
-                                    + Añadir
+                                    {isMobile ? '📋 Planificar' : '+ Añadir'}
                                   </button>
                                 )}
                                 {comidas.map((comida) => (
@@ -1182,7 +1278,7 @@ function CalendarioComidasV2({ onBack }) {
                                     style={{
                                       background: comida.comida_id 
                                         ? 'linear-gradient(135deg, #ffeaa7 0%, #ffd93d 100%)' 
-                                        : 'linear-gradient(135deg, #b3e5fc 0%, #81d4fa 100%)',
+                                        : 'linear-gradient(135deg, #c8f7dc 0%, #a5ead7 100%)',
                                       padding: isMobile ? '4px 6px' : '5px 7px',
                                       borderRadius: 4,
                                       fontSize: isMobile ? 11 : 12,
@@ -1194,8 +1290,21 @@ function CalendarioComidasV2({ onBack }) {
                                       gap: 4,
                                       border: '1px solid rgba(0,0,0,0.06)',
                                       transition: 'all 0.15s ease',
-                                      height: '28px',
-                                      overflow: 'hidden'
+                                      height: 'auto',
+                                      minHeight: '28px',
+                                      overflow: 'visible',
+                                      whiteSpace: 'normal',
+                                      wordWrap: 'break-word',
+                                      maxWidth: '100%',
+                                      lineHeight: '1.2'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                                      e.currentTarget.style.transform = 'translateY(-1px)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.boxShadow = 'none';
+                                      e.currentTarget.style.transform = 'translateY(0)';
                                     }}
                                   >
                                     <span style={{
@@ -1208,7 +1317,8 @@ function CalendarioComidasV2({ onBack }) {
                                       flex: 1,
                                       overflow: 'hidden',
                                       textOverflow: 'ellipsis',
-                                      whiteSpace: 'nowrap',
+                                      whiteSpace: 'normal',
+                                      wordWrap: 'break-word',
                                       fontSize: isMobile ? 11 : 12
                                     }}>
                                       {comida.comida_nombre}
@@ -1232,13 +1342,15 @@ function CalendarioComidasV2({ onBack }) {
                         borderRight: '1px solid #e5e5e7',
                         textAlign: 'center',
                         color: '#1565c0',
-                        position: 'sticky',
-                        left: 0,
-                        zIndex: 1
+                        minWidth: isMobile ? 40 : 50,
+                        width: isMobile ? 40 : 50
                       }}>
                         🌙<br/>{t('cena') || 'Cena'}
                       </td>
                       {fechasQuincena.map((fecha, idx) => {
+                        const esHoy = fecha.getDate() === new Date().getDate() && 
+                                      fecha.getMonth() === new Date().getMonth() && 
+                                      fecha.getFullYear() === new Date().getFullYear();
                         const comidas = getComidasPlanificadas(fecha, 'cena');
                         const isDropTarget = dropTarget?.fecha?.getTime() === fecha.getTime() && dropTarget?.tipoComida === 'cena';
                         const isPulsing = pulseCell?.fecha === fecha.getTime() && pulseCell?.tipoComida === 'cena';
@@ -1251,13 +1363,25 @@ function CalendarioComidasV2({ onBack }) {
                             onDragEnter={() => handleDragEnter(fecha, 'cena')}
                             onDragLeave={handleDragLeave}
                             onDrop={(e) => handleDrop(e, fecha, 'cena')}
+                            onMouseEnter={(e) => {
+                              if (!isDropTarget && !isTextoLibreMode) {
+                                e.currentTarget.style.borderColor = '#b3d9ff';
+                                e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0, 122, 255, 0.2)';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isDropTarget && !isTextoLibreMode) {
+                                e.currentTarget.style.borderColor = '#e5e5e7';
+                                e.currentTarget.style.boxShadow = 'none';
+                              }
+                            }}
                             style={{
-                              padding: isMobile ? 4 : 6,
-                              minWidth: isMobile ? 100 : 110,
-                              width: isMobile ? 100 : 110,
-                              height: 65,
+                              padding: isMobile ? 6 : 6,
+                              minWidth: isMobile ? 120 : 110,
+                              width: isMobile ? 120 : 110,
+                              minHeight: isMobile ? 80 : 65,
                               border: isDropTarget ? '3px solid #007AFF' : '1px solid #e5e5e7',
-                              background: isDropTarget ? '#e3f2fd' : (fecha.getDay() === 0 || fecha.getDay() === 6 ? '#fafafa' : '#fff'),
+                              background: esHoy ? '#e3f2fd' : (isDropTarget ? '#e3f2fd' : (fecha.getDay() === 0 || fecha.getDay() === 6 ? '#fafafa' : '#fff')),
                               transition: 'all 0.2s',
                               verticalAlign: 'top',
                               position: 'relative',
@@ -1319,17 +1443,25 @@ function CalendarioComidasV2({ onBack }) {
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 3, height: '100%' }}>
                                 {comidas.length === 0 && (
                                   <button
-                                    onClick={() => setModoTextoLibre({ fecha, tipoComida: 'cena' })}
+                                    onClick={() => {
+                                      if (isMobile) {
+                                        setMobileSelectModal({ fecha, tipoComida: 'cena' });
+                                      } else {
+                                        setModoTextoLibre({ fecha, tipoComida: 'cena' });
+                                      }
+                                    }}
                                     style={{
                                       background: 'transparent',
                                       border: '2px dashed #007AFF',
                                       borderRadius: 6,
-                                      padding: isMobile ? '10px 6px' : '12px 8px',
+                                      padding: isMobile ? '14px 8px' : '12px 8px',
                                       cursor: 'pointer',
-                                      fontSize: isMobile ? 12 : 13,
+                                      fontSize: isMobile ? 13 : 13,
                                       color: '#007AFF',
                                       transition: 'all 0.2s',
-                                      flex: 1
+                                      flex: 1,
+                                      fontWeight: isMobile ? 600 : 'normal',
+                                      minHeight: isMobile ? 48 : 'auto'
                                     }}
                                     onMouseEnter={(e) => {
                                       e.currentTarget.style.background = '#f0f8ff';
@@ -1338,7 +1470,7 @@ function CalendarioComidasV2({ onBack }) {
                                       e.currentTarget.style.background = 'transparent';
                                     }}
                                   >
-                                    + Añadir
+                                    {isMobile ? '📋 Planificar' : '+ Añadir'}
                                   </button>
                                 )}
                                 {comidas.map((comida) => (
@@ -1349,8 +1481,8 @@ function CalendarioComidasV2({ onBack }) {
                                     title={comida.comida_nombre}
                                     style={{
                                       background: comida.comida_id 
-                                        ? 'linear-gradient(135deg, #ffeaa7 0%, #ffd93d 100%)' 
-                                        : 'linear-gradient(135deg, #b3e5fc 0%, #81d4fa 100%)',
+                                        ? 'linear-gradient(135deg, #81d4fa 0%, #4fc3f7 100%)' 
+                                        : 'linear-gradient(135deg, #c8f7dc 0%, #a5ead7 100%)',
                                       padding: isMobile ? '4px 6px' : '5px 7px',
                                       borderRadius: 4,
                                       fontSize: isMobile ? 11 : 12,
@@ -1362,8 +1494,21 @@ function CalendarioComidasV2({ onBack }) {
                                       gap: 4,
                                       border: '1px solid rgba(0,0,0,0.06)',
                                       transition: 'all 0.15s ease',
-                                      height: '28px',
-                                      overflow: 'hidden'
+                                      height: 'auto',
+                                      minHeight: '28px',
+                                      overflow: 'visible',
+                                      whiteSpace: 'normal',
+                                      wordWrap: 'break-word',
+                                      maxWidth: '100%',
+                                      lineHeight: '1.2'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                                      e.currentTarget.style.transform = 'translateY(-1px)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.boxShadow = 'none';
+                                      e.currentTarget.style.transform = 'translateY(0)';
                                     }}
                                   >
                                     <span style={{
@@ -1376,7 +1521,8 @@ function CalendarioComidasV2({ onBack }) {
                                       flex: 1,
                                       overflow: 'hidden',
                                       textOverflow: 'ellipsis',
-                                      whiteSpace: 'nowrap',
+                                      whiteSpace: 'normal',
+                                      wordWrap: 'break-word',
                                       fontSize: isMobile ? 11 : 12
                                     }}>
                                       {comida.comida_nombre}
@@ -1955,6 +2101,146 @@ function CalendarioComidasV2({ onBack }) {
                 Cancelar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL SELECCIÓN DE COMIDAS - MÓVIL */}
+      {mobileSelectModal && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.4)',
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'center',
+            zIndex: 10000,
+            animation: 'fadeIn 0.2s ease-out'
+          }}
+          onClick={() => setMobileSelectModal(null)}
+        >
+          <div 
+            style={{
+              background: '#fff',
+              borderRadius: '20px 20px 0 0',
+              padding: '24px',
+              maxWidth: '100%',
+              width: '100%',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              boxShadow: '0 -10px 40px rgba(0,0,0,0.2)',
+              animation: 'slideInUp 0.3s ease-out'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{
+              fontSize: 20,
+              fontWeight: 700,
+              color: '#1d1d1f',
+              marginBottom: 16,
+              textAlign: 'center'
+            }}>
+              🍽️ Selecciona una comida
+            </div>
+            <div style={{
+              fontSize: 13,
+              color: '#666',
+              marginBottom: 16,
+              textAlign: 'center'
+            }}>
+              {mobileSelectModal.tipoComida === 'comida' ? '🍽️ Comida' : '🌙 Cena'} -{' '}
+              {mobileSelectModal.fecha.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
+            </div>
+
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              maxHeight: 'calc(70vh - 120px)',
+              overflowY: 'auto'
+            }}>
+              {comidasNoUsadas.length === 0 ? (
+                <div style={{
+                  padding: '20px',
+                  textAlign: 'center',
+                  color: '#999',
+                  fontSize: 13
+                }}>
+                  Sin comidas disponibles
+                </div>
+              ) : (
+                comidasNoUsadas.map((comida) => (
+                  <button
+                    key={comida.id}
+                    onClick={() => handlePlanificarDesdeMobil(comida.id)}
+                    disabled={loading}
+                    style={{
+                      padding: '12px 14px',
+                      background: '#f5f5f7',
+                      border: '1px solid #e5e5e7',
+                      borderRadius: 10,
+                      cursor: loading ? 'not-allowed' : 'pointer',
+                      fontSize: 14,
+                      fontWeight: 500,
+                      color: '#1d1d1f',
+                      transition: 'all 0.2s',
+                      opacity: loading ? 0.6 : 1,
+                      textAlign: 'left',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!loading) e.currentTarget.style.background = '#efefef';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = '#f5f5f7';
+                    }}
+                  >
+                    <div>
+                      <div>{comida.nombre}</div>
+                      {comida.notas && (
+                        <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>
+                          📝 {comida.notas.substring(0, 30)}...
+                        </div>
+                      )}
+                    </div>
+                    <span style={{ fontSize: 16 }}>→</span>
+                  </button>
+                ))
+              )}
+            </div>
+
+            <button
+              onClick={() => setMobileSelectModal(null)}
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: '12px',
+                marginTop: 16,
+                borderRadius: 10,
+                border: 'none',
+                background: '#f5f5f7',
+                color: '#1d1d1f',
+                fontSize: 15,
+                fontWeight: 600,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s',
+                opacity: loading ? 0.6 : 1
+              }}
+              onMouseEnter={(e) => {
+                if (!loading) e.currentTarget.style.background = '#efefef';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#f5f5f7';
+              }}
+            >
+              Cancelar
+            </button>
           </div>
         </div>
       )}

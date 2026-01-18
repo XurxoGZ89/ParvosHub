@@ -222,31 +222,6 @@ const Home = ({ onNavigate }) => {
             </div>
           </div>
 
-          {/* Calendario de Comidas */}
-          <div
-            onClick={() => onNavigate('calendariocomidas')}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 8,
-              cursor: 'pointer',
-              transition: 'all 0.3s',
-              padding: 12
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.transform = 'scale(1.1)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-          >
-            <div style={{ fontSize: '1.8rem' }}>🍽️</div>
-            <div style={{ fontSize: '0.75rem', textAlign: 'center', color: '#1d1d1f', fontWeight: 500, maxWidth: 70 }}>
-              {t('calendarioComidas')}
-            </div>
-          </div>
-
           {/* Calendario de Comidas V2 - NUEVO DISEÑO */}
           <div
             onClick={() => onNavigate('calendariocomidasv2')}
