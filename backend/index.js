@@ -43,7 +43,7 @@ app.get('/', (req, res) => {
 
 // Endpoint para agregar una operación
 app.post('/operaciones', async (req, res) => {
-  const { fecha, tipo, cantidad, descripcion, categoria, cuenta, usuario_id } = req.body;
+  const { fecha, tipo, cantidad, descripcion, categoria, cuenta, usuario } = req.body;
   
   console.log('POST /operaciones recibido:', req.body);
   
@@ -56,8 +56,8 @@ app.post('/operaciones', async (req, res) => {
     const tipoNormalizado = tipo === 'ahorro' ? 'retirada-hucha' : tipo;
     
     const result = await db.query(
-      'INSERT INTO operaciones (fecha, tipo, cantidad, info, categoria, cuenta, usuario_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      [fecha, tipoNormalizado, cantidad, descripcion || '', categoria || '', cuenta || '', usuario_id || null]
+      'INSERT INTO operaciones (fecha, tipo, cantidad, info, categoria, cuenta, usuario) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      [fecha, tipoNormalizado, cantidad, descripcion || '', categoria || '', cuenta || '', usuario || '']
     );
     
     console.log('Operación creada:', result.rows[0]);

@@ -25,10 +25,12 @@ import {
   ArrowDown
 } from 'lucide-react';
 import api from '../../lib/api';
+import useAuthStore from '../../stores/authStore';
 import bbvaLogo from '../../assets/BBVA_2019.svg.png';
 import imaginLogo from '../../assets/imagin.webp';
 
 const ParvosAccount = () => {
+  const { user } = useAuthStore();
   const [operaciones, setOperaciones] = useState([]);
   const [presupuestos, setPresupuestos] = useState([]);
   const [metas, setMetas] = useState([]);
@@ -49,7 +51,7 @@ const ParvosAccount = () => {
 
   const [mesSeleccionado, setMesSeleccionado] = useState(meses[mesActual]);
   const [añoSeleccionado, setAñoSeleccionado] = useState(añoActual);
-  const [paginaActual, setPaginaActual] = useState(1);
+  const [paginaActual, setPaginaActual] = useState(0);
   const [itemsPorPagina, setItemsPorPagina] = useState(10);
   const [busqueda, setBusqueda] = useState('');
   const [ordenamiento, setOrdenamiento] = useState({ columna: 'fecha', direccion: 'desc' });
@@ -72,8 +74,7 @@ const ParvosAccount = () => {
     cantidad: '',
     descripcion: '',
     categoria: 'Alimentación',
-    cuenta: 'BBVA',
-    usuario_id: 2
+    cuenta: 'BBVA'
   });
 
   const categorias = [
@@ -313,8 +314,8 @@ const ParvosAccount = () => {
     return ordenamiento.direccion === 'asc' ? comparacion : -comparacion;
   });
 
-  const indexOfLastItem = (paginaActual + 1) * itemsPorPagina;
-  const indexOfFirstItem = indexOfLastItem - itemsPorPagina;
+  const indexOfFirstItem = paginaActual * itemsPorPagina;
+  const indexOfLastItem = indexOfFirstItem + itemsPorPagina;
   const operacionesPaginadas = operacionesOrdenadas.slice(indexOfFirstItem, indexOfLastItem);
   const totalPaginas = Math.ceil(operacionesFiltradas.length / itemsPorPagina);
 
@@ -334,11 +335,12 @@ const ParvosAccount = () => {
   const handleCrearOperacion = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/operaciones', formNuevaOperacion);
+      const username = user?.username || 'Sonia';
+      await api.post('/operaciones', { ...formNuevaOperacion, usuario: username });
       await api.post('/actividad', {
         tipo: 'operacion',
         descripcion: `Nueva ${formNuevaOperacion.tipo}: ${formNuevaOperacion.descripcion || formNuevaOperacion.categoria} - ${formNuevaOperacion.cantidad}€`,
-        usuario_id: 2
+        usuario_id: username === 'Sonia' ? 2 : 1
       });
       setFormNuevaOperacion({
         fecha: new Date().toISOString().split('T')[0],
@@ -346,8 +348,7 @@ const ParvosAccount = () => {
         cantidad: '',
         descripcion: '',
         categoria: 'Alimentación',
-        cuenta: 'BBVA',
-        usuario_id: 2
+        cuenta: 'BBVA'
       });
       cargarDatos();
     } catch (error) {
@@ -430,25 +431,26 @@ const ParvosAccount = () => {
     <div className="pb-8 lg:p-8 lg:space-y-8">
       {/* Header con selector de mes - Sticky en móvil */}
       <div className="sticky top-0 z-30 bg-white dark:bg-stone-950 lg:bg-transparent lg:relative p-4 lg:p-0 border-b lg:border-0 border-slate-200 dark:border-stone-800">
-        <div className="flex items-center justify-between gap-4">
-          <h1 className="text-xl lg:text-2xl font-bold tracking-tight">Cuenta Parvos</h1>
-          <div className="flex items-center gap-2 bg-slate-100 dark:bg-stone-900 p-1 rounded-lg">
+        <div className="flex flex-col lg:flex-row items-center justify-between gap-3 lg:gap-4">
+          <h1 className="text-xl lg:text-2xl font-bold tracking-tight lg:order-1">Cuenta Parvos</h1>
+          <div className="flex items-center gap-2 bg-slate-100 dark:bg-stone-900 p-1.5 rounded-xl shadow-sm lg:order-2 lg:mx-auto">
             <button 
               onClick={() => cambiarMes(-1)}
-              className="p-2 lg:p-1.5 hover:bg-white dark:hover:bg-stone-800 rounded-lg transition-colors active:scale-95"
+              className="p-2.5 hover:bg-white dark:hover:bg-stone-800 rounded-lg transition-colors active:scale-95"
             >
-              <ChevronLeft className="w-5 h-5 lg:w-4 lg:h-4" />
+              <ChevronLeft className="w-5 h-5" />
             </button>
-            <div className="px-3 lg:px-4 py-1 text-xs font-bold whitespace-nowrap">
+            <div className="px-6 py-2 text-sm lg:text-base font-bold whitespace-nowrap min-w-[160px] text-center">
               {mesSeleccionado.charAt(0).toUpperCase() + mesSeleccionado.slice(1)} {añoSeleccionado}
             </div>
             <button 
               onClick={() => cambiarMes(1)}
-              className="p-2 lg:p-1.5 hover:bg-white dark:hover:bg-stone-800 rounded-lg transition-colors active:scale-95"
+              className="p-2.5 hover:bg-white dark:hover:bg-stone-800 rounded-lg transition-colors active:scale-95"
             >
-              <ChevronRight className="w-5 h-5 lg:w-4 lg:h-4" />
+              <ChevronRight className="w-5 h-5" />
             </button>
           </div>
+          <div className="hidden lg:block lg:order-3 lg:w-[120px]"></div>
         </div>
       </div>
 

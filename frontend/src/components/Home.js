@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Plus, Calendar, Euro, FileText, Tag, CreditCard, User, X } from 'lucide-react';
+import { ChevronRight, Plus, Calendar, Euro, FileText, Tag, CreditCard, X } from 'lucide-react';
 import api from '../lib/api';
+import useAuthStore from '../stores/authStore';
 
 const Home = () => {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [userStats, setUserStats] = useState(null);
   const [parvosStats, setParvosStats] = useState(null);
   const [mealData, setMealData] = useState([]);
+  const [mealPage, setMealPage] = useState(0);
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -18,8 +21,7 @@ const Home = () => {
     cantidad: '',
     descripcion: '',
     categoria: 'Hogar',
-    cuenta: 'Santander',
-    usuario: 'Sonia'
+    cuenta: 'BBVA Personal'
   });
 
   useEffect(() => {
@@ -36,26 +38,26 @@ const Home = () => {
         const events = Array.isArray(eventsResponse.data) ? eventsResponse.data : [];
         const operations = Array.isArray(operationsResponse.data) ? operationsResponse.data : [];
         
-        // Process meals - Filtrar por próximos 5 días (hoy + 4 días)
+        // Process meals - Filtrar por próximos 8 días (hoy + 7 días)
         const today = new Date();
         today.setHours(0, 0, 0, 0); // Resetear horas para comparación precisa
         
         const todayStr = today.toISOString().split('T')[0];
         
-        // Calcular fecha límite (hoy + 4 días = 5 días total)
-        const fiveDaysLater = new Date(today);
-        fiveDaysLater.setDate(fiveDaysLater.getDate() + 4);
-        const fiveDaysStr = fiveDaysLater.toISOString().split('T')[0];
+        // Calcular fecha límite (hoy + 7 días = 8 días total)
+        const sevenDaysLater = new Date(today);
+        sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+        const sevenDaysStr = sevenDaysLater.toISOString().split('T')[0];
         
-        console.log('Rango de búsqueda de comidas:', { todayStr, fiveDaysStr });
+        console.log('Rango de búsqueda de comidas:', { todayStr, sevenDaysStr });
         console.log('Comidas disponibles:', meals);
         
         const relevantMeals = meals.filter(meal => {
           const mealDate = meal.fecha;
-          return mealDate >= todayStr && mealDate <= fiveDaysStr;
+          return mealDate >= todayStr && mealDate <= sevenDaysStr;
         }).sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
-        console.log('Comidas filtradas (próximos 5 días):', relevantMeals);
+        console.log('Comidas filtradas (próximos 8 días):', relevantMeals);
 
         let displayMeals = relevantMeals;
         if (displayMeals.length === 0) {
@@ -163,7 +165,7 @@ const Home = () => {
         descripcion: formData.descripcion,
         categoria: formData.categoria,
         cuenta: formData.cuenta,
-        usuario_id: formData.usuario === 'Sonia' ? 2 : 1
+        usuario: user?.username || 'Sonia'
       };
 
       console.log('Enviando movimiento:', payload);
@@ -177,8 +179,7 @@ const Home = () => {
         cantidad: '',
         descripcion: '',
         categoria: 'Hogar',
-        cuenta: 'Santander',
-        usuario: 'Sonia'
+        cuenta: 'BBVA Personal'
       });
       
       // Refrescar datos
@@ -330,36 +331,61 @@ const Home = () => {
 
         <div className="space-y-3">
           {mealData.length > 0 ? (
-            mealData.map((meal, idx) => {
-              const mealDate = new Date(meal.fecha);
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              const daysFromNow = Math.floor((mealDate - today) / (1000 * 60 * 60 * 24));
-              
-              let dateLabel = '';
-              if (daysFromNow === 0) dateLabel = 'Hoy';
-              else if (daysFromNow === 1) dateLabel = 'Mañ';
-              else {
-                const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sab'];
-                dateLabel = dayNames[mealDate.getDay()];
-              }
-              
-              return (
-                <div key={meal.id || idx} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                  <div className="text-center w-12 shrink-0">
-                    <p className="text-xs font-bold text-slate-400 uppercase leading-none mb-1">{dateLabel}</p>
-                    <p className="text-sm font-extrabold text-purple-600">{mealDate.getDate()}</p>
+            <>
+              {mealData.slice(mealPage * 5, (mealPage + 1) * 5).map((meal, idx) => {
+                const mealDate = new Date(meal.fecha);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const daysFromNow = Math.floor((mealDate - today) / (1000 * 60 * 60 * 24));
+                
+                let dateLabel = '';
+                if (daysFromNow === 0) dateLabel = 'Hoy';
+                else if (daysFromNow === 1) dateLabel = 'Mañ';
+                else {
+                  const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sab'];
+                  dateLabel = dayNames[mealDate.getDay()];
+                }
+                
+                return (
+                  <div key={meal.id || idx} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                    <div className="text-center w-12 shrink-0">
+                      <p className="text-xs font-bold text-slate-400 uppercase leading-none mb-1">{dateLabel}</p>
+                      <p className="text-sm font-extrabold text-purple-600">{mealDate.getDate()}</p>
+                    </div>
+                    <div className="h-6 w-px bg-slate-200 dark:bg-slate-700"></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold truncate">
+                        {meal.tipo_comida === 'comida' ? 'Comida' : 'Cena'}: {meal.comida_nombre}
+                      </p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
                   </div>
-                  <div className="h-6 w-px bg-slate-200 dark:bg-slate-700"></div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold truncate">
-                      {meal.tipo_comida === 'comida' ? 'Comida' : 'Cena'}: {meal.comida_nombre}
-                    </p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                );
+              })}
+              
+              {/* Paginación */}
+              {mealData.length > 5 && (
+                <div className="flex items-center justify-center gap-2 pt-2">
+                  <button
+                    onClick={() => setMealPage(Math.max(0, mealPage - 1))}
+                    disabled={mealPage === 0}
+                    className="w-7 h-7 rounded-full flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    ‹
+                  </button>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    {mealPage + 1} / {Math.ceil(mealData.length / 5)}
+                  </span>
+                  <button
+                    onClick={() => setMealPage(Math.min(Math.ceil(mealData.length / 5) - 1, mealPage + 1))}
+                    disabled={mealPage >= Math.ceil(mealData.length / 5) - 1}
+                    className="w-7 h-7 rounded-full flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    ›
+                  </button>
                 </div>
-              );
-            })
+              )}
+            </>
           ) : (
             <div className="flex items-center justify-center p-8 text-slate-500 text-xs">
               No hay comidas planificadas
@@ -404,17 +430,19 @@ const Home = () => {
                 key={idx}
                 onClick={() => day && setSelectedDay(day)}
                 className={`
-                  aspect-square rounded-md flex items-center justify-center text-sm font-bold
+                  aspect-square rounded-md flex flex-col items-center justify-center
                   cursor-pointer transition-all relative
                   ${!day ? 'bg-transparent' : 'bg-slate-50 dark:bg-slate-800/40'}
-                  ${isToday ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30' : ''}
-                  ${event && !isToday ? 'bg-pink-200/50 text-pink-700 border border-pink-300 dark:bg-pink-900/20 dark:text-pink-400 dark:border-pink-900/50' : ''}
+                  ${isToday ? 'bg-purple-600 shadow-lg shadow-purple-600/30' : ''}
+                  ${event && !isToday ? 'bg-pink-200/50 border border-pink-300 dark:bg-pink-900/20 dark:border-pink-900/50' : ''}
                   ${day && !event && !isToday ? 'hover:bg-slate-100 dark:hover:bg-slate-700' : ''}
                 `}
               >
-                <span>{day}</span>
+                <span className={`text-base font-bold ${isToday ? 'text-white' : event ? 'text-pink-700 dark:text-pink-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                  {day}
+                </span>
                 {event && (
-                  <div className={`absolute bottom-1 w-1.5 h-1.5 rounded-full ${isToday ? 'bg-white' : 'bg-pink-600'}`} />
+                  <div className={`w-1.5 h-1.5 rounded-full mt-0.5 ${isToday ? 'bg-white' : 'bg-pink-600'}`} />
                 )}
               </div>
             );
@@ -631,48 +659,6 @@ const Home = () => {
                   </select>
                 </div>
               </div>
-
-              {/* User Selector (Only for Parvos) */}
-              {modalType === 'parvos' && (
-                <div className="flex flex-col gap-3 pt-2">
-                  <p className="text-gray-700 dark:text-gray-300 text-sm font-medium flex items-center gap-2">
-                    <User className="w-4 h-4" />
-                    Usuario responsable
-                  </p>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className="relative">
-                        <input 
-                          className="peer sr-only" 
-                          type="radio" 
-                          name="usuario" 
-                          value="Sonia"
-                          checked={formData.usuario === 'Sonia'}
-                          onChange={(e) => setFormData({...formData, usuario: e.target.value})}
-                        />
-                        <div className="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600 peer-checked:border-purple-600 peer-checked:bg-purple-600 transition-all"></div>
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white opacity-0 peer-checked:opacity-100"></div>
-                      </div>
-                      <span className="text-sm text-gray-700 dark:text-gray-300 group-hover:text-purple-600 transition-colors">Sonia</span>
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className="relative">
-                        <input 
-                          className="peer sr-only" 
-                          type="radio" 
-                          name="usuario" 
-                          value="Xurxo"
-                          checked={formData.usuario === 'Xurxo'}
-                          onChange={(e) => setFormData({...formData, usuario: e.target.value})}
-                        />
-                        <div className="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600 peer-checked:border-purple-600 peer-checked:bg-purple-600 transition-all"></div>
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white opacity-0 peer-checked:opacity-100"></div>
-                      </div>
-                      <span className="text-sm text-gray-700 dark:text-gray-300 group-hover:text-purple-600 transition-colors">Xurxo</span>
-                    </label>
-                  </div>
-                </div>
-              )}
             </form>
 
             {/* Footer Actions */}
