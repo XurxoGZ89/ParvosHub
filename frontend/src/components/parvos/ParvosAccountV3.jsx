@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import ReactPaginate from 'react-paginate';
 import { 
   ShoppingCart, 
   Dumbbell, 
   PartyPopper, 
   Home as HomeIcon, 
   Car, 
-  Film,
+  Utensils,
+  Plus,
+  Plane,
   Edit,
   Trash2,
   ChevronLeft,
@@ -15,7 +18,11 @@ import {
   TrendingUp,
   TrendingDown,
   Target,
-  Clock
+  Clock,
+  Search,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import api from '../../lib/api';
 import bbvaLogo from '../../assets/BBVA_2019.svg.png';
@@ -44,6 +51,13 @@ const ParvosAccount = () => {
   const [añoSeleccionado, setAñoSeleccionado] = useState(añoActual);
   const [paginaActual, setPaginaActual] = useState(1);
   const [itemsPorPagina, setItemsPorPagina] = useState(10);
+  const [busqueda, setBusqueda] = useState('');
+  const [ordenamiento, setOrdenamiento] = useState({ columna: 'fecha', direccion: 'desc' });
+
+  // Estados para móvil
+  const [isMobile, setIsMobile] = useState(false);
+  const [showMobileForm, setShowMobileForm] = useState(false);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   // Estados para modales
   const [modalEditarPresupuesto, setModalEditarPresupuesto] = useState(false);
@@ -65,12 +79,26 @@ const ParvosAccount = () => {
   const categorias = [
     { nombre: 'Alimentación', icon: ShoppingCart, color: 'amber' },
     { nombre: 'Deporte', icon: Dumbbell, color: 'cyan' },
-    { nombre: 'Ocio', icon: Film, color: 'red' },
+    { nombre: 'Ocio', icon: Utensils, color: 'red' },
     { nombre: 'Hogar', icon: HomeIcon, color: 'emerald' },
     { nombre: 'Movilidad', icon: Car, color: 'blue' },
-    { nombre: 'Extra', icon: PartyPopper, color: 'purple' },
-    { nombre: 'Vacaciones', icon: PartyPopper, color: 'orange' }
+    { nombre: 'Extra', icon: Plus, color: 'purple' },
+    { nombre: 'Vacaciones', icon: Plane, color: 'orange' }
   ];
+
+  const tablaRef = useRef(null);
+
+  // Detectar si es móvil
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     cargarDatos();
@@ -138,43 +166,62 @@ const ParvosAccount = () => {
     };
   };
 
-  // Calcular ahorro del mes
+  // Calcular ahorro acumulado hasta el mes seleccionado
   const calcularAhorro = () => {
-    const ingresosMes = operacionesDelMes
-      .filter(op => op.tipo === 'ingreso' || op.tipo === 'retirada-hucha')
-      .reduce((sum, op) => sum + parseFloat(op.cantidad || 0), 0);
+    const mesIdx = meses.indexOf(mesSeleccionado);
     
-    const gastosMes = operacionesDelMes
-      .filter(op => op.tipo === 'gasto')
-      .reduce((sum, op) => sum + parseFloat(op.cantidad || 0), 0);
+    // Calcular ahorro acumulado: SOLO hucha - retirada-hucha
+    const operacionesHastaAhora = operaciones.filter(op => {
+      const fecha = new Date(op.fecha);
+      const mesOp = fecha.getMonth();
+      const añoOp = fecha.getFullYear();
+      
+      // Incluir si es antes del mes/año seleccionado, o es el mes/año seleccionado
+      if (añoOp < añoSeleccionado) return true;
+      if (añoOp === añoSeleccionado && mesOp <= mesIdx) return true;
+      return false;
+    });
 
-    const huchaMes = operacionesDelMes
+    const huchaAcumulada = operacionesHastaAhora
       .filter(op => op.tipo === 'hucha')
       .reduce((sum, op) => sum + parseFloat(op.cantidad || 0), 0);
 
-    const ahorroMes = ingresosMes - gastosMes + huchaMes;
-
-    // Mes anterior
-    const ingresosMesAnterior = operacionesMesAnterior
-      .filter(op => op.tipo === 'ingreso' || op.tipo === 'retirada-hucha')
-      .reduce((sum, op) => sum + parseFloat(op.cantidad || 0), 0);
-    
-    const gastosMesAnterior = operacionesMesAnterior
-      .filter(op => op.tipo === 'gasto')
+    const retiradaHuchaAcumulada = operacionesHastaAhora
+      .filter(op => op.tipo === 'retirada-hucha')
       .reduce((sum, op) => sum + parseFloat(op.cantidad || 0), 0);
 
-    const huchaMesAnterior = operacionesMesAnterior
+    const ahorroActual = huchaAcumulada - retiradaHuchaAcumulada;
+
+    // Calcular ahorro del mes anterior (para comparativa)
+    const mesAnteriorIdx = mesIdx === 0 ? 11 : mesIdx - 1;
+    const añoAnterior = mesIdx === 0 ? añoSeleccionado - 1 : añoSeleccionado;
+
+    const operacionesHastaMesAnterior = operaciones.filter(op => {
+      const fecha = new Date(op.fecha);
+      const mesOp = fecha.getMonth();
+      const añoOp = fecha.getFullYear();
+      
+      if (añoOp < añoAnterior) return true;
+      if (añoOp === añoAnterior && mesOp <= mesAnteriorIdx) return true;
+      return false;
+    });
+
+    const huchaAnterior = operacionesHastaMesAnterior
       .filter(op => op.tipo === 'hucha')
       .reduce((sum, op) => sum + parseFloat(op.cantidad || 0), 0);
 
-    const ahorroMesAnterior = ingresosMesAnterior - gastosMesAnterior + huchaMesAnterior;
+    const retiradaHuchaAnterior = operacionesHastaMesAnterior
+      .filter(op => op.tipo === 'retirada-hucha')
+      .reduce((sum, op) => sum + parseFloat(op.cantidad || 0), 0);
 
-    const diferencia = ahorroMes - ahorroMesAnterior;
-    const porcentaje = ahorroMesAnterior !== 0 ? ((diferencia / Math.abs(ahorroMesAnterior)) * 100) : 0;
+    const ahorroAnterior = huchaAnterior - retiradaHuchaAnterior;
+
+    const diferencia = ahorroActual - ahorroAnterior;
+    const porcentaje = ahorroAnterior !== 0 ? ((diferencia / Math.abs(ahorroAnterior)) * 100) : 0;
 
     return {
-      actual: ahorroMes,
-      anterior: ahorroMesAnterior,
+      actual: ahorroActual,
+      anterior: ahorroAnterior,
       diferencia,
       porcentaje
     };
@@ -219,19 +266,69 @@ const ParvosAccount = () => {
     });
   };
 
-  // Filtrar y paginar
+  // Filtrar, buscar y ordenar
   const operacionesFiltradas = operacionesDelMes.filter(op => {
+    // Filtros dropdown
     if (filtros.tipo !== 'todos' && op.tipo !== filtros.tipo) return false;
     if (filtros.categoria !== 'todas' && op.categoria !== filtros.categoria) return false;
     if (filtros.cuenta !== 'todas' && op.cuenta !== filtros.cuenta) return false;
+    
+    // Búsqueda por texto
+    if (busqueda.trim() !== '') {
+      const searchTerm = busqueda.toLowerCase();
+      const concepto = (op.info || op.descripcion || '').toLowerCase();
+      const categoria = (op.categoria || '').toLowerCase();
+      if (!concepto.includes(searchTerm) && !categoria.includes(searchTerm)) {
+        return false;
+      }
+    }
+    
     return true;
   });
 
-  const indexOfLastItem = paginaActual * itemsPorPagina;
+  // Ordenar
+  const operacionesOrdenadas = [...operacionesFiltradas].sort((a, b) => {
+    let comparacion = 0;
+    
+    switch (ordenamiento.columna) {
+      case 'fecha':
+        comparacion = new Date(a.fecha) - new Date(b.fecha);
+        break;
+      case 'tipo':
+        comparacion = (a.tipo || '').localeCompare(b.tipo || '');
+        break;
+      case 'cantidad':
+        comparacion = parseFloat(a.cantidad || 0) - parseFloat(b.cantidad || 0);
+        break;
+      case 'categoria':
+        comparacion = (a.categoria || '').localeCompare(b.categoria || '');
+        break;
+      case 'cuenta':
+        comparacion = (a.cuenta || '').localeCompare(b.cuenta || '');
+        break;
+      default:
+        comparacion = 0;
+    }
+    
+    return ordenamiento.direccion === 'asc' ? comparacion : -comparacion;
+  });
+
+  const indexOfLastItem = (paginaActual + 1) * itemsPorPagina;
   const indexOfFirstItem = indexOfLastItem - itemsPorPagina;
-  const operacionesOrdenadas = [...operacionesFiltradas].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
   const operacionesPaginadas = operacionesOrdenadas.slice(indexOfFirstItem, indexOfLastItem);
   const totalPaginas = Math.ceil(operacionesFiltradas.length / itemsPorPagina);
+
+  // Handler para cambiar ordenamiento
+  const handleOrdenar = (columna) => {
+    if (ordenamiento.columna === columna) {
+      setOrdenamiento({
+        columna,
+        direccion: ordenamiento.direccion === 'asc' ? 'desc' : 'asc'
+      });
+    } else {
+      setOrdenamiento({ columna, direccion: 'asc' });
+    }
+  };
 
   // Handlers
   const handleCrearOperacion = async (e) => {
@@ -330,66 +427,68 @@ const ParvosAccount = () => {
   const presupuestoVsReal = calcularPresupuestoVsReal();
 
   return (
-    <div className="p-8 space-y-8">
-      {/* Header con selector de mes */}
-      <div className="flex items-center gap-6">
-        <h1 className="text-2xl font-bold tracking-tight">Cuenta Parvos</h1>
-        <div className="flex items-center gap-2 bg-slate-100 dark:bg-stone-900 p-1 rounded-lg">
-          <button 
-            onClick={() => cambiarMes(-1)}
-            className="p-1.5 hover:bg-white dark:hover:bg-stone-800 rounded-lg transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <div className="px-4 py-1 text-xs font-bold">
-            {mesSeleccionado.charAt(0).toUpperCase() + mesSeleccionado.slice(1)} {añoSeleccionado}
+    <div className="pb-8 lg:p-8 lg:space-y-8">
+      {/* Header con selector de mes - Sticky en móvil */}
+      <div className="sticky top-0 z-30 bg-white dark:bg-stone-950 lg:bg-transparent lg:relative p-4 lg:p-0 border-b lg:border-0 border-slate-200 dark:border-stone-800">
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-xl lg:text-2xl font-bold tracking-tight">Cuenta Parvos</h1>
+          <div className="flex items-center gap-2 bg-slate-100 dark:bg-stone-900 p-1 rounded-lg">
+            <button 
+              onClick={() => cambiarMes(-1)}
+              className="p-2 lg:p-1.5 hover:bg-white dark:hover:bg-stone-800 rounded-lg transition-colors active:scale-95"
+            >
+              <ChevronLeft className="w-5 h-5 lg:w-4 lg:h-4" />
+            </button>
+            <div className="px-3 lg:px-4 py-1 text-xs font-bold whitespace-nowrap">
+              {mesSeleccionado.charAt(0).toUpperCase() + mesSeleccionado.slice(1)} {añoSeleccionado}
+            </div>
+            <button 
+              onClick={() => cambiarMes(1)}
+              className="p-2 lg:p-1.5 hover:bg-white dark:hover:bg-stone-800 rounded-lg transition-colors active:scale-95"
+            >
+              <ChevronRight className="w-5 h-5 lg:w-4 lg:h-4" />
+            </button>
           </div>
-          <button 
-            onClick={() => cambiarMes(1)}
-            className="p-1.5 hover:bg-white dark:hover:bg-stone-800 rounded-lg transition-colors"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
         </div>
       </div>
 
-      {/* Tarjetas de Balance */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
+      {/* Tarjetas de Balance - Swipeable en móvil */}
+      <div className="grid grid-cols-2 lg:grid-cols-12 gap-3 lg:gap-6 p-4 lg:p-0">
         {/* Balance Total */}
-        <div className="md:col-span-3 bg-white dark:bg-stone-900 p-6 rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm flex flex-col justify-center">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Balance Total</p>
-          <h2 className="text-4xl font-extrabold text-emerald-500">{totales.total.toFixed(2)} €</h2>
+        <div className="col-span-2 lg:md:col-span-3 bg-white dark:bg-stone-900 p-4 lg:p-6 rounded-2xl lg:rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm">
+          <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Balance Total</p>
+          <h2 className="text-2xl lg:text-4xl font-extrabold text-emerald-500">{totales.total.toFixed(2)} €</h2>
         </div>
 
         {/* BBVA */}
-        <div className="md:col-span-3 bg-white dark:bg-stone-900 p-5 rounded-2xl border border-slate-200 dark:border-stone-800 shadow-sm flex items-center justify-between">
+        <div className="lg:md:col-span-3 bg-white dark:bg-stone-900 p-4 lg:p-5 rounded-2xl border border-slate-200 dark:border-stone-800 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BBVA Principal</p>
-            <h3 className="text-xl font-bold">{totales.bbva.toFixed(2)} €</h3>
+            <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BBVA Principal</p>
+            <h3 className="text-lg lg:text-xl font-bold">{totales.bbva.toFixed(2)} €</h3>
           </div>
-          <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center border border-blue-100 dark:border-blue-800/30 overflow-hidden">
-            <img src={bbvaLogo} alt="BBVA" className="w-10 h-10 object-contain" />
+          <div className="w-10 h-10 lg:w-12 lg:h-12 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center border border-blue-100 dark:border-blue-800/30 overflow-hidden">
+            <img src={bbvaLogo} alt="BBVA" className="w-8 h-8 lg:w-10 lg:h-10 object-contain" />
           </div>
         </div>
 
         {/* Imagin */}
-        <div className="md:col-span-3 bg-white dark:bg-stone-900 p-5 rounded-2xl border border-slate-200 dark:border-stone-800 shadow-sm flex items-center justify-between">
+        <div className="lg:md:col-span-3 bg-white dark:bg-stone-900 p-4 lg:p-5 rounded-2xl border border-slate-200 dark:border-stone-800 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Ahorro Imagin</p>
-            <h3 className="text-xl font-bold">{totales.imagin.toFixed(2)} €</h3>
+            <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Ahorro Imagin</p>
+            <h3 className="text-lg lg:text-xl font-bold">{totales.imagin.toFixed(2)} €</h3>
           </div>
-          <div className="w-12 h-12 bg-[#00FFAB]/10 rounded-xl flex items-center justify-center border border-[#00FFAB]/20 overflow-hidden">
-            <img src={imaginLogo} alt="Imagin" className="w-11 h-11 object-contain" />
+          <div className="w-10 h-10 lg:w-12 lg:h-12 bg-[#00FFAB]/10 rounded-xl flex items-center justify-center border border-[#00FFAB]/20 overflow-hidden">
+            <img src={imaginLogo} alt="Imagin" className="w-9 h-9 lg:w-11 lg:h-11 object-contain" />
           </div>
         </div>
 
         {/* Ahorro Total */}
-        <div className="md:col-span-3 bg-gradient-to-br from-emerald-500 to-teal-600 p-5 rounded-2xl shadow-sm flex flex-col justify-between text-white">
+        <div className="col-span-2 lg:md:col-span-3 bg-gradient-to-br from-emerald-500 to-teal-600 p-4 lg:p-5 rounded-2xl shadow-sm flex flex-col justify-between text-white">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest opacity-90">Ahorro Total</p>
-            <PiggyBank className="w-5 h-5 opacity-80" />
+            <p className="text-[9px] lg:text-[10px] font-bold uppercase tracking-widest opacity-90">Ahorro Total</p>
+            <PiggyBank className="w-4 h-4 lg:w-5 lg:h-5 opacity-80" />
           </div>
-          <h3 className="text-2xl font-bold mb-1">{ahorro.actual.toFixed(2)} €</h3>
+          <h3 className="text-xl lg:text-2xl font-bold mb-1">{ahorro.actual.toFixed(2)} €</h3>
           <div className="flex items-center gap-2 text-xs">
             {ahorro.diferencia >= 0 ? (
               <>
@@ -402,16 +501,16 @@ const ParvosAccount = () => {
                 <span className="font-semibold">{ahorro.diferencia.toFixed(2)} € ({ahorro.porcentaje.toFixed(1)}%)</span>
               </>
             )}
-            <span className="opacity-75">vs mes anterior</span>
+            <span className="opacity-75 hidden lg:inline">vs mes anterior</span>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-12 gap-8">
+      <div className="grid grid-cols-12 gap-4 lg:gap-8 p-4 lg:p-0">
         {/* Columna Principal */}
-        <div className="col-span-12 lg:col-span-8 space-y-8">
-          {/* Gráficos */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        <div className="col-span-12 lg:col-span-8 space-y-4 lg:space-y-8">
+          {/* Gráficos - Colapsables en móvil */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-8">
             {/* Gastos por Categoría */}
             <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm">
               <div className="flex items-center justify-between mb-6">
@@ -444,8 +543,8 @@ const ParvosAccount = () => {
                   };
 
                   return (
-                    <div key={idx} className="flex flex-col items-center gap-2 w-full relative">
-                      <div className="relative w-full" style={{ height: '100%' }}>
+                    <div key={idx} className="flex flex-col items-center gap-2 w-full h-full">
+                      <div className="relative w-full flex-1 flex flex-col justify-end">
                         {presupuestoCategoria > 0 && (
                           <div 
                             className="absolute w-full border-t-2 border-black dark:border-white border-dashed z-10"
@@ -454,7 +553,7 @@ const ParvosAccount = () => {
                           />
                         )}
                         <div 
-                          className={`absolute bottom-0 w-full ${coloresBarras[item.color] || 'bg-slate-400'} rounded-t-lg transition-all hover:opacity-80`}
+                          className={`w-full ${coloresBarras[item.color] || 'bg-slate-400'} rounded-t-lg transition-all hover:opacity-80 relative`}
                           style={{ height: `${altura}%`, minHeight: item.cantidad > 0 ? '20px' : '0px' }}
                         >
                           {item.cantidad > 0 && (
@@ -531,162 +630,221 @@ const ParvosAccount = () => {
             </div>
           </div>
 
-          {/* Widgets de Meta y Actividad */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-            {/* Widget de Meta */}
-            <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="font-bold flex items-center gap-2">
-                  <Target className="w-5 h-5 text-purple-600" />
-                  Meta de Ahorro
-                </h3>
-                <button
-                  onClick={() => {
-                    const metaActiva = metas.find(m => !m.completada) || {};
-                    setModalEditarMeta({ abierto: true, meta: metaActiva.id ? metaActiva : {
-                      nombre: '',
-                      cantidad_objetivo: 0,
-                      cantidad_actual: 0,
-                      fecha_inicio: new Date().toISOString().split('T')[0],
-                      fecha_objetivo: '',
-                      categoria: '',
-                      notas: '',
-                      completada: false
-                    }});
-                  }}
-                  className="text-xs font-bold text-purple-600 hover:text-purple-700 transition-colors flex items-center gap-1"
-                >
-                  <Edit className="w-3 h-3" />
-                  {metas.some(m => !m.completada) ? 'Editar' : 'Crear'}
-                </button>
-              </div>
-              {metas.filter(m => !m.completada).length > 0 ? (
-                metas.filter(m => !m.completada).map(meta => (
-                  <div key={meta.id}>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-bold">{meta.nombre}</span>
-                      <span className="text-xs text-slate-500">
-                        {((meta.cantidad_actual / meta.cantidad_objetivo) * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-100 dark:bg-stone-800 rounded-full h-4 overflow-hidden mb-2">
-                      <div
-                        className="h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full transition-all flex items-center justify-end pr-2"
-                        style={{ width: `${Math.min((meta.cantidad_actual / meta.cantidad_objetivo) * 100, 100)}%` }}
-                      >
-                        {meta.cantidad_actual > 0 && (
-                          <span className="text-[9px] font-bold text-white">
-                            {meta.cantidad_actual}€
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex justify-between text-xs text-slate-500">
-                      <span>Actual: {meta.cantidad_actual}€</span>
-                      <span>Objetivo: {meta.cantidad_objetivo}€</span>
-                    </div>
-                    {meta.notas && (
-                      <p className="text-xs text-slate-500 mt-3 italic">{meta.notas}</p>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8 text-slate-400">
-                  <Target className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p className="text-sm">No hay metas activas</p>
-                  <p className="text-xs mt-1">Crea una meta para empezar a ahorrar</p>
-                </div>
-              )}
-            </div>
-
-            {/* Widget de Última Actividad */}
-            <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm">
-              <h3 className="font-bold flex items-center gap-2 mb-6">
-                <Clock className="w-5 h-5 text-purple-600" />
-                Última Actividad
-              </h3>
-              {actividad.length > 0 ? (
-                <div className="space-y-3">
-                  {actividad.map((act, idx) => (
-                    <div key={act.id || idx} className="flex items-start gap-3 pb-3 border-b border-slate-100 dark:border-stone-800 last:border-0 last:pb-0">
-                      <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center flex-shrink-0">
-                        <Clock className="w-4 h-4 text-purple-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-slate-900 dark:text-white truncate">
-                          {act.descripcion}
-                        </p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">
-                          {new Date(act.created_at).toLocaleDateString('es-ES', { 
-                            day: '2-digit', 
-                            month: 'short', 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-slate-400">
-                  <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p className="text-sm">No hay actividad reciente</p>
-                </div>
-              )}
-            </div>
-          </div>
-
           {/* Tabla de Movimientos */}
-          <div className="bg-white dark:bg-stone-900 rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-100 dark:border-stone-800 bg-slate-50/50 dark:bg-stone-900/50">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <h3 className="font-bold text-lg">Listado de Movimientos</h3>
-                <div className="flex items-center gap-2">
-                  <select 
-                    value={filtros.tipo}
-                    onChange={(e) => setFiltros({...filtros, tipo: e.target.value})}
-                    className="bg-white dark:bg-stone-800 border-slate-200 dark:border-stone-700 rounded-lg text-[10px] font-bold py-1.5 focus:ring-purple-500/20"
-                  >
-                    <option value="todos">Tipo: Todos</option>
-                    <option value="gasto">Gasto</option>
-                    <option value="ingreso">Ingreso</option>
-                    <option value="hucha">Hucha</option>
-                    <option value="retirada-hucha">Retirada Hucha</option>
-                  </select>
-                  <select 
-                    value={filtros.categoria}
-                    onChange={(e) => setFiltros({...filtros, categoria: e.target.value})}
-                    className="bg-white dark:bg-stone-800 border-slate-200 dark:border-stone-700 rounded-lg text-[10px] font-bold py-1.5 focus:ring-purple-500/20"
-                  >
-                    <option value="todas">Categoría: Todas</option>
-                    {categorias.map(cat => (
-                      <option key={cat.nombre} value={cat.nombre}>{cat.nombre}</option>
-                    ))}
-                  </select>
-                  <select 
-                    value={filtros.cuenta}
-                    onChange={(e) => setFiltros({...filtros, cuenta: e.target.value})}
-                    className="bg-white dark:bg-stone-800 border-slate-200 dark:border-stone-700 rounded-lg text-[10px] font-bold py-1.5 focus:ring-purple-500/20"
-                  >
-                    <option value="todas">Cuenta: Todas</option>
-                    <option value="BBVA">BBVA</option>
-                    <option value="Imagin">Imagin</option>
-                  </select>
+          <div ref={tablaRef} className="bg-white dark:bg-stone-900 rounded-2xl lg:rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm overflow-hidden">
+            <div className="p-4 lg:p-6 border-b border-slate-100 dark:border-stone-800 bg-slate-50/50 dark:bg-stone-900/50">
+              <div className="flex flex-col gap-3 lg:gap-4">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 lg:gap-4">
+                  <h3 className="font-bold text-base lg:text-lg">Listado de Movimientos</h3>
+                  
+                  {/* Botón de filtros en móvil */}
+                  {isMobile && (
+                    <button
+                      onClick={() => setShowMobileFilters(!showMobileFilters)}
+                      className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-xl font-bold text-sm active:scale-95 transition-transform"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                      </svg>
+                      Filtros
+                    </button>
+                  )}
+                  
+                  {/* Filtros desktop */}
+                  <div className={`${isMobile ? 'hidden' : 'flex'} items-center gap-2 flex-wrap`}>
+                    <select 
+                      value={filtros.tipo}
+                      onChange={(e) => setFiltros({...filtros, tipo: e.target.value})}
+                      className="bg-white dark:bg-stone-800 border-slate-200 dark:border-stone-700 rounded-lg text-[10px] font-bold py-1.5 focus:ring-purple-500/20"
+                    >
+                      <option value="todos">Tipo: Todos</option>
+                      <option value="gasto">Gasto</option>
+                      <option value="ingreso">Ingreso</option>
+                      <option value="hucha">Hucha</option>
+                      <option value="retirada-hucha">Retirada Hucha</option>
+                    </select>
+                    <select 
+                      value={filtros.categoria}
+                      onChange={(e) => setFiltros({...filtros, categoria: e.target.value})}
+                      className="bg-white dark:bg-stone-800 border-slate-200 dark:border-stone-700 rounded-lg text-[10px] font-bold py-1.5 focus:ring-purple-500/20"
+                    >
+                      <option value="todas">Categoría: Todas</option>
+                      {categorias.map(cat => (
+                        <option key={cat.nombre} value={cat.nombre}>{cat.nombre}</option>
+                      ))}
+                    </select>
+                    <select 
+                      value={filtros.cuenta}
+                      onChange={(e) => setFiltros({...filtros, cuenta: e.target.value})}
+                      className="bg-white dark:bg-stone-800 border-slate-200 dark:border-stone-700 rounded-lg text-[10px] font-bold py-1.5 focus:ring-purple-500/20"
+                    >
+                      <option value="todas">Cuenta: Todas</option>
+                      <option value="BBVA">BBVA</option>
+                      <option value="Imagin">Imagin</option>
+                    </select>
+                  </div>
+                </div>
+                {/* Búsqueda */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={busqueda}
+                    onChange={(e) => {
+                      setBusqueda(e.target.value);
+                      setPaginaActual(0);
+                    }}
+                    placeholder="Buscar por concepto o categoría..."
+                    className="w-full pl-10 pr-4 py-3 lg:py-2.5 bg-white dark:bg-stone-800 border border-slate-200 dark:border-stone-700 rounded-xl lg:rounded-lg text-sm focus:ring-2 focus:ring-purple-500/20 focus:border-purple-300 dark:focus:border-purple-700 transition-all"
+                  />
+                  {busqueda && (
+                    <button
+                      onClick={() => setBusqueda('')}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 active:scale-95"
+                    >
+                      <X className="w-5 h-5 lg:w-4 lg:h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Tabla Desktop / Cards Móvil */}
+            {isMobile ? (
+              /* Vista de Cards para Móvil */
+              <div className="divide-y divide-slate-100 dark:divide-stone-800">
+                {operacionesPaginadas.map((op) => (
+                  <div key={op.id} className="p-4 hover:bg-slate-50 dark:hover:bg-stone-800/50 active:bg-slate-100 dark:active:bg-stone-800 transition-colors">
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                            op.tipo === 'gasto' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
+                            op.tipo === 'ingreso' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                            op.tipo === 'hucha' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' :
+                            'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                          }`}>
+                            {op.tipo === 'gasto' ? 'Gasto' :
+                             op.tipo === 'ingreso' ? 'Ingreso' :
+                             op.tipo === 'hucha' ? 'Ahorro' :
+                             op.tipo === 'retirada-hucha' ? 'Retirada' : op.tipo}
+                          </span>
+                          <span className="text-xs text-slate-400 font-medium">{op.fecha}</span>
+                        </div>
+                        <p className="font-semibold text-slate-900 dark:text-white truncate">
+                          {op.info || op.descripcion || op.categoria}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-slate-500 dark:text-slate-400">{op.categoria}</span>
+                          <span className="text-xs text-slate-300 dark:text-slate-600">•</span>
+                          {op.cuenta === 'BBVA' ? (
+                            <div className="inline-flex items-center justify-center w-12 h-6 bg-white dark:bg-white rounded border border-slate-200 p-0.5">
+                              <img src={bbvaLogo} alt="BBVA" className="w-full h-full object-contain" />
+                            </div>
+                          ) : (
+                            <div className="inline-flex items-center justify-center w-12 h-6 bg-white dark:bg-white rounded border border-slate-200 p-0.5">
+                              <img src={imaginLogo} alt="Imagin" className="w-full h-full object-contain" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className={`text-lg font-bold ${
+                          op.tipo === 'gasto' ? 'text-red-500' : 'text-emerald-500'
+                        }`}>
+                          {parseFloat(op.cantidad).toFixed(2)} €
+                        </span>
+                        <div className="flex gap-1">
+                          <button 
+                            onClick={() => setModalEditarOperacion({ abierto: true, operacion: {...op} })}
+                            className="p-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 active:scale-95 transition-all"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => setModalEliminar({ abierto: true, id: op.id })}
+                            className="p-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 active:scale-95 transition-all"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              /* Vista de Tabla para Desktop */
+              <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50/80 dark:bg-stone-800/50 text-slate-400 font-bold uppercase text-[10px] tracking-widest">
+                <thead className="sticky top-0 bg-slate-50/95 dark:bg-stone-800/95 backdrop-blur-sm text-slate-600 dark:text-slate-400 font-bold uppercase text-[10px] tracking-widest z-10 border-b-2 border-slate-200 dark:border-stone-700">
                   <tr>
-                    <th className="px-6 py-4">Fecha</th>
-                    <th className="px-6 py-4">Tipo</th>
-                    <th className="px-6 py-4 text-right">Cantidad</th>
+                    <th className="px-6 py-4">
+                      <button 
+                        onClick={() => handleOrdenar('fecha')}
+                        className="flex items-center gap-1 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                      >
+                        Fecha
+                        {ordenamiento.columna === 'fecha' ? (
+                          ordenamiento.direccion === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-30" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-6 py-4">
+                      <button 
+                        onClick={() => handleOrdenar('tipo')}
+                        className="flex items-center gap-1 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                      >
+                        Tipo
+                        {ordenamiento.columna === 'tipo' ? (
+                          ordenamiento.direccion === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-30" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-6 py-4 text-right">
+                      <button 
+                        onClick={() => handleOrdenar('cantidad')}
+                        className="flex items-center gap-1 ml-auto hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                      >
+                        Cantidad
+                        {ordenamiento.columna === 'cantidad' ? (
+                          ordenamiento.direccion === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-30" />
+                        )}
+                      </button>
+                    </th>
                     <th className="px-6 py-4">Concepto</th>
-                    <th className="px-6 py-4">Categoría</th>
-                    <th className="px-6 py-4">Cuenta</th>
+                    <th className="px-6 py-4">
+                      <button 
+                        onClick={() => handleOrdenar('categoria')}
+                        className="flex items-center gap-1 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                      >
+                        Categoría
+                        {ordenamiento.columna === 'categoria' ? (
+                          ordenamiento.direccion === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-30" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-6 py-4">
+                      <button 
+                        onClick={() => handleOrdenar('cuenta')}
+                        className="flex items-center gap-1 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                      >
+                        Cuenta
+                        {ordenamiento.columna === 'cuenta' ? (
+                          ordenamiento.direccion === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-30" />
+                        )}
+                      </button>
+                    </th>
                     <th className="px-6 py-4 text-right">Acciones</th>
                   </tr>
                 </thead>
@@ -701,7 +859,10 @@ const ParvosAccount = () => {
                           op.tipo === 'hucha' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' :
                           'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
                         }`}>
-                          {op.tipo}
+                          {op.tipo === 'gasto' ? 'Gasto' :
+                           op.tipo === 'ingreso' ? 'Ingreso' :
+                           op.tipo === 'hucha' ? 'Ahorro' :
+                           op.tipo === 'retirada-hucha' ? 'Retirada' : op.tipo}
                         </span>
                       </td>
                       <td className={`px-6 py-4 text-right font-bold ${
@@ -713,26 +874,28 @@ const ParvosAccount = () => {
                       <td className="px-6 py-4 font-medium">{op.categoria}</td>
                       <td className="px-6 py-4">
                         {op.cuenta === 'BBVA' ? (
-                          <div className="flex items-center gap-2">
-                            <img src={bbvaLogo} alt="BBVA" className="w-6 h-6 object-contain" />
+                          <div className="inline-flex items-center justify-center w-16 h-10 bg-white dark:bg-white rounded-lg border border-slate-200 dark:border-slate-300 p-1.5">
+                            <img src={bbvaLogo} alt="BBVA" className="w-full h-full object-contain" />
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2">
-                            <img src={imaginLogo} alt="Imagin" className="w-7 h-7 object-contain" />
+                          <div className="inline-flex items-center justify-center w-16 h-10 bg-white dark:bg-white rounded-lg border border-slate-200 dark:border-slate-300 p-1.5">
+                            <img src={imaginLogo} alt="Imagin" className="w-full h-full object-contain" />
                           </div>
                         )}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-1.5">
                           <button 
                             onClick={() => setModalEditarOperacion({ abierto: true, operacion: {...op} })}
-                            className="p-1 hover:text-purple-600 transition-colors"
+                            className="p-2 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all"
+                            title="Editar operación"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button 
                             onClick={() => setModalEliminar({ abierto: true, id: op.id })}
-                            className="p-1 hover:text-red-500 transition-colors"
+                            className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-all"
+                            title="Eliminar operación"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -743,63 +906,59 @@ const ParvosAccount = () => {
                 </tbody>
               </table>
             </div>
+            )}
 
             {/* Paginación */}
-            <div className="p-4 border-t border-slate-100 dark:border-stone-800 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] font-bold text-slate-400">
-                  Mostrando {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, operacionesFiltradas.length)} de {operacionesFiltradas.length} movimientos
-                </span>
-                <select
-                  value={itemsPorPagina}
-                  onChange={(e) => {
-                    setItemsPorPagina(Number(e.target.value));
-                    setPaginaActual(1);
-                  }}
-                  className="bg-white dark:bg-stone-800 border-slate-200 dark:border-stone-700 rounded-lg text-[10px] font-bold py-1 px-2"
-                >
-                  <option value={10}>10 / página</option>
-                  <option value={20}>20 / página</option>
-                  <option value={30}>30 / página</option>
-                  <option value={50}>50 / página</option>
-                  <option value={100}>100 / página</option>
-                </select>
-              </div>
-              <div className="flex gap-1">
-                <button 
-                  onClick={() => setPaginaActual(Math.max(1, paginaActual - 1))}
-                  disabled={paginaActual === 1}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-100 dark:bg-stone-800 text-slate-500 disabled:opacity-50"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                {[...Array(Math.min(3, totalPaginas))].map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setPaginaActual(idx + 1)}
-                    className={`w-8 h-8 rounded-lg text-xs font-bold ${
-                      paginaActual === idx + 1
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-slate-100 dark:bg-stone-800 text-slate-500'
-                    }`}
+            <div className="p-4 border-t border-slate-100 dark:border-stone-800">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    Mostrando <span className="font-semibold text-slate-700 dark:text-slate-300">{indexOfFirstItem + 1}-{Math.min(indexOfLastItem, operacionesFiltradas.length)}</span> de <span className="font-semibold text-slate-700 dark:text-slate-300">{operacionesFiltradas.length}</span> movimientos
+                  </span>
+                  <select
+                    value={itemsPorPagina}
+                    onChange={(e) => {
+                      setItemsPorPagina(Number(e.target.value));
+                      setPaginaActual(0);
+                    }}
+                    className="bg-white dark:bg-stone-800 border border-slate-200 dark:border-stone-700 rounded-lg text-xs font-medium py-1.5 px-3 cursor-pointer hover:border-purple-300 dark:hover:border-purple-700 transition-colors focus:ring-2 focus:ring-purple-500/20"
                   >
-                    {idx + 1}
-                  </button>
-                ))}
-                <button 
-                  onClick={() => setPaginaActual(Math.min(totalPaginas, paginaActual + 1))}
-                  disabled={paginaActual === totalPaginas}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-100 dark:bg-stone-800 text-slate-500 disabled:opacity-50"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                    <option value={10}>10 por página</option>
+                    <option value={20}>20 por página</option>
+                    <option value={30}>30 por página</option>
+                    <option value={50}>50 por página</option>
+                    <option value={100}>100 por página</option>
+                  </select>
+                </div>
+                <ReactPaginate
+                  breakLabel="..."
+                  nextLabel={<ChevronRight className="w-4 h-4" />}
+                  onPageChange={(e) => setPaginaActual(e.selected)}
+                  pageRangeDisplayed={3}
+                  marginPagesDisplayed={1}
+                  pageCount={totalPaginas}
+                  previousLabel={<ChevronLeft className="w-4 h-4" />}
+                  renderOnZeroPageCount={null}
+                  forcePage={paginaActual}
+                  containerClassName="flex gap-1 items-center"
+                  pageClassName="w-9 h-9 flex items-center justify-center rounded-lg bg-white dark:bg-stone-800 border border-slate-200 dark:border-stone-700 text-slate-700 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-stone-700 hover:border-purple-300 dark:hover:border-purple-700 transition-all cursor-pointer"
+                  pageLinkClassName="w-full h-full flex items-center justify-center"
+                  previousClassName="w-9 h-9 flex items-center justify-center rounded-lg bg-white dark:bg-stone-800 border border-slate-200 dark:border-stone-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-stone-700 hover:border-purple-300 dark:hover:border-purple-700 transition-all cursor-pointer"
+                  previousLinkClassName="w-full h-full flex items-center justify-center"
+                  nextClassName="w-9 h-9 flex items-center justify-center rounded-lg bg-white dark:bg-stone-800 border border-slate-200 dark:border-stone-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-stone-700 hover:border-purple-300 dark:hover:border-purple-700 transition-all cursor-pointer"
+                  nextLinkClassName="w-full h-full flex items-center justify-center"
+                  breakClassName="w-9 h-9 flex items-center justify-center text-slate-400 dark:text-slate-500 text-sm"
+                  breakLinkClassName="w-full h-full flex items-center justify-center"
+                  activeClassName="!bg-purple-600 !border-purple-600 !text-white shadow-md"
+                  disabledClassName="opacity-40 cursor-not-allowed pointer-events-none"
+                />
               </div>
             </div>
           </div>
         </div>
 
         {/* Sidebar con formulario */}
-        <div className="col-span-12 lg:col-span-4">
+        <div className="col-span-12 lg:col-span-4 space-y-6">
           <div className="bg-gradient-to-br from-purple-600 to-purple-700 p-6 rounded-3xl shadow-lg text-white sticky top-8">
             <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
               <span className="text-xl">➕</span>
@@ -1376,6 +1535,8 @@ const ParvosAccount = () => {
           </div>
         </div>
       )}
+      
+      {/* Cierre del div principal className="p-8 space-y-8" */}
     </div>
   );
 };

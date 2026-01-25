@@ -36,34 +36,42 @@ const Home = () => {
         const events = Array.isArray(eventsResponse.data) ? eventsResponse.data : [];
         const operations = Array.isArray(operationsResponse.data) ? operationsResponse.data : [];
         
-        // Process meals - Filtrar por fecha exacta del día en curso y siguiente
+        // Process meals - Filtrar por próximos 5 días (hoy + 4 días)
         const today = new Date();
         today.setHours(0, 0, 0, 0); // Resetear horas para comparación precisa
         
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        
         const todayStr = today.toISOString().split('T')[0];
-        const tomorrowStr = tomorrow.toISOString().split('T')[0];
         
-        console.log('Fechas búsqueda:', { todayStr, tomorrowStr });
-        console.log('Comidas disponibles:', meals);
+        // Calcular fecha límite (hoy + 4 días = 5 días total)
+        const fiveDaysLater = new Date(today);
+        fiveDaysLater.setDate(fiveDaysLater.getDate() + 4);
+        const fiveDaysStr = fiveDaysLater.toISOString().split('T')[0];
+        
+        console.log('===== DEPURACIÓN DE COMIDAS =====');
+        console.log('Hoy:', todayStr);
+        console.log('Hasta:', fiveDaysStr);
+        console.log('Total de comidas disponibles:', meals.length);
+        console.log('Comidas completas:', meals);
         
         const relevantMeals = meals.filter(meal => {
-          return meal.fecha === todayStr || meal.fecha === tomorrowStr;
+          const mealDate = meal.fecha;
+          console.log(`Evaluando comida en ${mealDate}: ¿${todayStr} <= ${mealDate} <= ${fiveDaysStr}? ${mealDate >= todayStr && mealDate <= fiveDaysStr}`);
+          return mealDate >= todayStr && mealDate <= fiveDaysStr;
         }).sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
-        console.log('Comidas filtradas:', relevantMeals);
+        console.log('Comidas filtradas (próximos 5 días):', relevantMeals.length, relevantMeals);
+        console.log('================================');
 
         let displayMeals = relevantMeals;
         if (displayMeals.length === 0) {
-          // Fallback: tomar las 2 próximas comidas
+          // Fallback: tomar las 2 próximas comidas disponibles
           displayMeals = meals
             .filter(m => new Date(m.fecha) >= today)
             .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
             .slice(0, 2);
+          console.log('Usando fallback, mostrando:', displayMeals.length, 'comidas');
         }
-        setMealData(displayMeals.slice(0, 2));
+        setMealData(displayMeals);
         setCalendarEvents(events);
         console.log('Eventos del calendario cargados:', events);
 
@@ -144,11 +152,8 @@ const Home = () => {
 
   const getEventForDay = (day) => {
     if (!day) return null;
-    const year = new Date().getFullYear();
-    const month = new Date().getMonth() + 1;
-    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const event = calendarEvents.find(e => e.fecha === dateStr);
-    console.log(`Buscando evento para día ${day}: ${dateStr}`, event);
+    const event = calendarEvents.find(e => e.dia_mes === day);
+    console.log(`Buscando evento para día ${day}:`, event);
     return event;
   };
 
@@ -331,21 +336,36 @@ const Home = () => {
 
         <div className="space-y-3">
           {mealData.length > 0 ? (
-            mealData.map((meal, idx) => (
-              <div key={meal.id || idx} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                <div className="text-center w-8 shrink-0">
-                  <p className="text-xs font-bold text-slate-400 uppercase leading-none mb-1">{idx === 0 ? 'Hoy' : 'Mañ'}</p>
-                  <p className="text-sm font-extrabold text-purple-600">{new Date(meal.fecha).getDate()}</p>
+            mealData.map((meal, idx) => {
+              const mealDate = new Date(meal.fecha);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const daysFromNow = Math.floor((mealDate - today) / (1000 * 60 * 60 * 24));
+              
+              let dateLabel = '';
+              if (daysFromNow === 0) dateLabel = 'Hoy';
+              else if (daysFromNow === 1) dateLabel = 'Mañ';
+              else {
+                const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sab'];
+                dateLabel = dayNames[mealDate.getDay()];
+              }
+              
+              return (
+                <div key={meal.id || idx} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                  <div className="text-center w-12 shrink-0">
+                    <p className="text-xs font-bold text-slate-400 uppercase leading-none mb-1">{dateLabel}</p>
+                    <p className="text-sm font-extrabold text-purple-600">{mealDate.getDate()}</p>
+                  </div>
+                  <div className="h-6 w-px bg-slate-200 dark:bg-slate-700"></div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold truncate">
+                      {meal.tipo_comida === 'comida' ? 'Comida' : 'Cena'}: {meal.comida_nombre}
+                    </p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
                 </div>
-                <div className="h-6 w-px bg-slate-200 dark:bg-slate-700"></div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold truncate">
-                    {meal.tipo_comida === 'comida' ? 'Comida' : 'Cena'}: {meal.comida_nombre}
-                  </p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="flex items-center justify-center p-8 text-slate-500 text-xs">
               No hay comidas planificadas
@@ -390,15 +410,18 @@ const Home = () => {
                 key={idx}
                 onClick={() => day && setSelectedDay(day)}
                 className={`
-                  aspect-square rounded-md flex items-center justify-center text-xs font-bold
-                  cursor-pointer transition-all
+                  aspect-square rounded-md flex items-center justify-center text-sm font-bold
+                  cursor-pointer transition-all relative
                   ${!day ? 'bg-transparent' : 'bg-slate-50 dark:bg-slate-800/40'}
                   ${isToday ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30' : ''}
                   ${event && !isToday ? 'bg-pink-200/50 text-pink-700 border border-pink-300 dark:bg-pink-900/20 dark:text-pink-400 dark:border-pink-900/50' : ''}
                   ${day && !event && !isToday ? 'hover:bg-slate-100 dark:hover:bg-slate-700' : ''}
                 `}
               >
-                {day}
+                <span>{day}</span>
+                {event && (
+                  <div className={`absolute bottom-1 w-1.5 h-1.5 rounded-full ${isToday ? 'bg-white' : 'bg-pink-600'}`} />
+                )}
               </div>
             );
           })}
@@ -406,8 +429,8 @@ const Home = () => {
 
         {/* Event Popup */}
         {selectedDay && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-xl max-w-sm w-full mx-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedDay(null)}>
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-xl max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                   Día {selectedDay}
@@ -421,13 +444,21 @@ const Home = () => {
               </div>
               
               {getEventForDay(selectedDay) ? (
-                <div className="bg-pink-50 dark:bg-pink-900/20 p-4 rounded-xl border border-pink-100 dark:border-pink-900/50">
-                  <p className="text-sm font-bold text-slate-900 dark:text-white mb-1">
-                    {getEventForDay(selectedDay).concepto || getEventForDay(selectedDay).evento}
+                <div className="bg-pink-50 dark:bg-pink-900/20 p-4 rounded-xl border border-pink-100 dark:border-pink-900/50 space-y-2">
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">
+                    {getEventForDay(selectedDay).nombre}
                   </p>
-                  <p className="text-xs text-slate-500">
-                    {getEventForDay(selectedDay).categoria}
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                    Categoría: {getEventForDay(selectedDay).categoria}
                   </p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                    Rango: ${getEventForDay(selectedDay).cantidad_min?.toFixed(2) || '0.00'} - ${getEventForDay(selectedDay).cantidad_max?.toFixed(2) || getEventForDay(selectedDay).cantidad_min?.toFixed(2) || '0.00'}
+                  </p>
+                  {getEventForDay(selectedDay).recurrencia && (
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      Recurrencia: {typeof getEventForDay(selectedDay).recurrencia === 'string' ? getEventForDay(selectedDay).recurrencia : 'Mensual'}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <p className="text-slate-500 dark:text-slate-400 text-sm">No hay gastos planificados este día</p>
