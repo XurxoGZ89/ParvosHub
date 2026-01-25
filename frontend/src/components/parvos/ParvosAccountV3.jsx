@@ -13,13 +13,19 @@ import {
   X,
   PiggyBank,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  Target,
+  Clock
 } from 'lucide-react';
 import api from '../../lib/api';
+import bbvaLogo from '../../assets/BBVA_2019.svg.png';
+import imaginLogo from '../../assets/imagin.webp';
 
 const ParvosAccount = () => {
   const [operaciones, setOperaciones] = useState([]);
   const [presupuestos, setPresupuestos] = useState([]);
+  const [metas, setMetas] = useState([]);
+  const [actividad, setActividad] = useState([]);
   const [filtros, setFiltros] = useState({
     tipo: 'todos',
     categoria: 'todas',
@@ -28,12 +34,13 @@ const ParvosAccount = () => {
   const [mesSeleccionado, setMesSeleccionado] = useState('enero');
   const [añoSeleccionado, setAñoSeleccionado] = useState(2026);
   const [paginaActual, setPaginaActual] = useState(1);
-  const itemsPorPagina = 10;
+  const [itemsPorPagina, setItemsPorPagina] = useState(10);
 
   // Estados para modales
   const [modalEditarPresupuesto, setModalEditarPresupuesto] = useState(false);
   const [modalEliminar, setModalEliminar] = useState({ abierto: false, id: null });
   const [modalEditarOperacion, setModalEditarOperacion] = useState({ abierto: false, operacion: null });
+  const [modalEditarMeta, setModalEditarMeta] = useState({ abierto: false, meta: null });
   const [presupuestosEditables, setPresupuestosEditables] = useState({});
 
   const [formNuevaOperacion, setFormNuevaOperacion] = useState({
@@ -67,13 +74,17 @@ const ParvosAccount = () => {
 
   const cargarDatos = async () => {
     try {
-      const [opsResponse, presResponse] = await Promise.all([
+      const [opsResponse, presResponse, metasResponse, actividadResponse] = await Promise.all([
         api.get('/operaciones'),
-        api.get('/presupuestos')
+        api.get('/presupuestos'),
+        api.get('/metas'),
+        api.get('/actividad?limit=5')
       ]);
 
       setOperaciones(opsResponse.data || []);
       setPresupuestos(presResponse.data || []);
+      setMetas(metasResponse.data || []);
+      setActividad(actividadResponse.data || []);
     } catch (error) {
       console.error('Error al cargar datos:', error);
     }
@@ -223,6 +234,11 @@ const ParvosAccount = () => {
     e.preventDefault();
     try {
       await api.post('/operaciones', formNuevaOperacion);
+      await api.post('/actividad', {
+        tipo: 'operacion',
+        descripcion: `Nueva ${formNuevaOperacion.tipo}: ${formNuevaOperacion.descripcion || formNuevaOperacion.categoria} - ${formNuevaOperacion.cantidad}€`,
+        usuario_id: 2
+      });
       setFormNuevaOperacion({
         fecha: new Date().toISOString().split('T')[0],
         tipo: 'gasto',
@@ -272,6 +288,21 @@ const ParvosAccount = () => {
     }
   };
 
+  const handleGuardarMeta = async (e) => {
+    e.preventDefault();
+    try {
+      if (modalEditarMeta.meta.id) {
+        await api.put(`/metas/${modalEditarMeta.meta.id}`, modalEditarMeta.meta);
+      } else {
+        await api.post('/metas', modalEditarMeta.meta);
+      }
+      setModalEditarMeta({ abierto: false, meta: null });
+      cargarDatos();
+    } catch (error) {
+      console.error('Error al guardar meta:', error);
+    }
+  };
+
   const cambiarMes = (direccion) => {
     const mesIdx = meses.indexOf(mesSeleccionado);
     let nuevoMesIdx = mesIdx + direccion;
@@ -306,22 +337,9 @@ const ParvosAccount = () => {
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <select 
-            value={`${mesSeleccionado} ${añoSeleccionado}`}
-            onChange={(e) => {
-              const [mes, año] = e.target.value.split(' ');
-              setMesSeleccionado(mes);
-              setAñoSeleccionado(parseInt(año));
-            }}
-            className="bg-transparent border-none text-xs font-bold py-1 pl-2 pr-8 focus:ring-0"
-          >
-            {meses.map((mes) => (
-              <option key={`${mes}-2026`} value={`${mes} 2026`}>{mes.charAt(0).toUpperCase() + mes.slice(1)} 2026</option>
-            ))}
-            {meses.map((mes) => (
-              <option key={`${mes}-2024`} value={`${mes} 2024`}>{mes.charAt(0).toUpperCase() + mes.slice(1)} 2024</option>
-            ))}
-          </select>
+          <div className="px-4 py-1 text-xs font-bold">
+            {mesSeleccionado.charAt(0).toUpperCase() + mesSeleccionado.slice(1)} {añoSeleccionado}
+          </div>
           <button 
             onClick={() => cambiarMes(1)}
             className="p-1.5 hover:bg-white dark:hover:bg-stone-800 rounded-lg transition-colors"
@@ -345,8 +363,8 @@ const ParvosAccount = () => {
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BBVA Principal</p>
             <h3 className="text-xl font-bold">{totales.bbva.toFixed(2)} €</h3>
           </div>
-          <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center border border-blue-100 dark:border-blue-800/30">
-            <span className="text-blue-700 dark:text-blue-400 font-black text-xs italic">BBVA</span>
+          <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center border border-blue-100 dark:border-blue-800/30 overflow-hidden">
+            <img src={bbvaLogo} alt="BBVA" className="w-10 h-10 object-contain" />
           </div>
         </div>
 
@@ -356,8 +374,8 @@ const ParvosAccount = () => {
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Ahorro Imagin</p>
             <h3 className="text-xl font-bold">{totales.imagin.toFixed(2)} €</h3>
           </div>
-          <div className="w-12 h-12 bg-[#00FFAB]/10 rounded-xl flex items-center justify-center border border-[#00FFAB]/20">
-            <span className="text-[#00E599] font-black text-xs tracking-tight">imagin</span>
+          <div className="w-12 h-12 bg-[#00FFAB]/10 rounded-xl flex items-center justify-center border border-[#00FFAB]/20 overflow-hidden">
+            <img src={imaginLogo} alt="Imagin" className="w-11 h-11 object-contain" />
           </div>
         </div>
 
@@ -404,6 +422,13 @@ const ParvosAccount = () => {
                   const maxGasto = Math.max(...gastosPorCategoria.map(g => g.cantidad), 1);
                   const altura = (item.cantidad / maxGasto) * 100;
                   
+                  // Encontrar presupuesto de esta categoría
+                  const mesIdx = meses.indexOf(mesSeleccionado);
+                  const mesClave = `${añoSeleccionado}-${String(mesIdx + 1).padStart(2, '0')}`;
+                  const presupuestosDelMes = presupuestos.filter(p => p.mes === mesClave);
+                  const presupuestoCategoria = presupuestosDelMes.find(p => p.categoria === item.categoria)?.cantidad || 0;
+                  const alturaPresupuesto = presupuestoCategoria > 0 ? (presupuestoCategoria / maxGasto) * 100 : 0;
+                  
                   const coloresBarras = {
                     'amber': 'bg-amber-400',
                     'cyan': 'bg-cyan-400',
@@ -415,16 +440,25 @@ const ParvosAccount = () => {
                   };
 
                   return (
-                    <div key={idx} className="flex flex-col items-center gap-2 w-full">
-                      <div 
-                        className={`w-full ${coloresBarras[item.color] || 'bg-slate-400'} rounded-t-lg relative transition-all hover:opacity-80`}
-                        style={{ height: `${altura}%`, minHeight: item.cantidad > 0 ? '20px' : '0px' }}
-                      >
-                        {item.cantidad > 0 && (
-                          <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-[10px] font-bold whitespace-nowrap">
-                            {item.cantidad.toFixed(0)}€
-                          </div>
+                    <div key={idx} className="flex flex-col items-center gap-2 w-full relative">
+                      <div className="relative w-full" style={{ height: '100%' }}>
+                        {presupuestoCategoria > 0 && (
+                          <div 
+                            className="absolute w-full border-t-2 border-black dark:border-white border-dashed z-10"
+                            style={{ bottom: `${alturaPresupuesto}%` }}
+                            title={`Presupuesto: ${presupuestoCategoria}€`}
+                          />
                         )}
+                        <div 
+                          className={`absolute bottom-0 w-full ${coloresBarras[item.color] || 'bg-slate-400'} rounded-t-lg transition-all hover:opacity-80`}
+                          style={{ height: `${altura}%`, minHeight: item.cantidad > 0 ? '20px' : '0px' }}
+                        >
+                          {item.cantidad > 0 && (
+                            <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-[10px] font-bold whitespace-nowrap">
+                              {item.cantidad.toFixed(0)}€
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <Icon className="text-slate-400 w-5 h-5" />
                     </div>
@@ -452,13 +486,13 @@ const ParvosAccount = () => {
                     setPresupuestosEditables(editables);
                     setModalEditarPresupuesto(true);
                   }}
-                  className="text-xs font-bold text-pink-500 hover:text-pink-600 transition-colors flex items-center gap-1"
+                  className="text-xs font-bold text-purple-600 hover:text-purple-700 transition-colors flex items-center gap-1"
                 >
                   <Edit className="w-3 h-3" />
                   Editar
                 </button>
               </div>
-              <div className="overflow-x-auto max-h-64 overflow-y-auto">
+              <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 bg-white dark:bg-stone-900">
                     <tr className="text-slate-400 font-bold uppercase tracking-wider text-left border-b border-slate-100 dark:border-stone-800">
@@ -493,6 +527,112 @@ const ParvosAccount = () => {
             </div>
           </div>
 
+          {/* Widgets de Meta y Actividad */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+            {/* Widget de Meta */}
+            <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-bold flex items-center gap-2">
+                  <Target className="w-5 h-5 text-purple-600" />
+                  Meta de Ahorro
+                </h3>
+                <button
+                  onClick={() => {
+                    const metaActiva = metas.find(m => !m.completada) || {};
+                    setModalEditarMeta({ abierto: true, meta: metaActiva.id ? metaActiva : {
+                      nombre: '',
+                      cantidad_objetivo: 0,
+                      cantidad_actual: 0,
+                      fecha_inicio: new Date().toISOString().split('T')[0],
+                      fecha_objetivo: '',
+                      categoria: '',
+                      notas: '',
+                      completada: false
+                    }});
+                  }}
+                  className="text-xs font-bold text-purple-600 hover:text-purple-700 transition-colors flex items-center gap-1"
+                >
+                  <Edit className="w-3 h-3" />
+                  {metas.some(m => !m.completada) ? 'Editar' : 'Crear'}
+                </button>
+              </div>
+              {metas.filter(m => !m.completada).length > 0 ? (
+                metas.filter(m => !m.completada).map(meta => (
+                  <div key={meta.id}>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-bold">{meta.nombre}</span>
+                      <span className="text-xs text-slate-500">
+                        {((meta.cantidad_actual / meta.cantidad_objetivo) * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-100 dark:bg-stone-800 rounded-full h-4 overflow-hidden mb-2">
+                      <div
+                        className="h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full transition-all flex items-center justify-end pr-2"
+                        style={{ width: `${Math.min((meta.cantidad_actual / meta.cantidad_objetivo) * 100, 100)}%` }}
+                      >
+                        {meta.cantidad_actual > 0 && (
+                          <span className="text-[9px] font-bold text-white">
+                            {meta.cantidad_actual}€
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex justify-between text-xs text-slate-500">
+                      <span>Actual: {meta.cantidad_actual}€</span>
+                      <span>Objetivo: {meta.cantidad_objetivo}€</span>
+                    </div>
+                    {meta.notas && (
+                      <p className="text-xs text-slate-500 mt-3 italic">{meta.notas}</p>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-slate-400">
+                  <Target className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">No hay metas activas</p>
+                  <p className="text-xs mt-1">Crea una meta para empezar a ahorrar</p>
+                </div>
+              )}
+            </div>
+
+            {/* Widget de Última Actividad */}
+            <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm">
+              <h3 className="font-bold flex items-center gap-2 mb-6">
+                <Clock className="w-5 h-5 text-purple-600" />
+                Última Actividad
+              </h3>
+              {actividad.length > 0 ? (
+                <div className="space-y-3">
+                  {actividad.map((act, idx) => (
+                    <div key={act.id || idx} className="flex items-start gap-3 pb-3 border-b border-slate-100 dark:border-stone-800 last:border-0 last:pb-0">
+                      <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center flex-shrink-0">
+                        <Clock className="w-4 h-4 text-purple-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-slate-900 dark:text-white truncate">
+                          {act.descripcion}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          {new Date(act.created_at).toLocaleDateString('es-ES', { 
+                            day: '2-digit', 
+                            month: 'short', 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-slate-400">
+                  <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">No hay actividad reciente</p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Tabla de Movimientos */}
           <div className="bg-white dark:bg-stone-900 rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-100 dark:border-stone-800 bg-slate-50/50 dark:bg-stone-900/50">
@@ -502,7 +642,7 @@ const ParvosAccount = () => {
                   <select 
                     value={filtros.tipo}
                     onChange={(e) => setFiltros({...filtros, tipo: e.target.value})}
-                    className="bg-white dark:bg-stone-800 border-slate-200 dark:border-stone-700 rounded-lg text-[10px] font-bold py-1.5 focus:ring-pink-500/20"
+                    className="bg-white dark:bg-stone-800 border-slate-200 dark:border-stone-700 rounded-lg text-[10px] font-bold py-1.5 focus:ring-purple-500/20"
                   >
                     <option value="todos">Tipo: Todos</option>
                     <option value="gasto">Gasto</option>
@@ -513,7 +653,7 @@ const ParvosAccount = () => {
                   <select 
                     value={filtros.categoria}
                     onChange={(e) => setFiltros({...filtros, categoria: e.target.value})}
-                    className="bg-white dark:bg-stone-800 border-slate-200 dark:border-stone-700 rounded-lg text-[10px] font-bold py-1.5 focus:ring-pink-500/20"
+                    className="bg-white dark:bg-stone-800 border-slate-200 dark:border-stone-700 rounded-lg text-[10px] font-bold py-1.5 focus:ring-purple-500/20"
                   >
                     <option value="todas">Categoría: Todas</option>
                     {categorias.map(cat => (
@@ -523,7 +663,7 @@ const ParvosAccount = () => {
                   <select 
                     value={filtros.cuenta}
                     onChange={(e) => setFiltros({...filtros, cuenta: e.target.value})}
-                    className="bg-white dark:bg-stone-800 border-slate-200 dark:border-stone-700 rounded-lg text-[10px] font-bold py-1.5 focus:ring-pink-500/20"
+                    className="bg-white dark:bg-stone-800 border-slate-200 dark:border-stone-700 rounded-lg text-[10px] font-bold py-1.5 focus:ring-purple-500/20"
                   >
                     <option value="todas">Cuenta: Todas</option>
                     <option value="BBVA">BBVA</option>
@@ -578,7 +718,7 @@ const ParvosAccount = () => {
                         <div className="flex justify-end gap-2">
                           <button 
                             onClick={() => setModalEditarOperacion({ abierto: true, operacion: {...op} })}
-                            className="p-1 hover:text-pink-500 transition-colors"
+                            className="p-1 hover:text-purple-600 transition-colors"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
@@ -598,9 +738,25 @@ const ParvosAccount = () => {
 
             {/* Paginación */}
             <div className="p-4 border-t border-slate-100 dark:border-stone-800 flex items-center justify-between">
-              <span className="text-[10px] font-bold text-slate-400">
-                Mostrando {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, operacionesFiltradas.length)} de {operacionesFiltradas.length} movimientos
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] font-bold text-slate-400">
+                  Mostrando {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, operacionesFiltradas.length)} de {operacionesFiltradas.length} movimientos
+                </span>
+                <select
+                  value={itemsPorPagina}
+                  onChange={(e) => {
+                    setItemsPorPagina(Number(e.target.value));
+                    setPaginaActual(1);
+                  }}
+                  className="bg-white dark:bg-stone-800 border-slate-200 dark:border-stone-700 rounded-lg text-[10px] font-bold py-1 px-2"
+                >
+                  <option value={10}>10 / página</option>
+                  <option value={20}>20 / página</option>
+                  <option value={30}>30 / página</option>
+                  <option value={50}>50 / página</option>
+                  <option value={100}>100 / página</option>
+                </select>
+              </div>
               <div className="flex gap-1">
                 <button 
                   onClick={() => setPaginaActual(Math.max(1, paginaActual - 1))}
@@ -615,7 +771,7 @@ const ParvosAccount = () => {
                     onClick={() => setPaginaActual(idx + 1)}
                     className={`w-8 h-8 rounded-lg text-xs font-bold ${
                       paginaActual === idx + 1
-                        ? 'bg-pink-500 text-white'
+                        ? 'bg-purple-600 text-white'
                         : 'bg-slate-100 dark:bg-stone-800 text-slate-500'
                     }`}
                   >
@@ -636,7 +792,7 @@ const ParvosAccount = () => {
 
         {/* Sidebar con formulario */}
         <div className="col-span-12 lg:col-span-4">
-          <div className="bg-gradient-to-br from-pink-500 to-pink-600 p-6 rounded-3xl shadow-lg text-white sticky top-8">
+          <div className="bg-gradient-to-br from-purple-600 to-purple-700 p-6 rounded-3xl shadow-lg text-white sticky top-8">
             <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
               <span className="text-xl">➕</span>
               Nueva Operación
@@ -655,17 +811,52 @@ const ParvosAccount = () => {
 
               <div>
                 <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Tipo</label>
-                <select
-                  value={formNuevaOperacion.tipo}
-                  onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, tipo: e.target.value})}
-                  className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
-                  required
-                >
-                  <option value="gasto" className="text-slate-900">Gasto</option>
-                  <option value="ingreso" className="text-slate-900">Ingreso</option>
-                  <option value="hucha" className="text-slate-900">Hucha</option>
-                  <option value="retirada-hucha" className="text-slate-900">Retirada Hucha</option>
-                </select>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormNuevaOperacion({...formNuevaOperacion, tipo: 'gasto'})}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                      formNuevaOperacion.tipo === 'gasto'
+                        ? 'bg-white text-purple-600 shadow-lg'
+                        : 'bg-white/20 border border-white/30 text-white'
+                    }`}
+                  >
+                    📤 Gasto
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormNuevaOperacion({...formNuevaOperacion, tipo: 'ingreso'})}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                      formNuevaOperacion.tipo === 'ingreso'
+                        ? 'bg-white text-purple-600 shadow-lg'
+                        : 'bg-white/20 border border-white/30 text-white'
+                    }`}
+                  >
+                    💰 Ingreso
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormNuevaOperacion({...formNuevaOperacion, tipo: 'hucha'})}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                      formNuevaOperacion.tipo === 'hucha'
+                        ? 'bg-white text-purple-600 shadow-lg'
+                        : 'bg-white/20 border border-white/30 text-white'
+                    }`}
+                  >
+                    🐷 Ahorro
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormNuevaOperacion({...formNuevaOperacion, tipo: 'retirada-hucha'})}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                      formNuevaOperacion.tipo === 'retirada-hucha'
+                        ? 'bg-white text-purple-600 shadow-lg'
+                        : 'bg-white/20 border border-white/30 text-white'
+                    }`}
+                  >
+                    💸 Retirada
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -719,7 +910,7 @@ const ParvosAccount = () => {
 
               <button
                 type="submit"
-                className="w-full py-3 bg-white text-pink-600 rounded-xl font-bold hover:bg-pink-50 transition-colors shadow-lg"
+                className="w-full py-3 bg-white text-purple-600 rounded-xl font-bold hover:bg-purple-50 transition-colors shadow-lg"
               >
                 Guardar Operación
               </button>
@@ -780,7 +971,7 @@ const ParvosAccount = () => {
               </button>
               <button
                 onClick={handleGuardarPresupuestos}
-                className="px-6 py-2.5 rounded-xl bg-pink-500 text-white font-semibold hover:bg-pink-600 transition-colors"
+                className="px-6 py-2.5 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors"
               >
                 Guardar Cambios
               </button>
@@ -935,9 +1126,139 @@ const ParvosAccount = () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-6 py-2.5 rounded-xl bg-pink-500 text-white font-semibold hover:bg-pink-600 transition-colors"
+                  className="flex-1 px-6 py-2.5 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors"
                 >
                   Guardar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editar Meta */}
+      {modalEditarMeta.abierto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-stone-900 w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 dark:border-stone-800 overflow-hidden">
+            <div className="p-6 border-b border-slate-100 dark:border-stone-800 flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold">
+                  {modalEditarMeta.meta?.id ? 'Editar Meta' : 'Nueva Meta de Ahorro'}
+                </h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Define tu objetivo de ahorro
+                </p>
+              </div>
+              <button 
+                onClick={() => setModalEditarMeta({ abierto: false, meta: null })}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleGuardarMeta} className="p-6 space-y-4">
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Nombre de la Meta</label>
+                <input
+                  type="text"
+                  value={modalEditarMeta.meta?.nombre || ''}
+                  onChange={(e) => setModalEditarMeta({
+                    ...modalEditarMeta,
+                    meta: { ...modalEditarMeta.meta, nombre: e.target.value }
+                  })}
+                  className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
+                  placeholder="Ej: Vacaciones, Coche nuevo..."
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Cantidad Objetivo</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={modalEditarMeta.meta?.cantidad_objetivo || 0}
+                    onChange={(e) => setModalEditarMeta({
+                      ...modalEditarMeta,
+                      meta: { ...modalEditarMeta.meta, cantidad_objetivo: parseFloat(e.target.value) }
+                    })}
+                    className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Cantidad Actual</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={modalEditarMeta.meta?.cantidad_actual || 0}
+                    onChange={(e) => setModalEditarMeta({
+                      ...modalEditarMeta,
+                      meta: { ...modalEditarMeta.meta, cantidad_actual: parseFloat(e.target.value) }
+                    })}
+                    className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Fecha Inicio</label>
+                  <input
+                    type="date"
+                    value={modalEditarMeta.meta?.fecha_inicio || ''}
+                    onChange={(e) => setModalEditarMeta({
+                      ...modalEditarMeta,
+                      meta: { ...modalEditarMeta.meta, fecha_inicio: e.target.value }
+                    })}
+                    className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Fecha Objetivo</label>
+                  <input
+                    type="date"
+                    value={modalEditarMeta.meta?.fecha_objetivo || ''}
+                    onChange={(e) => setModalEditarMeta({
+                      ...modalEditarMeta,
+                      meta: { ...modalEditarMeta.meta, fecha_objetivo: e.target.value }
+                    })}
+                    className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Notas</label>
+                <textarea
+                  value={modalEditarMeta.meta?.notas || ''}
+                  onChange={(e) => setModalEditarMeta({
+                    ...modalEditarMeta,
+                    meta: { ...modalEditarMeta.meta, notas: e.target.value }
+                  })}
+                  className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
+                  rows="3"
+                  placeholder="Notas adicionales..."
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setModalEditarMeta({ abierto: false, meta: null })}
+                  className="flex-1 px-6 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-6 py-2.5 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors"
+                >
+                  Guardar Meta
                 </button>
               </div>
             </form>
