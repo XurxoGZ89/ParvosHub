@@ -31,8 +31,17 @@ const ParvosAccount = () => {
     categoria: 'todas',
     cuenta: 'todas'
   });
-  const [mesSeleccionado, setMesSeleccionado] = useState('enero');
-  const [añoSeleccionado, setAñoSeleccionado] = useState(2026);
+
+  const meses = [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+  ];
+  
+  const mesActual = new Date().getMonth();
+  const añoActual = new Date().getFullYear();
+
+  const [mesSeleccionado, setMesSeleccionado] = useState(meses[mesActual]);
+  const [añoSeleccionado, setAñoSeleccionado] = useState(añoActual);
   const [paginaActual, setPaginaActual] = useState(1);
   const [itemsPorPagina, setItemsPorPagina] = useState(10);
 
@@ -61,11 +70,6 @@ const ParvosAccount = () => {
     { nombre: 'Movilidad', icon: Car, color: 'blue' },
     { nombre: 'Extra', icon: PartyPopper, color: 'purple' },
     { nombre: 'Vacaciones', icon: PartyPopper, color: 'orange' }
-  ];
-
-  const meses = [
-    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
   ];
 
   useEffect(() => {
@@ -709,9 +713,13 @@ const ParvosAccount = () => {
                       <td className="px-6 py-4 font-medium">{op.categoria}</td>
                       <td className="px-6 py-4">
                         {op.cuenta === 'BBVA' ? (
-                          <span className="text-[10px] font-black italic text-blue-700 dark:text-blue-400">BBVA</span>
+                          <div className="flex items-center gap-2">
+                            <img src={bbvaLogo} alt="BBVA" className="w-6 h-6 object-contain" />
+                          </div>
                         ) : (
-                          <span className="text-[10px] font-black text-[#00E599]">imagin</span>
+                          <div className="flex items-center gap-2">
+                            <img src={imaginLogo} alt="Imagin" className="w-7 h-7 object-contain" />
+                          </div>
                         )}
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -821,7 +829,7 @@ const ParvosAccount = () => {
                         : 'bg-white/20 border border-white/30 text-white'
                     }`}
                   >
-                    📤 Gasto
+                    Gasto
                   </button>
                   <button
                     type="button"
@@ -832,7 +840,7 @@ const ParvosAccount = () => {
                         : 'bg-white/20 border border-white/30 text-white'
                     }`}
                   >
-                    💰 Ingreso
+                    Ingreso
                   </button>
                   <button
                     type="button"
@@ -843,7 +851,7 @@ const ParvosAccount = () => {
                         : 'bg-white/20 border border-white/30 text-white'
                     }`}
                   >
-                    🐷 Ahorro
+                    Ahorro
                   </button>
                   <button
                     type="button"
@@ -854,7 +862,7 @@ const ParvosAccount = () => {
                         : 'bg-white/20 border border-white/30 text-white'
                     }`}
                   >
-                    💸 Retirada
+                    Retirada
                   </button>
                 </div>
               </div>
@@ -915,6 +923,109 @@ const ParvosAccount = () => {
                 Guardar Operación
               </button>
             </form>
+          </div>
+
+          {/* Widget de Actividad Reciente */}
+          <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm">
+            <h3 className="font-bold flex items-center gap-2 mb-6">
+              <Clock className="w-5 h-5 text-purple-600" />
+              Actividad Reciente
+            </h3>
+            {actividad.length > 0 ? (
+              <div className="space-y-4 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-100 dark:before:bg-stone-800">
+                {actividad.map((act, idx) => (
+                  <div key={act.id || idx} className="flex gap-3 relative">
+                    <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/40 border-4 border-white dark:border-stone-900 z-10 flex-shrink-0"></div>
+                    <div className="flex-1">
+                      <p className="text-sm leading-tight font-medium text-slate-900 dark:text-white">
+                        {act.descripcion}
+                      </p>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                        {new Date(act.created_at).toLocaleDateString('es-ES', { 
+                          day: '2-digit', 
+                          month: 'short', 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-slate-400">
+                <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">No hay actividad reciente</p>
+              </div>
+            )}
+            <button className="w-full mt-6 py-3 border border-slate-100 dark:border-stone-800 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-stone-800/50 transition-all">
+              Ver historial completo
+            </button>
+          </div>
+
+          {/* Widget de Meta - Viaje a Japón */}
+          <div className="bg-gradient-to-br from-purple-600 to-rose-400 p-8 rounded-3xl text-white shadow-xl">
+            {metas.filter(m => !m.completada).length > 0 ? (
+              metas.filter(m => !m.completada).map(meta => {
+                const progreso = (meta.cantidad_actual / meta.cantidad_objetivo) * 100;
+                return (
+                  <div key={meta.id}>
+                    <div className="flex justify-between items-start mb-6">
+                      <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md">
+                        <Target className="w-6 h-6" />
+                      </div>
+                      <span className="bg-white/20 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">Meta Familiar</span>
+                    </div>
+                    <h3 className="text-xl font-bold mb-1">{meta.nombre}</h3>
+                    <p className="text-white/80 text-sm mb-6 font-medium">
+                      Habéis ahorrado el {progreso.toFixed(0)}%
+                    </p>
+                    <div className="w-full bg-white/20 h-4 rounded-full overflow-hidden mb-3 p-1">
+                      <div 
+                        className="bg-white h-full rounded-full transition-all"
+                        style={{ width: `${Math.min(progreso, 100)}%` }}
+                      ></div>
+                    </div>
+                    <div className="flex justify-between text-xs font-bold">
+                      <span>{meta.cantidad_actual} €</span>
+                      <span>{meta.cantidad_objetivo} €</span>
+                    </div>
+                    <button
+                      onClick={() => setModalEditarMeta({ abierto: true, meta })}
+                      className="w-full mt-6 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-bold transition-all"
+                    >
+                      Editar Meta
+                    </button>
+                  </div>
+                );
+              })
+            ) : (
+              <div>
+                <div className="flex justify-between items-start mb-6">
+                  <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md">
+                    <Target className="w-6 h-6" />
+                  </div>
+                  <span className="bg-white/20 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">Meta Familiar</span>
+                </div>
+                <h3 className="text-xl font-bold mb-1">Sin meta activa</h3>
+                <p className="text-white/80 text-sm mb-6 font-medium">Crea una meta para empezar a ahorrar</p>
+                <button
+                  onClick={() => setModalEditarMeta({ abierto: true, meta: {
+                    nombre: 'Viaje a Japón 2025',
+                    cantidad_objetivo: 5000,
+                    cantidad_actual: 0,
+                    fecha_inicio: new Date().toISOString().split('T')[0],
+                    fecha_objetivo: '',
+                    categoria: 'Viajes',
+                    notas: '',
+                    completada: false
+                  }})}
+                  className="w-full mt-6 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-bold transition-all"
+                >
+                  Crear Meta
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
