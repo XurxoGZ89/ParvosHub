@@ -562,6 +562,107 @@ app.delete('/comidas-planificadas/:id', async (req, res) => {
 const { createInitialUsers } = require('./scripts/createInitialUsers');
 createInitialUsers().catch(console.error);
 
+// ==================== METAS ====================
+// GET todas las metas
+app.get('/metas', async (req, res) => {
+  try {
+    const result = await db.query('SELECT * FROM metas ORDER BY created_at DESC');
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error al obtener metas:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET meta por ID
+app.get('/metas/:id', async (req, res) => {
+  try {
+    const result = await db.query('SELECT * FROM metas WHERE id = $1', [req.params.id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Meta no encontrada' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error al obtener meta:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST crear meta
+app.post('/metas', async (req, res) => {
+  const { nombre, cantidad_objetivo, cantidad_actual, fecha_inicio, fecha_objetivo, categoria, notas } = req.body;
+  try {
+    const result = await db.query(
+      'INSERT INTO metas (nombre, cantidad_objetivo, cantidad_actual, fecha_inicio, fecha_objetivo, categoria, notas) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      [nombre, cantidad_objetivo, cantidad_actual || 0, fecha_inicio, fecha_objetivo, categoria, notas]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error al crear meta:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT actualizar meta
+app.put('/metas/:id', async (req, res) => {
+  const { nombre, cantidad_objetivo, cantidad_actual, fecha_objetivo, categoria, notas, completada } = req.body;
+  try {
+    const result = await db.query(
+      'UPDATE metas SET nombre = $1, cantidad_objetivo = $2, cantidad_actual = $3, fecha_objetivo = $4, categoria = $5, notas = $6, completada = $7, updated_at = CURRENT_TIMESTAMP WHERE id = $8 RETURNING *',
+      [nombre, cantidad_objetivo, cantidad_actual, fecha_objetivo, categoria, notas, completada, req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Meta no encontrada' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error al actualizar meta:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE meta
+app.delete('/metas/:id', async (req, res) => {
+  try {
+    const result = await db.query('DELETE FROM metas WHERE id = $1 RETURNING *', [req.params.id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Meta no encontrada' });
+    }
+    res.json({ message: 'Meta eliminada', meta: result.rows[0] });
+  } catch (err) {
+    console.error('Error al eliminar meta:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== ACTIVIDAD RECIENTE ====================
+// GET actividad reciente (últimas 10)
+app.get('/actividad', async (req, res) => {
+  try {
+    const limit = req.query.limit || 10;
+    const result = await db.query('SELECT * FROM actividad_reciente ORDER BY created_at DESC LIMIT $1', [limit]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error al obtener actividad:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST registrar actividad
+app.post('/actividad', async (req, res) => {
+  const { tipo, descripcion, usuario_id, metadata } = req.body;
+  try {
+    const result = await db.query(
+      'INSERT INTO actividad_reciente (tipo, descripcion, usuario_id, metadata) VALUES ($1, $2, $3, $4) RETURNING *',
+      [tipo, descripcion, usuario_id, metadata ? JSON.stringify(metadata) : null]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error al registrar actividad:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Puerto
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

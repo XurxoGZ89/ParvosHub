@@ -167,6 +167,35 @@ async function initDatabase() {
       );
     `);
     console.log('Tabla comidas_congeladas lista');
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS metas (
+        id SERIAL PRIMARY KEY,
+        nombre VARCHAR(255) NOT NULL,
+        cantidad_objetivo REAL NOT NULL,
+        cantidad_actual REAL DEFAULT 0,
+        fecha_inicio DATE NOT NULL,
+        fecha_objetivo DATE,
+        categoria VARCHAR(100),
+        notas TEXT,
+        completada BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('Tabla metas lista');
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS actividad_reciente (
+        id SERIAL PRIMARY KEY,
+        tipo VARCHAR(50) NOT NULL,
+        descripcion TEXT NOT NULL,
+        usuario_id INTEGER REFERENCES users(id),
+        metadata JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('Tabla actividad_reciente lista');
   } catch (err) {
     console.error('Error al crear tabla:', err.message);
   }
