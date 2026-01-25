@@ -2,17 +2,40 @@ const { Pool } = require('pg');
 require('dotenv').config();
 
 // Configurar la conexión desde variable de entorno o valores locales
-const pool = new Pool({
+const connectionConfig = {
   connectionString: process.env.DATABASE_URL || `postgresql://${process.env.DB_USER || 'postgres'}:${process.env.DB_PASSWORD || 'password'}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 5432}/${process.env.DB_NAME || 'gastos_db'}`,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+};
+
+console.log('📦 Inicializando conexión a PostgreSQL...');
+if (process.env.DATABASE_URL) {
+  console.log('✅ Usando DATABASE_URL de variables de entorno');
+} else {
+  console.log('⚠️  DATABASE_URL no configurado, usando valores locales');
+}
+
+const pool = new Pool(connectionConfig);
 
 pool.on('error', (err) => {
-  console.error('Error inesperado en la conexión a PostgreSQL:', err);
+  console.error('❌ Error inesperado en la conexión a PostgreSQL:', err.message);
 });
 
 pool.on('connect', () => {
-  console.log('Conexión a PostgreSQL establecida');
+  console.log('✅ Conexión a PostgreSQL establecida');
+});
+
+// Verificar conexión inicial
+pool.connect((err, client, release) => {
+  if (err) {
+    console.error('❌ Error al conectar a la base de datos:', err.message);
+    console.error('Stack:', err.stack);
+  } else {
+    console.log('✅ Conexión inicial a PostgreSQL verificada');
+    release();
+  }
 });
 
 // Función para inicializar la tabla

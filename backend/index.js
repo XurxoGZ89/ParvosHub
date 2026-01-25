@@ -14,10 +14,22 @@ app.use(express.json());
 app.get('/health', async (req, res) => {
   try {
     // Verificar conexión a BD
-    await db.query('SELECT 1');
-    res.json({ status: 'ok', message: 'Backend funcionando correctamente' });
+    const result = await db.query('SELECT NOW()');
+    res.json({ 
+      status: 'ok', 
+      message: 'Backend funcionando correctamente',
+      database: 'conectada',
+      timestamp: result.rows[0].now
+    });
   } catch (error) {
-    res.status(500).json({ status: 'error', message: 'Error de conexión a base de datos' });
+    console.error('Health check error:', error.message);
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'Error de conexión a base de datos',
+      error: error.message,
+      nodeEnv: process.env.NODE_ENV,
+      hasDbUrl: !!process.env.DATABASE_URL
+    });
   }
 });
 
