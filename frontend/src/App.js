@@ -10,7 +10,7 @@ import AppLayout from './components/layout/AppLayout';
 
 // Pages
 import Home from './components/Home';
-import ParvosAccount from './components/parvos/ParvosAccount';
+import ParvosAccount from './components/parvos/ParvosAccountV3';
 import ResumenAnual from './components/ResumenAnual';
 import Calendario from './components/Calendario';
 import CalendarioComidasV2 from './components/CalendarioComidasV2';
