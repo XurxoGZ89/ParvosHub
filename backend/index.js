@@ -3,9 +3,15 @@ const express = require('express');
 const cors = require('cors');
 const db = require('./db');
 
+// Importar rutas
+const authRoutes = require('./routes/auth.routes');
+
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Rutas de autenticación
+app.use('/api/auth', authRoutes);
 
 // Endpoint de prueba
 app.get('/', (req, res) => {
@@ -14,18 +20,27 @@ app.get('/', (req, res) => {
 
 // Endpoint para agregar una operación
 app.post('/operaciones', async (req, res) => {
-  const { fecha, tipo, cantidad, concepto, categoria, usuario, cuenta } = req.body;
+  const { fecha, tipo, cantidad, descripcion, categoria, cuenta, usuario_id } = req.body;
+  
+  console.log('POST /operaciones recibido:', req.body);
+  
   if (!fecha || !tipo || !cantidad) {
-    return res.status(400).json({ error: 'Faltan datos obligatorios' });
+    return res.status(400).json({ error: 'Faltan datos obligatorios (fecha, tipo, cantidad)' });
   }
+  
   try {
+    // Convertir tipo de "ahorro" a "retirada-hucha" si es necesario
+    const tipoNormalizado = tipo === 'ahorro' ? 'retirada-hucha' : tipo;
+    
     const result = await db.query(
-      'INSERT INTO operaciones (fecha, tipo, cantidad, info, categoria, usuario, cuenta) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
-      [fecha, tipo, cantidad, concepto, categoria, usuario, cuenta]
+      'INSERT INTO operaciones (fecha, tipo, cantidad, info, categoria, cuenta, usuario_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      [fecha, tipoNormalizado, cantidad, descripcion || '', categoria || '', cuenta || '', usuario_id || null]
     );
-    res.status(201).json({ id: result.rows[0].id });
+    
+    console.log('Operación creada:', result.rows[0]);
+    res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error('Error al insertar:', err);
+    console.error('Error al insertar operación:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -98,6 +113,17 @@ app.put('/operaciones/:id', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('Error al actualizar:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint para obtener todos los presupuestos
+app.get('/presupuestos', async (req, res) => {
+  try {
+    const result = await db.query('SELECT * FROM presupuestos ORDER BY mes DESC');
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error al obtener presupuestos:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -508,6 +534,10 @@ app.delete('/comidas-planificadas/:id', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Inicializar usuarios si no existen
+const { createInitialUsers } = require('./scripts/createInitialUsers');
+createInitialUsers().catch(console.error);
 
 // Puerto
 const PORT = process.env.PORT || 3001;

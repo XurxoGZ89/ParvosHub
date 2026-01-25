@@ -72,6 +72,78 @@ async function initDatabase() {
       );
     `);
     console.log('Tabla dismissed_warnings lista');
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        email VARCHAR(100) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        full_name VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('Tabla users lista');
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_accounts (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        account_name VARCHAR(50) NOT NULL,
+        account_type VARCHAR(20) DEFAULT 'checking',
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT unique_user_account UNIQUE(user_id, account_name)
+      );
+    `);
+    console.log('Tabla user_accounts lista');
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_sessions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token VARCHAR(500) NOT NULL UNIQUE,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('Tabla user_sessions lista');
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(token);
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+    `);
+    console.log('Índices de user_sessions listos');
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS comidas_planificadas (
+        id SERIAL PRIMARY KEY,
+        comida_id INTEGER,
+        comida_nombre VARCHAR(255),
+        fecha DATE NOT NULL,
+        tipo_comida VARCHAR(50),
+        notas TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('Tabla comidas_planificadas lista');
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS comidas_congeladas (
+        id SERIAL PRIMARY KEY,
+        nombre VARCHAR(255) NOT NULL,
+        categoria VARCHAR(100),
+        fecha_congelacion DATE,
+        notas TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('Tabla comidas_congeladas lista');
   } catch (err) {
     console.error('Error al crear tabla:', err.message);
   }
