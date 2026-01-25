@@ -47,20 +47,15 @@ const Home = () => {
         fiveDaysLater.setDate(fiveDaysLater.getDate() + 4);
         const fiveDaysStr = fiveDaysLater.toISOString().split('T')[0];
         
-        console.log('===== DEPURACIÓN DE COMIDAS =====');
-        console.log('Hoy:', todayStr);
-        console.log('Hasta:', fiveDaysStr);
-        console.log('Total de comidas disponibles:', meals.length);
-        console.log('Comidas completas:', meals);
+        console.log('Rango de búsqueda de comidas:', { todayStr, fiveDaysStr });
+        console.log('Comidas disponibles:', meals);
         
         const relevantMeals = meals.filter(meal => {
           const mealDate = meal.fecha;
-          console.log(`Evaluando comida en ${mealDate}: ¿${todayStr} <= ${mealDate} <= ${fiveDaysStr}? ${mealDate >= todayStr && mealDate <= fiveDaysStr}`);
           return mealDate >= todayStr && mealDate <= fiveDaysStr;
         }).sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
-        console.log('Comidas filtradas (próximos 5 días):', relevantMeals.length, relevantMeals);
-        console.log('================================');
+        console.log('Comidas filtradas (próximos 5 días):', relevantMeals);
 
         let displayMeals = relevantMeals;
         if (displayMeals.length === 0) {
@@ -69,7 +64,6 @@ const Home = () => {
             .filter(m => new Date(m.fecha) >= today)
             .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
             .slice(0, 2);
-          console.log('Usando fallback, mostrando:', displayMeals.length, 'comidas');
         }
         setMealData(displayMeals);
         setCalendarEvents(events);
