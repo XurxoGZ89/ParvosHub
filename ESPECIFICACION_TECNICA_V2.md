@@ -502,24 +502,154 @@ GET    /api/meals/frozen            - Comidas congeladas
 - [x] Refactorizar ExpenseTracker → ParvosAccount
 - [x] Mantener funcionalidad actual
 - [x] Aplicar nuevo diseño Shadcn UI
-- [x] Resumen Anual Parvos con nuevo diseño (pendiente)
+- [x] Crear tablas `metas` y `actividad_reciente` en base de datos
+- [x] Implementar endpoints CRUD para metas (GET, POST, PUT, DELETE)
+- [x] Implementar endpoints para actividad reciente (GET, POST)
+- [x] Rediseño completo de ParvosAccountV3 con todas las mejoras UX
 
 **Archivos creados/modificados:**
-- `frontend/src/components/parvos/ParvosAccount.jsx` (completo con diseño Stitch)
-- `frontend/src/App.js` (actualizada ruta de gastos)
+- `frontend/src/components/parvos/ParvosAccountV3.jsx` (completo con diseño Stitch y mejoras)
+- `backend/db.js` (tablas metas y actividad_reciente)
+- `backend/index.js` (10 nuevos endpoints)
+- `frontend/src/assets/BBVA_2019.svg.png` (logo)
+- `frontend/src/assets/imagin.webp` (logo)
 
-**Funcionalidades implementadas:**
-- Página de Cuenta Parvos con diseño Stitch moderno
-- Balance total y tarjetas de cuentas (BBVA, Imagin)
-- Gráfico de barras de gastos por categoría
-- Tabla de presupuesto vs real
-- Listado de movimientos con filtros (tipo, categoría, cuenta)
-- Paginación de movimientos
-- Formulario para crear nueva operación
-- Card de meta familiar (Viaje a Japón)
-- Timeline de actividad reciente
-- Iconos de Lucide React
-- Totalmente responsive
+**Base de datos - Nuevas tablas:**
+
+```sql
+-- Tabla de metas de ahorro
+CREATE TABLE metas (
+  id SERIAL PRIMARY KEY,
+  nombre VARCHAR(255) NOT NULL,
+  cantidad_objetivo REAL NOT NULL,
+  cantidad_actual REAL DEFAULT 0,
+  fecha_inicio DATE NOT NULL,
+  fecha_objetivo DATE,
+  categoria VARCHAR(100),
+  notas TEXT,
+  completada BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabla de registro de actividad
+CREATE TABLE actividad_reciente (
+  id SERIAL PRIMARY KEY,
+  tipo VARCHAR(50) NOT NULL,
+  descripcion TEXT NOT NULL,
+  usuario_id INTEGER REFERENCES users(id),
+  metadata JSONB,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**Endpoints implementados:**
+
+Metas:
+- `GET /metas` - Listar todas las metas
+- `GET /metas/:id` - Obtener meta específica
+- `POST /metas` - Crear nueva meta
+- `PUT /metas/:id` - Actualizar meta
+- `DELETE /metas/:id` - Eliminar meta
+
+Actividad:
+- `GET /actividad?limit=N` - Obtener actividad reciente (default 10)
+- `POST /actividad` - Registrar nueva actividad
+
+**Funcionalidades implementadas en ParvosAccountV3:**
+
+1. **Navegación mejorada:**
+   - Eliminado selector dropdown de mes
+   - Solo navegación con flechas (← →)
+   - Mes por defecto: mes actual automático
+   - Texto simple mostrando "Mes Año"
+
+2. **Diseño visual:**
+   - Logos de BBVA e Imagin en cards de balance
+   - Logos en tabla de movimientos (columna cuenta)
+   - Tema purple (cambio completo de pink a purple)
+   - Formulario con gradiente purple-600 to purple-700
+
+3. **Selector de tipo de operación:**
+   - Convertido de dropdown a 4 botones tipo tabs
+   - Diseño: grid 2x2
+   - Opciones: Gasto, Ingreso, Ahorro, Retirada
+   - Sin emojis (diseño limpio)
+   - Estado activo: fondo blanco con texto purple
+
+4. **Gráfico de gastos mejorado:**
+   - Barras con altura proporcional a cantidad real
+   - Eje Y virtual para cálculos (height basada en maxGasto)
+   - Líneas de presupuesto en negro punteado
+   - Altura 80 (h-80) para mejor visualización
+   - Tooltips mostrando presupuesto al hover
+
+5. **Card de presupuesto:**
+   - Eliminado scroll (max-h-64 overflow-y-auto)
+   - Ahora usa flex-1 para expandirse naturalmente
+   - Toda la información visible sin scroll
+   - Tabla más legible
+
+6. **Paginación:**
+   - Selector de items por página: 10/20/30/50/100
+   - Estado itemsPorPagina ahora es useState
+   - Dropdown estilizado junto al contador
+   - Reset a página 1 al cambiar items
+
+7. **Widget de Meta de Ahorro:**
+   - Ubicado en sidebar (debajo del formulario)
+   - Diseño con gradiente purple-to-rose
+   - Barra de progreso con porcentaje
+   - Muestra cantidad actual vs objetivo
+   - Icono de Target
+   - Badge "Meta Familiar"
+   - Botón para editar meta
+   - Estado vacío cuando no hay metas
+
+8. **Widget de Actividad Reciente:**
+   - Timeline vertical con línea conectora
+   - Círculos como marcadores de eventos
+   - Últimas 5 actividades desde API
+   - Timestamps formateados (día, mes, hora)
+   - Botón "Ver historial completo"
+   - Icono de Clock
+   - Diseño estilo Stitch (referencia adjunta)
+
+9. **Modal de Editar Meta:**
+   - Formulario completo para crear/editar metas
+   - Campos: nombre, cantidad_objetivo, cantidad_actual
+   - Fechas: fecha_inicio, fecha_objetivo
+   - Campo notas (textarea)
+   - Diseño coherente con otros modales
+   - Validación de campos requeridos
+
+10. **Registro automático de actividad:**
+    - Al crear operación: POST a /actividad
+    - Descripción automática con tipo, concepto y cantidad
+    - usuario_id: 2 (Parvos)
+    - Integrado en handleCrearOperacion
+
+11. **Integración API:**
+    - cargarDatos() ahora carga metas y actividad con Promise.all
+    - Estados: metas (array), actividad (array)
+    - Modal estado: modalEditarMeta con {abierto, meta}
+    - Handler: handleGuardarMeta para POST/PUT
+
+**Commits realizados:**
+- `e3c8eff` - Backend: Añadir tablas y endpoints para metas y actividad reciente
+- `6e06124` - Frontend: Rediseño completo de ParvosAccount con todas las mejoras
+- `6417507` - Frontend: Mes por defecto ahora es el mes en curso + logos en tabla
+
+**Estado actual:**
+- ✅ 100% funcional en producción
+- ✅ Todas las mejoras UX implementadas
+- ✅ Backend y frontend sincronizados
+- ✅ Diseño Stitch aplicado (purple theme, tabs, widgets)
+- ✅ Responsive en desktop, tablet y mobile
+- ✅ Datos de 2025 accesibles mediante navegación
+
+**Pendiente:**
+- [ ] Resumen Anual Parvos con nuevo diseño (siguiente fase)
 
 ### FASE 6: Calendarios
 - [ ] Calendario Gastos (mantener funcionalidad)
