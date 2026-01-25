@@ -458,7 +458,7 @@ function ExpenseTracker({ onBack }) {
 
   // Calcular hucha TOTAL ACUMULADA hasta antes del mes actual
   const operacionesHuchaAnteriores = operaciones.filter(op => {
-    if (!op.fecha || op.tipo !== 'hucha') return false;
+    if (!op.fecha || (op.tipo !== 'hucha' && op.tipo !== 'retirada-hucha')) return false;
     const fecha = new Date(op.fecha);
     const anioOp = fecha.getFullYear();
     const mesOp = fecha.getMonth();
@@ -468,7 +468,12 @@ function ExpenseTracker({ onBack }) {
   });
 
   const huchaMesAnterior = operacionesHuchaAnteriores
-    .reduce((acc, op) => acc + Number(op.cantidad), 0);
+    .reduce((acc, op) => {
+      // Sumar depósitos (hucha), restar retiradas (retirada-hucha)
+      if (op.tipo === 'hucha') return acc + Number(op.cantidad);
+      if (op.tipo === 'retirada-hucha') return acc - Number(op.cantidad);
+      return acc;
+    }, 0);
 
   // Hucha neta = acumulada anterior + movimientos del mes actual
   const huchaNeta = huchaMesAnterior + huchaTotal - retiradaHuchaTotal;
