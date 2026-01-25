@@ -1,7 +1,23 @@
 const jwt = require('jsonwebtoken');
 const db = require('../db');
+const crypto = require('crypto');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+// Generar JWT_SECRET si no está configurado (solo para desarrollo)
+// En producción, DEBE estar configurado en las variables de entorno
+let JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('❌ CRÍTICO: JWT_SECRET no está configurado en producción');
+    console.error('Configura JWT_SECRET en las variables de entorno de Render');
+    // Generar uno para que el servidor al menos no falle
+    JWT_SECRET = crypto.randomBytes(64).toString('hex');
+    console.warn('⚠️  Se generó un JWT_SECRET temporal (los tokens serán inválidos después de reiniciar)');
+  } else {
+    JWT_SECRET = 'dev-secret-key-change-in-production';
+    console.warn('⚠️  Usando JWT_SECRET por defecto (solo para desarrollo)');
+  }
+}
 
 /**
  * Middleware para verificar el token JWT

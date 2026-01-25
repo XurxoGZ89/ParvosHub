@@ -10,6 +10,17 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Health check - verificar que el servidor está listo
+app.get('/health', async (req, res) => {
+  try {
+    // Verificar conexión a BD
+    await db.query('SELECT 1');
+    res.json({ status: 'ok', message: 'Backend funcionando correctamente' });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: 'Error de conexión a base de datos' });
+  }
+});
+
 // Rutas de autenticación
 app.use('/api/auth', authRoutes);
 

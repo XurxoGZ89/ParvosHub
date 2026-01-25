@@ -11,6 +11,10 @@ const login = async (req, res) => {
   try {
     const { username, password } = req.body;
 
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
+    }
+
     // Buscar usuario por username
     const userResult = await db.query(
       'SELECT * FROM users WHERE username = $1',
@@ -52,8 +56,9 @@ const login = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error en login:', error);
-    res.status(500).json({ error: 'Error en el servidor' });
+    console.error('Error en login:', error.message);
+    console.error('Stack:', error.stack);
+    res.status(500).json({ error: 'Error en el servidor', details: error.message });
   }
 };
 
