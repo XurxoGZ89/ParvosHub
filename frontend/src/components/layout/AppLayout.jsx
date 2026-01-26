@@ -25,8 +25,8 @@ const AppLayout = () => {
     { icon: '👤', label: 'Cuenta Personal', path: '/user-account' },
     { icon: '👥', label: 'Cuenta Familiar', path: '/gastos' },
     { icon: '📊', label: 'Resumen Anual', path: '/resumen' },
-    { icon: '📅', label: 'Calendario Gastos', path: '/calendario' },
-    { icon: '🍽️', label: 'Calendario Comidas', path: '/calendariocomidasv2' },
+    { icon: '📅', label: 'Calendario Gastos', path: '/calendario-gastos' },
+    { icon: '🍽️', label: 'Calendario Comidas', path: '/calendario-comidas' },
   ];
 
   const isActive = (path) => location.pathname === path;

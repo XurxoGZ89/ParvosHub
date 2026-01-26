@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Plus, Calendar, Euro, FileText, Tag, CreditCard, X } from 'lucide-react';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
 import api from '../lib/api';
 import useAuthStore from '../stores/authStore';
 
@@ -205,12 +208,13 @@ const Home = () => {
             </div>
             <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Situación Global Personal</h2>
           </div>
-          <button 
+          <Button 
             onClick={() => navigate('/user-account')}
-            className="text-purple-600 font-bold text-xs hover:opacity-80 flex items-center gap-1"
+            variant="ghost"
+            className="text-purple-600 font-bold text-xs hover:opacity-80 h-auto p-0"
           >
             Ver todo
-          </button>
+          </Button>
         </div>
 
         <div className="flex items-center justify-between mb-5">
@@ -218,17 +222,18 @@ const Home = () => {
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Saldo Total</p>
             <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">12.450,20€</h3>
           </div>
-          <button 
+          <Button 
             onClick={() => {
               setModalType('personal');
               setFormData({...formData, cuenta: 'Santander'});
               setShowModal(true);
             }}
-            className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white text-xs font-bold rounded-lg hover:bg-purple-700 transition-all shadow-sm shadow-purple-600/20"
+            className="bg-purple-600 hover:bg-purple-700 shadow-sm shadow-purple-600/20"
+            size="sm"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 mr-1.5" />
             Añadir movimiento
-          </button>
+          </Button>
         </div>
 
         <div className="grid grid-cols-2 gap-2 mb-4">
@@ -261,12 +266,13 @@ const Home = () => {
             </div>
             <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Situación Global Familiar</h2>
           </div>
-          <button 
+          <Button 
             onClick={() => navigate('/gastos')}
-            className="text-purple-600 font-bold text-xs hover:opacity-80 flex items-center gap-1"
+            variant="ghost"
+            className="text-purple-600 font-bold text-xs hover:opacity-80 h-auto p-0"
           >
             Ver todo
-          </button>
+          </Button>
         </div>
 
         <div className="flex items-center justify-between mb-5">
@@ -276,17 +282,18 @@ const Home = () => {
               {parvosStats?.total.toFixed(2)}€
             </h3>
           </div>
-          <button 
+          <Button 
             onClick={() => {
               setModalType('parvos');
               setFormData({...formData, cuenta: 'BBVA'});
               setShowModal(true);
             }}
-            className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white text-xs font-bold rounded-lg hover:bg-purple-700 transition-all shadow-sm shadow-purple-600/20"
+            className="bg-purple-600 hover:bg-purple-700 shadow-sm shadow-purple-600/20"
+            size="sm"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 mr-1.5" />
             Añadir movimiento
-          </button>
+          </Button>
         </div>
 
         <div className="grid grid-cols-2 gap-2 mb-4">
@@ -322,7 +329,7 @@ const Home = () => {
             <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Menú Semanal</h2>
           </div>
           <button 
-            onClick={() => navigate('/calendariocomidasv2')}
+            onClick={() => navigate('/calendario-comidas')}
             className="text-purple-600 font-bold text-xs hover:underline"
           >
             Ver todo
@@ -366,23 +373,27 @@ const Home = () => {
               {/* Paginación */}
               {mealData.length > 5 && (
                 <div className="flex items-center justify-center gap-2 pt-2">
-                  <button
+                  <Button
                     onClick={() => setMealPage(Math.max(0, mealPage - 1))}
                     disabled={mealPage === 0}
-                    className="w-7 h-7 rounded-full flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                    variant="ghost"
+                    size="icon"
+                    className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 disabled:opacity-30"
                   >
                     ‹
-                  </button>
+                  </Button>
                   <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                     {mealPage + 1} / {Math.ceil(mealData.length / 5)}
                   </span>
-                  <button
+                  <Button
                     onClick={() => setMealPage(Math.min(Math.ceil(mealData.length / 5) - 1, mealPage + 1))}
                     disabled={mealPage >= Math.ceil(mealData.length / 5) - 1}
-                    className="w-7 h-7 rounded-full flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                    variant="ghost"
+                    size="icon"
+                    className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 disabled:opacity-30"
                   >
                     ›
-                  </button>
+                  </Button>
                 </div>
               )}
             </>
@@ -403,12 +414,13 @@ const Home = () => {
             </div>
             <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Gastos {currentMonth}</h2>
           </div>
-          <button 
-            onClick={() => navigate('/calendario')}
-            className="text-purple-600 font-bold text-xs hover:underline"
+          <Button 
+            onClick={() => navigate('/calendario-gastos')}
+            variant="ghost"
+            className="text-purple-600 font-bold text-xs hover:underline h-auto p-0"
           >
             Ver todo
-          </button>
+          </Button>
         </div>
 
         {/* Calendar Grid */}
@@ -499,12 +511,14 @@ const Home = () => {
               <h1 className="text-slate-900 dark:text-white text-xl font-bold">
                 {modalType === 'parvos' ? 'Añadir Movimiento - Parvos' : 'Añadir Movimiento - Personal'}
               </h1>
-              <button 
+              <Button 
                 onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                variant="ghost"
+                size="icon"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
               >
                 <X className="w-5 h-5" />
-              </button>
+              </Button>
             </div>
 
             {/* Form Body - Scrollable */}
@@ -562,32 +576,32 @@ const Home = () => {
               <div className="grid grid-cols-2 gap-4">
                 {/* Date Picker Field */}
                 <div className="flex flex-col gap-2">
-                  <p className="text-gray-700 dark:text-gray-300 text-sm font-medium flex items-center gap-2">
+                  <Label className="text-gray-700 dark:text-gray-300 text-sm font-medium flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
                     Fecha
-                  </p>
-                  <input
+                  </Label>
+                  <Input
                     type="date"
                     value={formData.fecha}
                     onChange={(e) => setFormData({...formData, fecha: e.target.value})}
-                    className="flex w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 h-12 px-4 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 outline-none"
+                    className="h-12"
                     required
                   />
                 </div>
 
                 {/* Amount Input */}
                 <div className="flex flex-col gap-2">
-                  <p className="text-gray-700 dark:text-gray-300 text-sm font-medium flex items-center gap-2">
+                  <Label className="text-gray-700 dark:text-gray-300 text-sm font-medium flex items-center gap-2">
                     <Euro className="w-4 h-4" />
                     Importe
-                  </p>
+                  </Label>
                   <div className="relative">
-                    <input 
+                    <Input 
                       type="number"
                       step="0.01"
                       value={formData.cantidad}
                       onChange={(e) => setFormData({...formData, cantidad: e.target.value})}
-                      className="flex w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 h-12 px-4 pr-10 text-slate-900 dark:text-white text-base font-semibold focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 outline-none"
+                      className="h-12 pr-10 font-semibold"
                       placeholder="0,00"
                       required
                     />
@@ -598,15 +612,15 @@ const Home = () => {
 
               {/* Description Field */}
               <div className="flex flex-col gap-2">
-                <p className="text-gray-700 dark:text-gray-300 text-sm font-medium flex items-center gap-2">
+                <Label className="text-gray-700 dark:text-gray-300 text-sm font-medium flex items-center gap-2">
                   <FileText className="w-4 h-4" />
                   Descripción
-                </p>
-                <input 
+                </Label>
+                <Input 
                   type="text"
                   value={formData.descripcion}
                   onChange={(e) => setFormData({...formData, descripcion: e.target.value})}
-                  className="flex w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 h-12 px-4 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 outline-none"
+                  className="h-12"
                   placeholder="Ej. Compra semanal"
                 />
               </div>
@@ -663,21 +677,22 @@ const Home = () => {
 
             {/* Footer Actions */}
             <div className="px-6 py-6 bg-gray-50 dark:bg-gray-800/30 flex items-center justify-end gap-3 border-t border-gray-100 dark:border-gray-800 shrink-0">
-              <button 
+              <Button 
                 type="button"
                 onClick={() => setShowModal(false)}
-                className="px-5 h-11 rounded-lg text-gray-600 dark:text-gray-400 text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+                variant="ghost"
+                className="px-5 h-11"
               >
                 Cancelar
-              </button>
-              <button 
+              </Button>
+              <Button 
                 type="submit"
                 onClick={handleSubmitMovement}
-                className="px-8 h-11 rounded-lg bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 shadow-lg shadow-purple-600/20 transition-all flex items-center gap-2"
+                className="px-8 h-11 bg-purple-600 hover:bg-purple-700 shadow-lg shadow-purple-600/20"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-4 h-4 mr-2" />
                 Agregar Movimiento
-              </button>
+              </Button>
             </div>
           </div>
         </div>

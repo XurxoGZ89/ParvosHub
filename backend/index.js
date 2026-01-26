@@ -446,8 +446,9 @@ app.get('/comidas-planificadas/vencidas', async (req, res) => {
 app.get('/comidas-planificadas', async (req, res) => {
   try {
     const result = await db.query(`
-      SELECT cp.*, 
-             COALESCE(cp.comida_nombre, cc.nombre) as comida_nombre 
+      SELECT cp.id, cp.comida_id, cp.tipo_comida, cp.notas, cp.created_at,
+             COALESCE(cp.comida_nombre, cc.nombre) as comida_nombre,
+             TO_CHAR(cp.fecha, 'YYYY-MM-DD') as fecha
       FROM comidas_planificadas cp
       LEFT JOIN comidas_congeladas cc ON cp.comida_id = cc.id
       ORDER BY cp.fecha ASC, cp.tipo_comida ASC
@@ -468,9 +469,11 @@ app.post('/comidas-planificadas', async (req, res) => {
   }
 
   try {
+    // Guardar la fecha con hora fija en UTC para evitar problemas de zona horaria
+    const fechaUTC = `${fecha}T12:00:00.000Z`;
     const result = await db.query(
       'INSERT INTO comidas_planificadas (comida_id, comida_nombre, fecha, tipo_comida) VALUES ($1, $2, $3, $4) RETURNING *',
-      [comida_id || null, comida_nombre, fecha, tipo_comida]
+      [comida_id || null, comida_nombre, fechaUTC, tipo_comida]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -492,7 +495,9 @@ app.put('/comidas-planificadas/:id', async (req, res) => {
 
     if (fecha !== undefined) {
       updateQuery += `fecha = $${paramIndex}`;
-      params.push(fecha);
+      // Guardar la fecha con hora fija en UTC para evitar problemas de zona horaria
+      const fechaUTC = fecha.includes('T') ? fecha : `${fecha}T12:00:00.000Z`;
+      params.push(fechaUTC);
       paramIndex++;
     }
     if (tipo_comida !== undefined) {

@@ -12,8 +12,8 @@ import AppLayout from './components/layout/AppLayout';
 import Home from './components/Home';
 import ParvosAccount from './components/parvos/ParvosAccountV3';
 import ResumenAnual from './components/ResumenAnual';
-import Calendario from './components/Calendario';
-import CalendarioComidasV2 from './components/CalendarioComidasV2';
+import ExpensesCalendar from './components/calendar/ExpensesCalendar';
+import MealsCalendar from './components/calendar/MealsCalendar';
 
 import './App.css';
 
@@ -40,8 +40,11 @@ function App() {
               <Route path="gastos" element={<ParvosAccount />} />
               <Route path="user-summary" element={<div className="text-center py-12"><h2 className="text-2xl font-semibold">Resumen Anual Usuario - En desarrollo</h2></div>} />
               <Route path="resumen" element={<ResumenAnual />} />
-              <Route path="calendario" element={<Calendario />} />
-              <Route path="calendariocomidasv2" element={<CalendarioComidasV2 />} />
+              <Route path="calendario-gastos" element={<ExpensesCalendar />} />
+              <Route path="calendario-comidas" element={<MealsCalendar />} />
+              {/* Rutas antiguas redirigen a las nuevas */}
+              <Route path="calendario" element={<Navigate to="/calendario-gastos" replace />} />
+              <Route path="calendariocomidasv2" element={<Navigate to="/calendario-comidas" replace />} />
             </Route>
 
             {/* Redirigir rutas no encontradas */}

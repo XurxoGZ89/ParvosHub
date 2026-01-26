@@ -1,8 +1,8 @@
 # 📋 ESPECIFICACIÓN TÉCNICA - ParvosHub V2
 
 **Versión:** 2.0  
-**Fecha:** 25 de enero de 2026  
-**Estado:** En diseño (Stitch)
+**Fecha:** 26 de enero de 2026  
+**Estado:** En desarrollo activo (~75% completado)
 
 ---
 
@@ -651,10 +651,41 @@ Actividad:
 **Pendiente:**
 - [ ] Resumen Anual Parvos con nuevo diseño (siguiente fase)
 
-### FASE 6: Calendarios
-- [ ] Calendario Gastos (mantener funcionalidad)
-- [ ] Calendario Comidas (mantener funcionalidad)
-- [ ] Aplicar nuevo diseño Shadcn UI
+### FASE 6: Calendarios ✅ COMPLETADA
+- [x] Calendario Gastos (mantener funcionalidad)
+- [x] Calendario Comidas (mantener funcionalidad)
+- [x] Aplicar nuevo diseño Shadcn UI
+- [x] Refactorizar ExpensesCalendar con componentes Shadcn UI
+- [x] Refactorizar MealsCalendar con componentes Shadcn UI
+- [x] Fix crítico: Resolución del bug de fechas con TO_CHAR en PostgreSQL
+
+**Archivos refactorizados:**
+- `frontend/src/components/calendar/ExpensesCalendar.jsx` (617 líneas)
+- `frontend/src/components/calendar/MealsCalendar.jsx` (1001 líneas)
+
+**Componentes Shadcn UI integrados:**
+- `Button` - Reemplazados todos los botones nativos con variantes (default, ghost, outline, destructive)
+- `Input` - Reemplazados todos los inputs nativos
+- `Label` - Reemplazados todos los labels nativos
+- `Card`, `CardContent` - Usado en ExpensesCalendar para estructurar contenido
+
+**Funcionalidades mantenidas:**
+- ExpensesCalendar: Vista mensual/anual, eventos recurrentes, formularios validados, edición/eliminación
+- MealsCalendar: Drag & drop inventario, planificación semanal, comidas de texto libre, limpieza automática
+
+**Fix crítico de fechas:**
+- Problema: Comidas aparecían un día adelantado debido a conversiones de timezone
+- Solución: Backend usa `TO_CHAR(fecha, 'YYYY-MM-DD')` para devolver fechas como strings puros
+- Frontend: Comparación directa de strings sin conversiones
+- Resultado: Fechas alineadas correctamente entre BD y UI
+
+**Estado actual:**
+- ✅ Cero errores de compilación
+- ✅ Cero warnings de ESLint
+- ✅ Todas las funcionalidades operativas
+- ✅ Diseño consistente en ambos calendarios
+- ✅ Backend ejecutando en http://localhost:3001
+- ✅ Frontend ejecutando en http://localhost:3000
 
 ### FASE 7: Pulido y Testing
 - [ ] Responsive final (desktop, tablet, mobile)
@@ -664,7 +695,161 @@ Actividad:
 
 ---
 
-## **9. CONFIGURACIÓN INICIAL**
+## **9. ESTADO ACTUAL DEL PROYECTO**
+
+### Resumen Ejecutivo
+
+**Fecha:** 26 de enero de 2026  
+**Estado:** En desarrollo activo  
+**Progreso global:** ~75% completado
+
+### Fases Completadas
+
+✅ **FASE 1:** Setup y Autenticación (100%)  
+✅ **FASE 2:** Dashboard (Home) (100%)  
+✅ **FASE 5:** Migrar Páginas Parvos (100%)  
+✅ **FASE 6:** Calendarios (100%)
+
+### Integración de Shadcn UI
+
+**Estado:** ✅ Implementado en componentes principales
+
+**Componentes usando Shadcn UI:**
+- ✅ `ExpensesCalendar.jsx` - Button, Input, Label, Card
+- ✅ `MealsCalendar.jsx` - Button, Input, Label
+- ⏳ `Home.js` - Pendiente refactorización
+- ⏳ `ParvosAccountV3.jsx` - Pendiente refactorización
+
+**Componentes Shadcn UI disponibles:**
+- `button.jsx` - Variantes: default, destructive, outline, secondary, ghost, link
+- `card.jsx` - Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter
+- `input.jsx` - Input con forwardRef
+- `label.jsx` - Label con forwardRef
+
+**Próximos pasos:**
+1. Refactorizar Home.js con Shadcn UI
+2. Refactorizar ParvosAccountV3.jsx con Shadcn UI
+3. Asegurar consistencia de diseño en toda la plataforma
+
+### Stack Tecnológico Implementado
+
+**Frontend:**
+- React 18.2.3 ✅
+- Shadcn UI + Tailwind CSS 3.4.1 ✅
+- React Router v6 ✅
+- Axios ✅
+- Zustand ✅
+- Lucide React (iconos) ✅
+
+**Backend:**
+- Node.js + Express.js ✅
+- PostgreSQL (Supabase) ✅
+- bcrypt + jsonwebtoken ✅
+- CORS configurado ✅
+
+### Base de Datos
+
+**Tablas implementadas:**
+- ✅ `users` - Usuarios del sistema
+- ✅ `operaciones` - Gastos familiares Parvos
+- ✅ `presupuestos` - Presupuestos Parvos
+- ✅ `calendar_events` - Eventos recurrentes
+- ✅ `comidas_congeladas` - Inventario de comidas
+- ✅ `comidas_planificadas` - Planificación semanal
+- ✅ `metas` - Metas de ahorro familiar
+- ✅ `actividad_reciente` - Log de actividad
+- ⏳ `user_operations` - Pendiente (Fase 3)
+- ⏳ `user_accounts` - Pendiente (Fase 3)
+- ⏳ `user_budgets` - Pendiente (Fase 4)
+
+### Funcionalidades Operativas
+
+**Dashboard (Home):**
+- ✅ Widgets de situación financiera (Usuario + Parvos)
+- ✅ Calendario de comidas semanal (vista resumida)
+- ✅ Calendario de gastos mensual (vista resumida)
+- ✅ 4 accesos rápidos a secciones principales
+- ✅ Modal para añadir movimientos (responsive)
+
+**Cuenta Parvos (ParvosAccountV3):**
+- ✅ Gestión completa de operaciones
+- ✅ Gráfico de gastos por categoría
+- ✅ Tabla con paginación (10/20/30/50/100 items)
+- ✅ Filtros y búsqueda
+- ✅ Widget de metas de ahorro
+- ✅ Widget de actividad reciente
+- ✅ Navegación mensual con flechas
+- ✅ Logos de BBVA e Imagin
+
+**Calendario de Gastos (ExpensesCalendar):**
+- ✅ Vista mensual con grid de 7x6
+- ✅ Vista anual con resumen de 12 meses
+- ✅ Eventos recurrentes (anual, semestral, trimestral, mensual, personalizado)
+- ✅ CRUD completo de eventos
+- ✅ Validación de formularios
+- ✅ Sidebar con eventos del día seleccionado
+- ✅ Categorización por colores
+
+**Calendario de Comidas (MealsCalendar):**
+- ✅ Vista semanal (Lunes-Domingo)
+- ✅ Filas: Comida y Cena
+- ✅ Drag & Drop desde inventario
+- ✅ Drag & Drop entre celdas (mover/repetir)
+- ✅ Devolución al inventario
+- ✅ Entrada de texto libre
+- ✅ Limpieza automática de comidas vencidas
+- ✅ Animaciones de pulse en drop
+- ✅ Modales de confirmación
+- ✅ Búsqueda en inventario
+- ✅ CRUD completo de recetas
+
+### Issues Resueltos
+
+**1. Bug crítico de fechas (RESUELTO):**
+- **Problema:** Comidas aparecían un día adelantado
+- **Causa:** Conversión de timezone en PostgreSQL
+- **Solución:** Backend usa `TO_CHAR(fecha, 'YYYY-MM-DD')`
+- **Estado:** ✅ Verificado y funcionando
+
+**2. Warnings de compilación (RESUELTOS):**
+- Imports sin usar eliminados
+- Componentes refactorizados con Shadcn UI
+- **Estado:** ✅ 0 warnings
+
+### Pendiente de Implementación
+
+**FASE 3: Cuenta Usuario Personal (0%)**
+- Página UserAccount.jsx
+- Endpoints /api/user/*
+- Gestión de cuentas personales (Santander, Ahorro)
+
+**FASE 4: Resumen Anual Usuario (0%)**
+- Página UserAnnualSummary.jsx
+- Grid de 12 meses
+- Gráficos anuales
+
+**FASE 7: Pulido y Testing (0%)**
+- Testing completo
+- Optimizaciones de rendimiento
+- Despliegue a producción
+
+### Métricas de Código
+
+**Frontend:**
+- Componentes principales: 8
+- Líneas de código (aprox.): ~5,000
+- Componentes Shadcn UI: 4
+- Hooks personalizados: 0 (usando hooks de React)
+- Contextos: 2 (CalendarEventsContext, LanguageContext)
+
+**Backend:**
+- Endpoints API: 30+
+- Tablas BD: 8
+- Middleware: 2 (auth, validation)
+
+---
+
+## **10. CONFIGURACIÓN INICIAL**
 
 ### Variables de Entorno
 

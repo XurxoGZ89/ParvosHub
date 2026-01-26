@@ -3,7 +3,6 @@ import ReactPaginate from 'react-paginate';
 import { 
   ShoppingCart, 
   Dumbbell, 
-  PartyPopper, 
   Home as HomeIcon, 
   Car, 
   Utensils,
@@ -58,7 +57,6 @@ const ParvosAccount = () => {
 
   // Estados para móvil
   const [isMobile, setIsMobile] = useState(false);
-  const [showMobileForm, setShowMobileForm] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   // Estados para modales
@@ -130,16 +128,6 @@ const ParvosAccount = () => {
     const añoOp = fecha.getFullYear();
     const mesIdx = meses.indexOf(mesSeleccionado);
     return mesOp === mesIdx && añoOp === añoSeleccionado;
-  });
-
-  const operacionesMesAnterior = operaciones.filter(op => {
-    const fecha = new Date(op.fecha);
-    const mesOp = fecha.getMonth();
-    const añoOp = fecha.getFullYear();
-    const mesIdx = meses.indexOf(mesSeleccionado);
-    const mesAnteriorIdx = mesIdx === 0 ? 11 : mesIdx - 1;
-    const añoAnterior = mesIdx === 0 ? añoSeleccionado - 1 : añoSeleccionado;
-    return mesOp === mesAnteriorIdx && añoOp === añoAnterior;
   });
 
   // Calcular totales
