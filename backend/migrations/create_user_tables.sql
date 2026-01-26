@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS user_accounts (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   account_name VARCHAR(50) NOT NULL,
   account_type VARCHAR(20) DEFAULT 'checking',
+  initial_balance DECIMAL(10,2) DEFAULT 0.00,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT unique_user_account UNIQUE(user_id, account_name)
@@ -30,8 +31,9 @@ CREATE TABLE IF NOT EXISTS user_operations (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   account_id INTEGER REFERENCES user_accounts(id) ON DELETE SET NULL,
+  account_name VARCHAR(50) NOT NULL,
   date DATE NOT NULL,
-  type VARCHAR(20) NOT NULL CHECK (type IN ('income', 'expense', 'savings', 'savings_withdrawal')),
+  type VARCHAR(20) NOT NULL CHECK (type IN ('ingreso', 'gasto', 'ahorro', 'retirada-ahorro')),
   amount DECIMAL(10,2) NOT NULL,
   description TEXT,
   category VARCHAR(50),
@@ -97,6 +99,20 @@ INSERT INTO user_categories (name, color, icon) VALUES
   ('Ocio', '#FF3B30', 'smile'),
   ('Vacaciones', '#FF9500', 'plane')
 ON CONFLICT (name) DO NOTHING;
+
+-- Insertar cuentas predefinidas para Xurxo (user_id = 1)
+INSERT INTO user_accounts (user_id, account_name, account_type, is_active)
+VALUES 
+  (1, 'Santander', 'checking', true),
+  (1, 'Prepago', 'prepaid', true)
+ON CONFLICT (user_id, account_name) DO NOTHING;
+
+-- Insertar cuentas predefinidas para Sonia (user_id = 2)
+INSERT INTO user_accounts (user_id, account_name, account_type, is_active)
+VALUES 
+  (2, 'BBVA', 'checking', true),
+  (2, 'Virtual', 'virtual', true)
+ON CONFLICT (user_id, account_name) DO NOTHING;
 
 -- ============================================
 -- NOTA: Los usuarios (Sonia y Xurxo) se crearán 

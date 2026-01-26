@@ -453,43 +453,82 @@ GET    /api/meals/frozen            - Comidas congeladas
 - Validación de datos en formulario
 - Logging para debugging
 
-### FASE 3: Cuenta Usuario Personal
-- [ ] Crear página UserAccount.jsx
-- [ ] Migrar lógica ExpenseTracker a UserAccount
-- [ ] Adaptar para cuentas personales (Santander, Ahorro)
-- [ ] Formularios de operaciones (reutilizar modal de Home)
-- [ ] Gráficos y estadísticas
-- [ ] Tabla/listado de operaciones
-- [ ] Filtros y búsqueda
-- [ ] Endpoint GET /api/user/operations (con filtros)
-- [ ] Endpoint PUT /api/user/operations/:id
-- [ ] Endpoint DELETE /api/user/operations/:id
+### FASE 3: Cuenta Usuario Personal ✅ COMPLETADA
+- [x] Crear página UserAccount.jsx
+- [x] Migrar lógica ExpenseTracker a UserAccount
+- [x] Adaptar para cuentas personales (Xurxo: Santander + Prepago, Sonia: BBVA + Virtual)
+- [x] Formularios de operaciones (tipo tabs igual que ParvosAccount)
+- [x] Gráficos y estadísticas
+- [x] Tabla/listado de operaciones con paginación
+- [x] Filtros y búsqueda
+- [x] Endpoint GET /api/user/operations (con filtros)
+- [x] Endpoint POST /api/user/operations
+- [x] Endpoint PUT /api/user/operations/:id
+- [x] Endpoint DELETE /api/user/operations/:id
+- [x] Endpoint GET /api/user/accounts
+- [x] Endpoint GET /api/user/summary/:month
 
-**Tareas pendientes:**
-1. Crear componente `UserAccount.jsx` con:
-   - Vista detallada de cuentas personales (Santander, Ahorro)
-   - Tabla de operaciones con paginación
-   - Filtros por tipo, categoría, rango de fechas
-   - Resumen de ingresos/gastos del mes
-   - Gráfico de evolución de saldo
-   - Gráfico de gastos por categoría (pie chart)
-   - Formulario para agregar/editar/eliminar operaciones
+**Archivos creados/modificados:**
+- `backend/migrations/create_user_tables.sql` (actualizada con campo account_name y cuentas predefinidas)
+- `backend/controllers/userController.js` (completo con 7 funciones)
+- `backend/routes/user.routes.js` (rutas de operaciones personales)
+- `backend/index.js` (integración de rutas /api/user)
+- `backend/scripts/runMigration.js` (script para ejecutar migraciones)
+- `frontend/src/components/user/UserAccount.jsx` (1400+ líneas, diseño completo)
+- `frontend/src/App.js` (ruta /user-account integrada)
 
-2. Backend endpoints:
-   - GET `/api/user/operations` (con filtros opcionales: tipo, categoría, fecha_desde, fecha_hasta)
-   - PUT `/api/user/operations/:id` (actualizar operación)
-   - DELETE `/api/user/operations/:id` (eliminar operación)
-   - GET `/api/user/accounts` (listar cuentas del usuario logueado)
+**Funcionalidades implementadas:**
 
-3. Frontend hooks:
-   - `useUserOperations()` para gestionar operaciones personales
-   - `useUserAccounts()` para listar cuentas
+1. **Backend completo:**
+   - Sistema de autenticación JWT integrado en todas las rutas
+   - CRUD completo de operaciones personales
+   - Filtrado por tipo, categoría, cuenta, rango de fechas y mes
+   - Resumen mensual con totales, balance y agrupación por cuenta
+   - Resumen anual con datos mensuales y totales
+   - Validación de datos en todas las operaciones
 
-4. UI Components:
-   - Reutilizar modal de FASE 2 para agregar/editar
-   - Tabla de operaciones con actions (edit, delete)
-   - Card para resumen de cuenta
-   - Charts usando Recharts
+2. **Base de datos:**
+   - Tabla `user_operations` con todos los campos necesarios
+   - Tabla `user_accounts` con cuentas predefinidas por usuario
+   - Índices para optimizar consultas
+   - Cuentas predeterminadas:
+     - Xurxo: Santander, Prepago
+     - Sonia: BBVA, Virtual
+
+3. **Frontend - UserAccount.jsx:**
+   - Diseño idéntico a ParvosAccountV3 (purple theme, tabs, widgets)
+   - Detección automática del usuario logueado (Xurxo/Sonia)
+   - Cuentas dinámicas según usuario
+   - 4 Cards de balance: Total, Cuenta1, Cuenta2, Ahorro
+   - Gráfico de gastos por categoría (barras proporcionales)
+   - Tabla de movimientos con ordenamiento por columnas
+   - Paginación con selector de items (10/20/30/50/100)
+   - Búsqueda por concepto o categoría
+   - Filtros por tipo, categoría y cuenta
+   - Modal de crear operación (sidebar sticky)
+   - Modal de editar operación
+   - Modal de confirmación para eliminar
+   - Responsive completo (desktop, tablet, mobile)
+   - Vista de cards en móvil
+
+4. **Tipos de operación:**
+   - `expense` (Gasto) - Resta del balance
+   - `income` (Ingreso) - Suma al balance
+   - `savings` (Ahorro) - Resta del balance, suma al ahorro
+   - `savings_withdrawal` (Retirada) - Suma al balance, resta del ahorro
+
+5. **Navegación mensual:**
+   - Flechas ← → para cambiar mes
+   - Mes actual por defecto
+   - Datos filtrados automáticamente por mes seleccionado
+
+**Estado actual:**
+- ✅ Backend funcionando en http://localhost:3001
+- ✅ Todas las rutas /api/user/* operativas
+- ✅ Frontend integrado con ruta /user-account
+- ✅ Diseño consistente con ParvosAccountV3
+- ✅ Responsive en todos los dispositivos
+- ⏳ Pendiente: Testing con datos reales
 
 ### FASE 4: Resumen Anual Usuario
 - [ ] Crear página UserAnnualSummary
@@ -701,12 +740,13 @@ Actividad:
 
 **Fecha:** 26 de enero de 2026  
 **Estado:** En desarrollo activo  
-**Progreso global:** ~75% completado
+**Progreso global:** ~80% completado
 
 ### Fases Completadas
 
 ✅ **FASE 1:** Setup y Autenticación (100%)  
 ✅ **FASE 2:** Dashboard (Home) (100%)  
+✅ **FASE 3:** Cuenta Usuario Personal (100%)  
 ✅ **FASE 5:** Migrar Páginas Parvos (100%)  
 ✅ **FASE 6:** Calendarios (100%)
 
@@ -751,6 +791,8 @@ Actividad:
 
 **Tablas implementadas:**
 - ✅ `users` - Usuarios del sistema
+- ✅ `user_accounts` - Cuentas bancarias personales por usuario
+- ✅ `user_operations` - Operaciones financieras personales
 - ✅ `operaciones` - Gastos familiares Parvos
 - ✅ `presupuestos` - Presupuestos Parvos
 - ✅ `calendar_events` - Eventos recurrentes
@@ -758,9 +800,8 @@ Actividad:
 - ✅ `comidas_planificadas` - Planificación semanal
 - ✅ `metas` - Metas de ahorro familiar
 - ✅ `actividad_reciente` - Log de actividad
-- ⏳ `user_operations` - Pendiente (Fase 3)
-- ⏳ `user_accounts` - Pendiente (Fase 3)
 - ⏳ `user_budgets` - Pendiente (Fase 4)
+- ⏳ `user_categories` - Opcional (categorías personalizadas)
 
 ### Funcionalidades Operativas
 
@@ -770,6 +811,19 @@ Actividad:
 - ✅ Calendario de gastos mensual (vista resumida)
 - ✅ 4 accesos rápidos a secciones principales
 - ✅ Modal para añadir movimientos (responsive)
+
+**Cuenta Usuario Personal (UserAccount):**
+- ✅ Gestión completa de operaciones personales
+- ✅ Detección automática de usuario (Xurxo/Sonia)
+- ✅ Cuentas dinámicas según usuario
+- ✅ Gráfico de gastos por categoría
+- ✅ Tabla con paginación (10/20/30/50/100 items)
+- ✅ Filtros y búsqueda avanzada
+- ✅ Ordenamiento por columnas
+- ✅ 4 tipos de operación (gasto, ingreso, ahorro, retirada)
+- ✅ Navegación mensual con flechas
+- ✅ Modales de crear/editar/eliminar
+- ✅ Responsive completo
 
 **Cuenta Parvos (ParvosAccountV3):**
 - ✅ Gestión completa de operaciones
@@ -816,15 +870,18 @@ Actividad:
 - Componentes refactorizados con Shadcn UI
 - **Estado:** ✅ 0 warnings
 
-### Pendiente de Implementación
+**3. SPA routing en producción (RESUELTO):**
+- **Problema:** F5 en rutas que no son "/" daba 404 Not Found en producción
+- **Causa:** Servidor busca archivos físicos en lugar de servir index.html para todas las rutas
+- **Solución:** Archivo `_redirects` en `frontend/public/` + configuración `routes` en `render.yaml`
+- **Archivo:** `/*    /index.html   200`
+- **Estado:** ✅ Implementado
 
-**FASE 3: Cuenta Usuario Personal (0%)**
-- Página UserAccount.jsx
-- Endpoints /api/user/*
-- Gestión de cuentas personales (Santander, Ahorro)
+### Pendiente de Implementación
 
 **FASE 4: Resumen Anual Usuario (0%)**
 - Página UserAnnualSummary.jsx
+- Endpoint /api/user/summary/year/:year (ya existe)
 - Grid de 12 meses
 - Gráficos anuales
 
@@ -836,15 +893,16 @@ Actividad:
 ### Métricas de Código
 
 **Frontend:**
-- Componentes principales: 8
-- Líneas de código (aprox.): ~5,000
+- Componentes principales: 10
+- Líneas de código (aprox.): ~7,500
 - Componentes Shadcn UI: 4
 - Hooks personalizados: 0 (usando hooks de React)
 - Contextos: 2 (CalendarEventsContext, LanguageContext)
 
 **Backend:**
-- Endpoints API: 30+
-- Tablas BD: 8
+- Endpoints API: 40+
+- Tablas BD: 11
+- Controladores: 2 (authController, userController)
 - Middleware: 2 (auth, validation)
 
 ---

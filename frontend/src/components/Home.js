@@ -33,6 +33,10 @@ const Home = () => {
         const profileResponse = await api.get('/api/auth/profile');
         setUserStats(profileResponse.data);
 
+        // Obtener resumen del dashboard personal del usuario
+        const userDashboardResponse = await api.get('/api/user/dashboard-summary');
+        const userDashboard = userDashboardResponse.data;
+
         const operationsResponse = await api.get('/operaciones');
         const mealsResponse = await api.get('/comidas-planificadas');
         const eventsResponse = await api.get('/calendar-events');
@@ -114,6 +118,15 @@ const Home = () => {
           gastosMes: gastos
         });
 
+        // Guardar stats del usuario personal
+        setUserStats({
+          ...profileResponse.data,
+          totalBalance: userDashboard.totalBalance,
+          accounts: userDashboard.accounts,
+          ingresosMes: userDashboard.currentMonth.ingresos,
+          gastosMes: userDashboard.currentMonth.gastos
+        });
+
       } catch (error) {
         console.error('Error fetching data:', error);
       }
@@ -131,7 +144,9 @@ const Home = () => {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
-    const startingDayOfWeek = firstDay.getDay();
+    // Ajustar para que empiece en lunes (0=domingo, queremos 0=lunes)
+    let startingDayOfWeek = firstDay.getDay() - 1;
+    if (startingDayOfWeek === -1) startingDayOfWeek = 6; // Si es domingo, ponerlo al final
     
     const days = [];
     for (let i = 0; i < startingDayOfWeek; i++) {
@@ -220,7 +235,9 @@ const Home = () => {
         <div className="flex items-center justify-between mb-5">
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Saldo Total</p>
-            <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">12.450,20€</h3>
+            <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              {userStats?.totalBalance ? userStats.totalBalance.toFixed(2) : '0.00'}€
+            </h3>
           </div>
           <Button 
             onClick={() => {
@@ -228,19 +245,21 @@ const Home = () => {
               setFormData({...formData, cuenta: 'Santander'});
               setShowModal(true);
             }}
-            className="bg-purple-600 hover:bg-purple-700 shadow-sm shadow-purple-600/20"
+            className="bg-purple-600 hover:bg-purple-700 text-white font-semibold shadow-md shadow-purple-600/30 px-4 py-2.5 h-auto rounded-lg"
             size="sm"
           >
-            <Plus className="w-4 h-4 mr-1.5" />
+            <Plus className="w-5 h-5 mr-2" />
             Añadir movimiento
           </Button>
         </div>
 
         <div className="grid grid-cols-2 gap-2 mb-4">
-          {userStats?.accounts?.map((account, idx) => (
+          {userStats?.accounts?.filter(acc => acc.account_name !== 'Ahorro').map((account, idx) => (
             <div key={idx} className="bg-slate-50 dark:bg-slate-800/40 px-3 py-2.5 rounded-lg border border-slate-100 dark:border-slate-800 flex justify-between items-center">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{account.account_name}</span>
-              <span className="text-xs font-bold text-slate-900 dark:text-white">€0.00</span>
+              <span className="text-xs font-bold text-slate-900 dark:text-white">
+                {account.balance ? account.balance.toFixed(2) : '0.00'}€
+              </span>
             </div>
           ))}
         </div>
@@ -248,11 +267,15 @@ const Home = () => {
         <div className="flex gap-2">
           <div className="flex-1 flex items-center justify-between bg-green-50/50 dark:bg-green-900/10 px-3 py-2 rounded-lg border border-green-100/50 dark:border-green-900/20">
             <span className="text-xs font-bold text-green-600 dark:text-green-500 uppercase">Ingresos</span>
-            <span className="text-xs font-bold text-green-700 dark:text-green-400">+2.300€</span>
+            <span className="text-xs font-bold text-green-700 dark:text-green-400">
+              +{userStats?.ingresosMes ? userStats.ingresosMes.toFixed(2) : '0.00'}€
+            </span>
           </div>
           <div className="flex-1 flex items-center justify-between bg-red-50/50 dark:bg-red-900/10 px-3 py-2 rounded-lg border border-red-100/50 dark:border-red-900/20">
             <span className="text-xs font-bold text-red-600 dark:text-red-500 uppercase">Gastos</span>
-            <span className="text-xs font-bold text-red-700 dark:text-red-400">-1.240€</span>
+            <span className="text-xs font-bold text-red-700 dark:text-red-400">
+              -{userStats?.gastosMes ? userStats.gastosMes.toFixed(2) : '0.00'}€
+            </span>
           </div>
         </div>
       </div>
@@ -288,10 +311,10 @@ const Home = () => {
               setFormData({...formData, cuenta: 'BBVA'});
               setShowModal(true);
             }}
-            className="bg-purple-600 hover:bg-purple-700 shadow-sm shadow-purple-600/20"
+            className="bg-purple-600 hover:bg-purple-700 text-white font-semibold shadow-md shadow-purple-600/30 px-4 py-2.5 h-auto rounded-lg"
             size="sm"
           >
-            <Plus className="w-4 h-4 mr-1.5" />
+            <Plus className="w-5 h-5 mr-2" />
             Añadir movimiento
           </Button>
         </div>
@@ -443,16 +466,18 @@ const Home = () => {
                 onClick={() => day && setSelectedDay(day)}
                 className={`
                   aspect-square rounded-md flex flex-col items-center justify-center
-                  cursor-pointer transition-all relative
+                  cursor-pointer transition-all
                   ${!day ? 'bg-transparent' : 'bg-slate-50 dark:bg-slate-800/40'}
-                  ${isToday ? 'bg-purple-600 shadow-lg shadow-purple-600/30' : ''}
+                  ${isToday ? 'bg-purple-700 shadow-lg shadow-purple-600/30' : ''}
                   ${event && !isToday ? 'bg-pink-200/50 border border-pink-300 dark:bg-pink-900/20 dark:border-pink-900/50' : ''}
                   ${day && !event && !isToday ? 'hover:bg-slate-100 dark:hover:bg-slate-700' : ''}
                 `}
               >
-                <span className={`text-base font-bold ${isToday ? 'text-white' : event ? 'text-pink-700 dark:text-pink-400' : 'text-slate-700 dark:text-slate-300'}`}>
-                  {day}
-                </span>
+                {day && (
+                  <span className={`text-base font-bold block drop-shadow-md ${isToday ? 'text-white' : event ? 'text-pink-700 dark:text-pink-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                    {day}
+                  </span>
+                )}
                 {event && (
                   <div className={`w-1.5 h-1.5 rounded-full mt-0.5 ${isToday ? 'bg-white' : 'bg-pink-600'}`} />
                 )}
@@ -460,46 +485,6 @@ const Home = () => {
             );
           })}
         </div>
-
-        {/* Event Popup */}
-        {selectedDay && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedDay(null)}>
-            <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-xl max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                  Día {selectedDay}
-                </h3>
-                <button 
-                  onClick={() => setSelectedDay(null)}
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              
-              {getEventForDay(selectedDay) ? (
-                <div className="bg-pink-50 dark:bg-pink-900/20 p-4 rounded-xl border border-pink-100 dark:border-pink-900/50 space-y-2">
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">
-                    {getEventForDay(selectedDay).nombre}
-                  </p>
-                  <p className="text-xs text-slate-600 dark:text-slate-400">
-                    Categoría: {getEventForDay(selectedDay).categoria}
-                  </p>
-                  <p className="text-xs text-slate-600 dark:text-slate-400">
-                    Rango: ${getEventForDay(selectedDay).cantidad_min?.toFixed(2) || '0.00'} - ${getEventForDay(selectedDay).cantidad_max?.toFixed(2) || getEventForDay(selectedDay).cantidad_min?.toFixed(2) || '0.00'}
-                  </p>
-                  {getEventForDay(selectedDay).recurrencia && (
-                    <p className="text-xs text-slate-600 dark:text-slate-400">
-                      Recurrencia: {typeof getEventForDay(selectedDay).recurrencia === 'string' ? getEventForDay(selectedDay).recurrencia : 'Mensual'}
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <p className="text-slate-500 dark:text-slate-400 text-sm">No hay gastos planificados este día</p>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Modal Añadir Movimiento */}
@@ -662,7 +647,7 @@ const Home = () => {
                     {modalType === 'personal' ? (
                       <>
                         <option value="Santander">Santander</option>
-                        <option value="Ahorro">Ahorro Personal</option>
+                        <option value="Prepago">Prepago</option>
                       </>
                     ) : (
                       <>
@@ -694,6 +679,46 @@ const Home = () => {
                 Agregar Movimiento
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Event Popup */}
+      {selectedDay && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]" onClick={() => setSelectedDay(null)}>
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-xl max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                Día {selectedDay}
+              </h3>
+              <button 
+                onClick={() => setSelectedDay(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {getEventForDay(selectedDay) ? (
+              <div className="bg-pink-50 dark:bg-pink-900/20 p-4 rounded-xl border border-pink-100 dark:border-pink-900/50 space-y-2">
+                <p className="text-sm font-bold text-slate-900 dark:text-white">
+                  {getEventForDay(selectedDay).nombre}
+                </p>
+                <p className="text-xs text-slate-600 dark:text-slate-400">
+                  Categoría: {getEventForDay(selectedDay).categoria}
+                </p>
+                <p className="text-xs text-slate-600 dark:text-slate-400">
+                  Rango: ${getEventForDay(selectedDay).cantidad_min?.toFixed(2) || '0.00'} - ${getEventForDay(selectedDay).cantidad_max?.toFixed(2) || getEventForDay(selectedDay).cantidad_min?.toFixed(2) || '0.00'}
+                </p>
+                {getEventForDay(selectedDay).recurrencia && (
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                    Recurrencia: {typeof getEventForDay(selectedDay).recurrencia === 'string' ? getEventForDay(selectedDay).recurrencia : 'Mensual'}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-slate-500 dark:text-slate-400 text-sm">No hay gastos planificados este día</p>
+            )}
           </div>
         </div>
       )}

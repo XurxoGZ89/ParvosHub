@@ -28,6 +28,7 @@ function MealsCalendar({ onBack }) {
   const [moveModal, setMoveModal] = useState(null);
   const [mostrarModalNueva, setMostrarModalNueva] = useState(false);
   const [comidaEditando, setComidaEditando] = useState(null);
+  const [comidaPlanificadaEditando, setComidaPlanificadaEditando] = useState(null);
   const [nuevaComida, setNuevaComida] = useState('');
   
   // Refs
@@ -205,10 +206,41 @@ function MealsCalendar({ onBack }) {
     }
   };
 
+  // Guardar nombre editado de comida planificada
+  const handleGuardarNombrePlanificada = async (comidaId, nuevoNombre) => {
+    if (!nuevoNombre.trim()) return;
+
+    try {
+      await axios.put(`${API_URL}/comidas-planificadas/${comidaId}`, { 
+        comida_nombre: nuevoNombre.trim() 
+      });
+      await cargarComidasPlanificadas();
+      setComidaPlanificadaEditando(null);
+      setToast({ mensaje: 'Nombre actualizado', tipo: 'success' });
+    } catch (error) {
+      console.error('Error actualizando nombre:', error);
+      setToast({ mensaje: 'Error al actualizar', tipo: 'error' });
+    }
+  };
+
   // Drag & Drop handlers
   const handleDragStart = (e, item, source) => {
     setDraggedItem({ item, source });
     e.dataTransfer.effectAllowed = 'move';
+    // Hacer el elemento semi-transparente con más feedback visual
+    e.currentTarget.style.opacity = '0.5';
+    e.currentTarget.style.transform = 'scale(1.05) rotate(2deg)';
+    e.currentTarget.style.transition = 'all 0.2s';
+    // Cambiar cursor
+    document.body.style.cursor = 'grabbing';
+  };
+
+  const handleDragEnd = (e) => {
+    e.currentTarget.style.opacity = '1';
+    e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
+    setDraggedItem(null);
+    setDropTarget(null);
+    document.body.style.cursor = 'default';
   };
 
   const handleDragOver = (e) => {
@@ -216,12 +248,24 @@ function MealsCalendar({ onBack }) {
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDragEnter = (fecha, tipoComida) => {
-    setDropTarget({ fecha, tipoComida });
+  const handleDragEnter = (e, fecha, tipoComida) => {
+    e.preventDefault();
+    // Solo actualizar si es diferente para evitar re-renders innecesarios
+    setDropTarget(prev => {
+      if (prev?.fecha === fecha && prev?.tipoComida === tipoComida) return prev;
+      return { fecha, tipoComida };
+    });
   };
 
-  const handleDragLeave = () => {
-    setDropTarget(null);
+  const handleDragLeave = (e) => {
+    // Solo limpiar si realmente salimos del elemento (no de sus hijos)
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+    
+    if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
+      setDropTarget(null);
+    }
   };
 
   const handleDrop = async (e, fechaStr, tipoComida) => {
@@ -501,7 +545,8 @@ function MealsCalendar({ onBack }) {
                 key={comida.id}
                 draggable
                 onDragStart={(e) => handleDragStart(e, comida, 'inventario')}
-                className="group flex items-center gap-3 px-3 py-2 bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-lg transition-colors cursor-move"
+                onDragEnd={handleDragEnd}
+                className="group flex items-center gap-3 px-3 py-2 bg-slate-50 dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:border-indigo-300 border-2 border-transparent rounded-lg transition-all cursor-grab active:cursor-grabbing hover:shadow-md"
               >
                 {comidaEditando === comida.id ? (
                   <Input
@@ -602,15 +647,24 @@ function MealsCalendar({ onBack }) {
         <div className="flex-1 overflow-auto p-8">
           <div className="min-w-[1000px] bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden">
             {/* Cabecera de días */}
-            <div className="grid grid-cols-[100px_repeat(7,1fr)] border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
-              <div className="p-4 border-r border-slate-200 dark:border-slate-700"></div>
+            <div className="grid grid-cols-[100px_repeat(7,1fr)] border-b border-slate-200 dark:border-slate-700">
+              <div className="p-4 border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50"></div>
               {diasSemana.map((dia, idx) => {
-                const fecha = new Date(fechasSemana[idx]);
+                const fechaStr = fechasSemana[idx];
+                const fecha = new Date(fechaStr + 'T12:00:00');
                 const esFinSemana = idx >= 5;
+                const hoy = new Date();
+                const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+                const esHoy = fechaStr === hoyStr;
                 return (
-                  <div key={dia} className={`p-4 text-center border-r border-slate-200 dark:border-slate-700 last:border-r-0 ${esFinSemana ? 'bg-indigo-50/50 dark:bg-indigo-900/20' : ''}`}>
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{dia}</p>
-                    <p className={`text-lg font-bold ${esFinSemana ? 'text-indigo-600' : ''}`}>
+                  <div 
+                    key={dia} 
+                    className={`p-4 text-center border-r border-slate-200 dark:border-slate-700 last:border-r-0 ${
+                      esHoy ? 'bg-indigo-600' : esFinSemana ? 'bg-indigo-50/50 dark:bg-indigo-900/20' : 'bg-slate-50 dark:bg-slate-700/50'
+                    }`}
+                  >
+                    <p className={`text-[10px] uppercase font-bold tracking-widest ${esHoy ? 'text-white' : 'text-slate-400'}`}>{dia}</p>
+                    <p className={`text-lg font-bold ${esHoy ? 'text-white' : esFinSemana ? 'text-indigo-600' : ''}`}>
                       {fecha.getDate()}
                     </p>
                   </div>
@@ -634,32 +688,63 @@ function MealsCalendar({ onBack }) {
                   <div
                     key={`comida-${fecha}`}
                     onDragOver={handleDragOver}
-                    onDragEnter={() => handleDragEnter(fecha, 'comida')}
+                    onDragEnter={(e) => handleDragEnter(e, fecha, 'comida')}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, fecha, 'comida')}
-                    className={`p-3 border-r border-slate-100 dark:border-slate-700 last:border-r-0 min-h-[100px] bg-slate-50/30 dark:bg-transparent ${
-                      esFinSemana ? 'bg-indigo-50/30 dark:bg-indigo-900/10' : ''
-                    } ${isDragOver ? 'bg-indigo-100 dark:bg-indigo-900/30' : ''} ${isPulsing ? 'pulse-animation' : ''}`}
+                    className={`p-3 border-r border-slate-100 dark:border-slate-700 last:border-r-0 min-h-[100px] transition-all duration-200 relative ${
+                      esFinSemana ? 'bg-indigo-50/30 dark:bg-indigo-900/10' : 'bg-slate-50/30 dark:bg-transparent'
+                    } ${isDragOver ? 'bg-gradient-to-br from-indigo-100 to-indigo-50 dark:from-indigo-900/40 dark:to-indigo-900/20 !border-4 !border-indigo-500 border-dashed shadow-2xl shadow-indigo-500/50 scale-[1.03] ring-4 ring-indigo-500/20' : ''} ${isPulsing ? 'pulse-animation' : ''}`}
                   >
+                    {isDragOver && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                        <div className="bg-indigo-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg animate-bounce">
+                          Suelta aquí
+                        </div>
+                      </div>
+                    )}
                     {comidas.length > 0 ? (
                       <div className="space-y-2">
                         {comidas.map((comida) => (
                           <div
                             key={comida.id}
-                            draggable
+                            draggable={comidaPlanificadaEditando !== comida.id}
                             onDragStart={(e) => handleDragStart(e, comida, 'calendario')}
-                            className="group relative h-full p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 hover:border-primary dark:hover:border-primary transition-all cursor-move"
+                            onDragEnd={handleDragEnd}
+                            className="group relative h-full p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border-2 border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-lg transition-all cursor-grab active:cursor-grabbing hover:scale-[1.02]"
                           >
-                            <p className="text-sm font-medium mb-1 group-hover:text-primary">{comida.comida_nombre || comida.nombre}</p>
+                            {comidaPlanificadaEditando === comida.id ? (
+                              <Input
+                                type="text"
+                                defaultValue={comida.comida_nombre || comida.nombre}
+                                onBlur={(e) => handleGuardarNombrePlanificada(comida.id, e.target.value)}
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleGuardarNombrePlanificada(comida.id, e.target.value);
+                                  }
+                                }}
+                                autoFocus
+                                className="text-sm mb-1"
+                              />
+                            ) : (
+                              <p className="text-sm font-medium mb-1 group-hover:text-primary">{comida.comida_nombre || comida.nombre}</p>
+                            )}
                             {comida.comida_id && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Saludable</span>
                             )}
-                            <button
-                              onClick={() => handleEliminarPlanificada(comida)}
-                              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 bg-red-100 dark:bg-red-900/30 text-red-600 rounded transition-opacity"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
+                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                              <button
+                                onClick={() => setComidaPlanificadaEditando(comida.id)}
+                                className="p-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded hover:bg-blue-200"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={() => handleEliminarPlanificada(comida)}
+                                className="p-1 bg-red-100 dark:bg-red-900/30 text-red-600 rounded hover:bg-red-200"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -693,29 +778,60 @@ function MealsCalendar({ onBack }) {
                   <div
                     key={`cena-${fecha}`}
                     onDragOver={handleDragOver}
-                    onDragEnter={() => handleDragEnter(fecha, 'cena')}
+                    onDragEnter={(e) => handleDragEnter(e, fecha, 'cena')}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, fecha, 'cena')}
-                    className={`p-3 border-r border-slate-100 dark:border-slate-700 last:border-r-0 ${
+                    className={`p-3 border-r border-slate-100 dark:border-slate-700 last:border-r-0 min-h-[100px] transition-all duration-200 relative ${
                       esFinSemana ? 'bg-indigo-50/30 dark:bg-indigo-900/10' : ''
-                    } ${isDragOver ? 'bg-indigo-100 dark:bg-indigo-900/30' : ''} ${isPulsing ? 'pulse-animation' : ''}`}
+                    } ${isDragOver ? 'bg-gradient-to-br from-indigo-100 to-indigo-50 dark:from-indigo-900/40 dark:to-indigo-900/20 !border-4 !border-indigo-500 border-dashed shadow-2xl shadow-indigo-500/50 scale-[1.03] ring-4 ring-indigo-500/20' : ''} ${isPulsing ? 'pulse-animation' : ''}`}
                   >
+                    {isDragOver && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                        <div className="bg-indigo-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg animate-bounce">
+                          Suelta aquí
+                        </div>
+                      </div>
+                    )}
                     {cenas.length > 0 ? (
                       <div className="space-y-2">
                         {cenas.map((comida) => (
                           <div
                             key={comida.id}
-                            draggable
+                            draggable={comidaPlanificadaEditando !== comida.id}
                             onDragStart={(e) => handleDragStart(e, comida, 'calendario')}
-                            className="group relative h-full p-4 bg-white dark:bg-slate-700 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-600 hover:border-indigo-600 transition-all cursor-move"
+                            onDragEnd={handleDragEnd}
+                            className="group relative h-full p-4 bg-white dark:bg-slate-700 rounded-2xl shadow-sm border-2 border-slate-200 dark:border-slate-600 hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-lg transition-all cursor-grab active:cursor-grabbing hover:scale-[1.02]"
                           >
-                            <p className="text-sm font-medium mb-1 group-hover:text-indigo-600">{comida.comida_nombre || comida.nombre}</p>
-                            <button
-                              onClick={() => handleEliminarPlanificada(comida)}
-                              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 bg-red-100 dark:bg-red-900/30 text-red-600 rounded transition-opacity"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
+                            {comidaPlanificadaEditando === comida.id ? (
+                              <Input
+                                type="text"
+                                defaultValue={comida.comida_nombre || comida.nombre}
+                                onBlur={(e) => handleGuardarNombrePlanificada(comida.id, e.target.value)}
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleGuardarNombrePlanificada(comida.id, e.target.value);
+                                  }
+                                }}
+                                autoFocus
+                                className="text-sm mb-1"
+                              />
+                            ) : (
+                              <p className="text-sm font-medium mb-1 group-hover:text-indigo-600">{comida.comida_nombre || comida.nombre}</p>
+                            )}
+                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                              <button
+                                onClick={() => setComidaPlanificadaEditando(comida.id)}
+                                className="p-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded hover:bg-blue-200"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={() => handleEliminarPlanificada(comida)}
+                                className="p-1 bg-red-100 dark:bg-red-900/30 text-red-600 rounded hover:bg-red-200"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>

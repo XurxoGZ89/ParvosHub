@@ -10,6 +10,7 @@ import AppLayout from './components/layout/AppLayout';
 
 // Pages
 import Home from './components/Home';
+import UserAccount from './components/user/UserAccount';
 import ParvosAccount from './components/parvos/ParvosAccountV3';
 import ResumenAnual from './components/ResumenAnual';
 import ExpensesCalendar from './components/calendar/ExpensesCalendar';
@@ -36,7 +37,7 @@ function App() {
               }
             >
               <Route index element={<Home />} />
-              <Route path="user-account" element={<div className="text-center py-12"><h2 className="text-2xl font-semibold">Mi Cuenta - En desarrollo</h2></div>} />
+              <Route path="user-account" element={<UserAccount />} />
               <Route path="gastos" element={<ParvosAccount />} />
               <Route path="user-summary" element={<div className="text-center py-12"><h2 className="text-2xl font-semibold">Resumen Anual Usuario - En desarrollo</h2></div>} />
               <Route path="resumen" element={<ResumenAnual />} />

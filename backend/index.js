@@ -5,6 +5,7 @@ const db = require('./db');
 
 // Importar rutas
 const authRoutes = require('./routes/auth.routes');
+const userRoutes = require('./routes/user.routes');
 
 const app = express();
 app.use(cors());
@@ -35,6 +36,9 @@ app.get('/health', async (req, res) => {
 
 // Rutas de autenticación
 app.use('/api/auth', authRoutes);
+
+// Rutas de usuario (operaciones personales)
+app.use('/api/user', userRoutes);
 
 // Endpoint de prueba
 app.get('/', (req, res) => {
@@ -472,7 +476,10 @@ app.post('/comidas-planificadas', async (req, res) => {
     // Guardar la fecha con hora fija en UTC para evitar problemas de zona horaria
     const fechaUTC = `${fecha}T12:00:00.000Z`;
     const result = await db.query(
-      'INSERT INTO comidas_planificadas (comida_id, comida_nombre, fecha, tipo_comida) VALUES ($1, $2, $3, $4) RETURNING *',
+      `INSERT INTO comidas_planificadas (comida_id, comida_nombre, fecha, tipo_comida) 
+       VALUES ($1, $2, $3, $4) 
+       RETURNING id, comida_id, tipo_comida, notas, created_at, comida_nombre, 
+                 TO_CHAR(fecha, 'YYYY-MM-DD') as fecha`,
       [comida_id || null, comida_nombre, fechaUTC, tipo_comida]
     );
     res.status(201).json(result.rows[0]);
@@ -485,7 +492,7 @@ app.post('/comidas-planificadas', async (req, res) => {
 // Actualizar una comida planificada (mover en el calendario)
 app.put('/comidas-planificadas/:id', async (req, res) => {
   const { id } = req.params;
-  const { fecha, tipo_comida, notas } = req.body;
+  const { fecha, tipo_comida, notas, comida_nombre } = req.body;
 
   try {
     // Construir UPDATE dinámico según qué campos se envíen
@@ -512,8 +519,16 @@ app.put('/comidas-planificadas/:id', async (req, res) => {
       params.push(notas);
       paramIndex++;
     }
+    if (comida_nombre !== undefined) {
+      if (params.length > 0) updateQuery += ', ';
+      updateQuery += `comida_nombre = $${paramIndex}`;
+      params.push(comida_nombre);
+      paramIndex++;
+    }
 
-    updateQuery += ` WHERE id = $${paramIndex} RETURNING *`;
+    updateQuery += ` WHERE id = $${paramIndex} 
+                     RETURNING id, comida_id, tipo_comida, notas, created_at, comida_nombre,
+                               TO_CHAR(fecha, 'YYYY-MM-DD') as fecha`;
     params.push(id);
 
     const result = await db.query(updateQuery, params);
