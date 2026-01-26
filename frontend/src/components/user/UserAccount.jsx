@@ -116,13 +116,23 @@ const UserAccount = () => {
       const mesIdx = meses.indexOf(mesSeleccionado);
       const mesFormato = `${añoSeleccionado}-${String(mesIdx + 1).padStart(2, '0')}`;
       
-      const [opsResponse, budgetsResponse] = await Promise.all([
-        api.get('/api/user/operations', { params: { mes: mesFormato } }),
-        api.get('/api/user/budgets')
-      ]);
+      // Cargar operaciones
+      try {
+        const opsResponse = await api.get('/api/user/operations', { params: { mes: mesFormato } });
+        setOperaciones(opsResponse.data || []);
+      } catch (opsError) {
+        console.error('Error al cargar operaciones:', opsError);
+        setOperaciones([]);
+      }
 
-      setOperaciones(opsResponse.data || []);
-      setPresupuestos(budgetsResponse.data || []);
+      // Cargar presupuestos
+      try {
+        const budgetsResponse = await api.get('/api/user/budgets');
+        setPresupuestos(budgetsResponse.data || []);
+      } catch (budgetsError) {
+        console.error('Error al cargar presupuestos:', budgetsError);
+        setPresupuestos([]);
+      }
     } catch (error) {
       console.error('Error al cargar datos personales:', error);
     }
