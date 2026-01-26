@@ -142,6 +142,20 @@ async function initDatabase() {
     console.log('Índices de user_sessions listos');
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_budgets (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        mes TEXT NOT NULL,
+        categoria TEXT NOT NULL,
+        cantidad REAL NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, mes, categoria)
+      );
+    `);
+    console.log('Tabla user_budgets lista');
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS comidas_planificadas (
         id SERIAL PRIMARY KEY,
         comida_id INTEGER,

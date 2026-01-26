@@ -20,7 +20,10 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  CreditCard
+  CreditCard,
+  Coffee,
+  Briefcase,
+  Building2
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../stores/authStore';
@@ -57,6 +60,11 @@ const UserAccount = () => {
   // Estados para modales
   const [modalEliminar, setModalEliminar] = useState({ abierto: false, id: null });
   const [modalEditarOperacion, setModalEditarOperacion] = useState({ abierto: false, operacion: null });
+  const [modalEditarPresupuesto, setModalEditarPresupuesto] = useState(false);
+
+  // Estados para presupuestos
+  const [presupuestos, setPresupuestos] = useState([]);
+  const [presupuestosEditables, setPresupuestosEditables] = useState({});
 
   // Cuentas según usuario
   const cuentasUsuario = user?.username === 'xurxo' 
@@ -79,7 +87,10 @@ const UserAccount = () => {
     { nombre: 'Hogar', icon: HomeIcon, color: 'emerald' },
     { nombre: 'Movilidad', icon: Car, color: 'blue' },
     { nombre: 'Extra', icon: Plus, color: 'purple' },
-    { nombre: 'Vacaciones', icon: Plane, color: 'orange' }
+    { nombre: 'Vacaciones', icon: Plane, color: 'orange' },
+    { nombre: 'Café', icon: Coffee, color: 'orange' },
+    { nombre: 'Trabajo', icon: Briefcase, color: 'slate' },
+    { nombre: 'Banco', icon: Building2, color: 'indigo' }
   ];
 
   const tablaRef = useRef(null);
@@ -105,13 +116,15 @@ const UserAccount = () => {
       const mesIdx = meses.indexOf(mesSeleccionado);
       const mesFormato = `${añoSeleccionado}-${String(mesIdx + 1).padStart(2, '0')}`;
       
-      const response = await api.get('/api/user/operations', {
-        params: { mes: mesFormato }
-      });
+      const [opsResponse, budgetsResponse] = await Promise.all([
+        api.get('/api/user/operations', { params: { mes: mesFormato } }),
+        api.get('/api/user/budgets')
+      ]);
 
-      setOperaciones(response.data || []);
+      setOperaciones(opsResponse.data || []);
+      setPresupuestos(budgetsResponse.data || []);
     } catch (error) {
-      console.error('Error al cargar operaciones personales:', error);
+      console.error('Error al cargar datos personales:', error);
     }
   };
 
@@ -220,6 +233,29 @@ const UserAccount = () => {
         cantidad: gastos,
         icon: cat.icon,
         color: cat.color
+      };
+    });
+  };
+
+  // Calcular presupuesto vs real
+  const calcularPresupuestoVsReal = () => {
+    const mesIdx = meses.indexOf(mesSeleccionado);
+    const mesClave = `${añoSeleccionado}-${String(mesIdx + 1).padStart(2, '0')}`;
+    const presupuestosDelMes = presupuestos.filter(p => p.mes === mesClave);
+    
+    return categorias.map(cat => {
+      const presupuesto = presupuestosDelMes.find(p => p.categoria === cat.nombre)?.cantidad || 0;
+      const gastado = operacionesDelMes
+        .filter(op => op.type === 'expense' && op.category === cat.nombre)
+        .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
+
+      return {
+        categoria: cat.nombre,
+        presupuesto,
+        gastado,
+        diferencia: presupuesto - gastado,
+        icon: categorias.find(c => c.nombre === cat.nombre)?.icon,
+        color: categorias.find(c => c.nombre === cat.nombre)?.color
       };
     });
   };
@@ -343,6 +379,19 @@ const UserAccount = () => {
     }
   };
 
+  const handleGuardarPresupuestos = async () => {
+    try {
+      const mesIdx = meses.indexOf(mesSeleccionado);
+      await api.post(`/api/user/budgets/${añoSeleccionado}/${mesIdx}`, {
+        presupuestos: presupuestosEditables
+      });
+      setModalEditarPresupuesto(false);
+      cargarDatos();
+    } catch (error) {
+      console.error('Error al guardar presupuestos:', error);
+    }
+  };
+
   const cambiarMes = (direccion) => {
     const mesIdx = meses.indexOf(mesSeleccionado);
     let nuevoMesIdx = mesIdx + direccion;
@@ -359,10 +408,6 @@ const UserAccount = () => {
     setMesSeleccionado(meses[nuevoMesIdx]);
     setAñoSeleccionado(nuevoAño);
   };
-
-  const totales = calcularTotales();
-  const ahorro = calcularAhorro();
-  const gastosPorCategoria = calcularGastosPorCategoria();
 
   // Mapeo de tipos para mostrar
   const tipoLabel = (tipo) => {
@@ -381,6 +426,11 @@ const UserAccount = () => {
     const d = new Date(fecha);
     return d.toISOString().split('T')[0];
   };
+
+  const totales = calcularTotales();
+  const ahorro = calcularAhorro();
+  const gastosPorCategoria = calcularGastosPorCategoria();
+  const presupuestoVsReal = calcularPresupuestoVsReal();
 
   return (
     <div className="pb-8 lg:p-8 lg:space-y-8">
@@ -493,7 +543,9 @@ const UserAccount = () => {
                   'emerald': 'bg-emerald-400',
                   'blue': 'bg-blue-400',
                   'purple': 'bg-purple-400',
-                  'orange': 'bg-orange-400'
+                  'orange': 'bg-orange-400',
+                  'slate': 'bg-slate-400',
+                  'indigo': 'bg-indigo-400'
                 };
 
                 return (
@@ -514,6 +566,65 @@ const UserAccount = () => {
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Presupuesto vs Real */}
+          <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm">
+            <div className="flex items-center justify-between mb-6 px-2">
+              <h3 className="font-bold flex items-center gap-2">
+                <span className="text-lg">📋</span>
+                Presupuesto vs Real
+              </h3>
+              <button 
+                onClick={() => {
+                  const mesIdx = meses.indexOf(mesSeleccionado);
+                  const mesClave = `${añoSeleccionado}-${String(mesIdx + 1).padStart(2, '0')}`;
+                  const presupuestosDelMes = presupuestos.filter(p => p.mes === mesClave);
+                  const editables = {};
+                  categorias.forEach(cat => {
+                    editables[cat.nombre] = presupuestosDelMes.find(p => p.categoria === cat.nombre)?.cantidad || 0;
+                  });
+                  setPresupuestosEditables(editables);
+                  setModalEditarPresupuesto(true);
+                }}
+                className="text-xs font-bold text-purple-600 hover:text-purple-700 transition-colors flex items-center gap-1"
+              >
+                <Edit className="w-3 h-3" />
+                Editar
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-white dark:bg-stone-900">
+                  <tr className="text-slate-400 font-bold uppercase tracking-wider text-left border-b border-slate-100 dark:border-stone-800">
+                    <th className="pb-3">Categoría</th>
+                    <th className="pb-3">Presp.</th>
+                    <th className="pb-3">Real</th>
+                    <th className="pb-3 text-right">Dif.</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 dark:divide-stone-800">
+                  {presupuestoVsReal.filter(item => item.presupuesto > 0 || item.gastado > 0).map((item, idx) => (
+                    <tr key={idx}>
+                      <td className="py-3 font-semibold">{item.categoria}</td>
+                      <td className="py-3">{item.presupuesto.toFixed(0)} €</td>
+                      <td className="py-3 text-blue-500 font-bold">{item.gastado.toFixed(2)} €</td>
+                      <td className={`py-3 font-bold text-right ${item.diferencia >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                        {item.diferencia >= 0 ? '+' : ''}{item.diferencia.toFixed(2)} €
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="bg-slate-50/50 dark:bg-stone-800/30 font-bold">
+                    <td className="py-3">TOTAL</td>
+                    <td className="py-3">{presupuestoVsReal.reduce((sum, item) => sum + item.presupuesto, 0).toFixed(0)} €</td>
+                    <td className="py-3 text-blue-600">{presupuestoVsReal.reduce((sum, item) => sum + item.gastado, 0).toFixed(2)} €</td>
+                    <td className={`py-3 text-right ${presupuestoVsReal.reduce((sum, item) => sum + item.diferencia, 0) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {presupuestoVsReal.reduce((sum, item) => sum + item.diferencia, 0).toFixed(2)} €
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -1104,6 +1215,67 @@ const UserAccount = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editar Presupuesto */}
+      {modalEditarPresupuesto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-stone-900 w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 dark:border-stone-800 overflow-hidden">
+            <div className="p-6 border-b border-slate-100 dark:border-stone-800 flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold">Editar Presupuesto Mensual</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Define tus objetivos de gasto para {mesSeleccionado.charAt(0).toUpperCase() + mesSeleccionado.slice(1)} {añoSeleccionado}
+                </p>
+              </div>
+              <button 
+                onClick={() => setModalEditarPresupuesto(false)}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
+              {categorias.map((cat) => {
+                const Icon = cat.icon;
+                return (
+                  <div key={cat.nombre} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full bg-${cat.color}-100 dark:bg-${cat.color}-900/30 flex items-center justify-center`}>
+                        <Icon className={`w-5 h-5 text-${cat.color}-600 dark:text-${cat.color}-400`} />
+                      </div>
+                      <span className="font-semibold">{cat.nombre}</span>
+                    </div>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={presupuestosEditables[cat.nombre] || 0}
+                      onChange={(e) => setPresupuestosEditables({
+                        ...presupuestosEditables,
+                        [cat.nombre]: parseFloat(e.target.value) || 0
+                      })}
+                      className="w-32 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800 text-right font-bold"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="p-6 border-t border-slate-100 dark:border-stone-800 flex justify-end gap-3">
+              <button
+                onClick={() => setModalEditarPresupuesto(false)}
+                className="px-6 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleGuardarPresupuestos}
+                className="px-6 py-2.5 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors"
+              >
+                Guardar Cambios
+              </button>
+            </div>
           </div>
         </div>
       )}

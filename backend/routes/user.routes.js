@@ -15,6 +15,11 @@ router.delete('/operations/:id', userController.deleteUserOperation);
 // Cuentas de usuario
 router.get('/accounts', userController.getUserAccounts);
 
+// Presupuestos de usuario
+router.get('/budgets', userController.getUserBudgets);
+router.get('/budgets/:year/:month', userController.getUserBudgetsByMonth);
+router.post('/budgets/:year/:month', userController.saveUserBudgets);
+
 // Resúmenes
 router.get('/dashboard-summary', userController.getUserDashboardSummary);
 router.get('/summary/:month', userController.getUserMonthlySummary);

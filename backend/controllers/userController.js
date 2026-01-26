@@ -447,3 +447,90 @@ exports.getUserDashboardSummary = async (req, res) => {
     res.status(500).json({ error: 'Error al obtener el resumen del dashboard' });
   }
 };
+
+/**
+ * Obtener todos los presupuestos del usuario
+ * GET /api/user/budgets
+ */
+exports.getUserBudgets = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await db.query(
+      'SELECT * FROM user_budgets WHERE user_id = $1 ORDER BY mes DESC',
+      [userId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error al obtener presupuestos de usuario:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * Obtener presupuestos de un mes específico
+ * GET /api/user/budgets/:year/:month
+ */
+exports.getUserBudgetsByMonth = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { year, month } = req.params;
+    const mesFormatted = String(Number(month) + 1).padStart(2, '0');
+    const keyMes = `${year}-${mesFormatted}`;
+    
+    const result = await db.query(
+      'SELECT categoria, cantidad FROM user_budgets WHERE user_id = $1 AND mes = $2',
+      [userId, keyMes]
+    );
+    
+    const presupuestos = {};
+    result.rows.forEach(row => {
+      presupuestos[row.categoria] = row.cantidad;
+    });
+    
+    res.json({ mes: keyMes, presupuestos });
+  } catch (error) {
+    console.error('Error al obtener presupuestos del mes:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * Guardar/actualizar presupuestos de un mes
+ * POST /api/user/budgets/:year/:month
+ * Body: { presupuestos: { "Alimentación": 500, "Deporte": 100, ... } }
+ */
+exports.saveUserBudgets = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { year, month } = req.params;
+    const { presupuestos } = req.body;
+    
+    if (!presupuestos || typeof presupuestos !== 'object') {
+      return res.status(400).json({ error: 'Presupuestos inválidos' });
+    }
+    
+    const mesFormatted = String(Number(month) + 1).padStart(2, '0');
+    const keyMes = `${year}-${mesFormatted}`;
+    
+    // Primero, eliminar presupuestos existentes para ese mes
+    await db.query(
+      'DELETE FROM user_budgets WHERE user_id = $1 AND mes = $2',
+      [userId, keyMes]
+    );
+    
+    // Luego, insertar los nuevos presupuestos
+    const insertPromises = Object.entries(presupuestos).map(([categoria, cantidad]) => {
+      return db.query(
+        'INSERT INTO user_budgets (user_id, mes, categoria, cantidad) VALUES ($1, $2, $3, $4)',
+        [userId, keyMes, categoria, cantidad]
+      );
+    });
+    
+    await Promise.all(insertPromises);
+    
+    res.status(201).json({ mes: keyMes, presupuestos });
+  } catch (error) {
+    console.error('Error al guardar presupuestos:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
