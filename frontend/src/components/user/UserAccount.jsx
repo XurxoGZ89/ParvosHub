@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactPaginate from 'react-paginate';
 import { 
   ShoppingCart, 
@@ -29,6 +29,11 @@ import api from '../../lib/api';
 import useAuthStore from '../../stores/authStore';
 import bbvaLogo from '../../assets/BBVA_2019.svg.png';
 
+const meses = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+];
+
 const UserAccount = () => {
   const { user } = useAuthStore();
   const [operaciones, setOperaciones] = useState([]);
@@ -37,11 +42,6 @@ const UserAccount = () => {
     categoria: 'todas',
     cuenta: 'todas'
   });
-
-  const meses = [
-    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
-  ];
   
   const mesActual = new Date().getMonth();
   const añoActual = new Date().getFullYear();
@@ -65,6 +65,9 @@ const UserAccount = () => {
   // Estados para presupuestos
   const [presupuestos, setPresupuestos] = useState([]);
   const [presupuestosEditables, setPresupuestosEditables] = useState({});
+  
+  // Todas las operaciones (sin filtrar) para cálculos de ahorro
+  const [todasLasOperaciones, setTodasLasOperaciones] = useState([]);
 
   // Cuentas según usuario
   const cuentasUsuario = user?.username === 'xurxo' 
@@ -107,22 +110,27 @@ const UserAccount = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  useEffect(() => {
-    cargarDatos();
-  }, [mesSeleccionado, añoSeleccionado]);
-
-  const cargarDatos = async () => {
+  const cargarDatos = useCallback(async () => {
     try {
       const mesIdx = meses.indexOf(mesSeleccionado);
       const mesFormato = `${añoSeleccionado}-${String(mesIdx + 1).padStart(2, '0')}`;
       
-      // Cargar operaciones
+      // Cargar operaciones del mes
       try {
         const opsResponse = await api.get('/api/user/operations', { params: { mes: mesFormato } });
         setOperaciones(opsResponse.data || []);
       } catch (opsError) {
         console.error('Error al cargar operaciones:', opsError);
         setOperaciones([]);
+      }
+
+      // Cargar todas las operaciones (sin filtrar) para cálculos de ahorro acumulado
+      try {
+        const allOpsResponse = await api.get('/api/user/operations');
+        setTodasLasOperaciones(allOpsResponse.data || []);
+      } catch (allOpsError) {
+        console.error('Error al cargar todas las operaciones:', allOpsError);
+        setTodasLasOperaciones([]);
       }
 
       // Cargar presupuestos
@@ -136,23 +144,21 @@ const UserAccount = () => {
     } catch (error) {
       console.error('Error al cargar datos personales:', error);
     }
-  };
+  }, [mesSeleccionado, añoSeleccionado]);
 
-  // Filtrar operaciones del mes actual
-  const operacionesDelMes = operaciones.filter(op => {
-    const fecha = new Date(op.date);
-    const mesOp = fecha.getMonth();
-    const añoOp = fecha.getFullYear();
-    const mesIdx = meses.indexOf(mesSeleccionado);
-    return mesOp === mesIdx && añoOp === añoSeleccionado;
-  });
+  useEffect(() => {
+    cargarDatos();
+  }, [cargarDatos]);
+
+  // Las operaciones ya vienen filtradas por mes desde el backend
+  const operacionesDelMes = operaciones;
 
   // Calcular totales
   const calcularTotales = () => {
     const cuenta1 = cuentasUsuario[0];
     const cuenta2 = cuentasUsuario[1];
 
-    const totalCuenta1 = operaciones
+    const totalCuenta1 = todasLasOperaciones
       .filter(op => op.account_name === cuenta1 && op.type !== 'savings')
       .reduce((sum, op) => {
         if (op.type === 'income' || op.type === 'savings_withdrawal') return sum + parseFloat(op.amount || 0);
@@ -160,7 +166,7 @@ const UserAccount = () => {
         return sum;
       }, 0);
 
-    const totalCuenta2 = operaciones
+    const totalCuenta2 = todasLasOperaciones
       .filter(op => op.account_name === cuenta2 && op.type !== 'savings')
       .reduce((sum, op) => {
         if (op.type === 'income' || op.type === 'savings_withdrawal') return sum + parseFloat(op.amount || 0);
@@ -179,7 +185,7 @@ const UserAccount = () => {
   const calcularAhorro = () => {
     const mesIdx = meses.indexOf(mesSeleccionado);
     
-    const operacionesHastaAhora = operaciones.filter(op => {
+    const operacionesHastaAhora = todasLasOperaciones.filter(op => {
       const fecha = new Date(op.date);
       const mesOp = fecha.getMonth();
       const añoOp = fecha.getFullYear();
@@ -203,7 +209,7 @@ const UserAccount = () => {
     const mesAnteriorIdx = mesIdx === 0 ? 11 : mesIdx - 1;
     const añoAnterior = mesIdx === 0 ? añoSeleccionado - 1 : añoSeleccionado;
 
-    const operacionesHastaMesAnterior = operaciones.filter(op => {
+    const operacionesHastaMesAnterior = todasLasOperaciones.filter(op => {
       const fecha = new Date(op.date);
       const mesOp = fecha.getMonth();
       const añoOp = fecha.getFullYear();
