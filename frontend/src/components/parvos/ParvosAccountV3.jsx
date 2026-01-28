@@ -72,7 +72,9 @@ const ParvosAccount = () => {
     cantidad: '',
     descripcion: '',
     categoria: 'Alimentación',
-    cuenta: 'BBVA'
+    cuenta: 'BBVA',
+    cuentaOrigen: 'Ahorro',
+    cuentaDestino: 'BBVA'
   });
 
   const categorias = [
@@ -324,7 +326,16 @@ const ParvosAccount = () => {
     e.preventDefault();
     try {
       const username = user?.username || 'Sonia';
-      await api.post('/operaciones', { ...formNuevaOperacion, usuario: username });
+      
+      // Para traspasos (retirada-hucha), construir descripción especial y usar cuenta destino
+      let operacionData = { ...formNuevaOperacion, usuario: username };
+      
+      if (formNuevaOperacion.tipo === 'retirada-hucha') {
+        operacionData.cuenta = formNuevaOperacion.cuentaDestino;
+        operacionData.descripcion = `Traspaso desde ${formNuevaOperacion.cuentaOrigen} a ${formNuevaOperacion.cuentaDestino}${formNuevaOperacion.descripcion ? ' - ' + formNuevaOperacion.descripcion : ''}`;
+      }
+      
+      await api.post('/operaciones', operacionData);
       await api.post('/actividad', {
         tipo: 'operacion',
         descripcion: `Nueva ${formNuevaOperacion.tipo}: ${formNuevaOperacion.descripcion || formNuevaOperacion.categoria} - ${formNuevaOperacion.cantidad}€`,
@@ -336,7 +347,9 @@ const ParvosAccount = () => {
         cantidad: '',
         descripcion: '',
         categoria: 'Alimentación',
-        cuenta: 'BBVA'
+        cuenta: 'BBVA',
+        cuentaOrigen: 'Ahorro',
+        cuentaDestino: 'BBVA'
       });
       cargarDatos();
     } catch (error) {
@@ -357,7 +370,23 @@ const ParvosAccount = () => {
   const handleEditarOperacion = async (e) => {
     e.preventDefault();
     try {
-      await api.put(`/operaciones/${modalEditarOperacion.operacion.id}`, modalEditarOperacion.operacion);
+      let operacionData = { ...modalEditarOperacion.operacion };
+      
+      // Si es un traspaso y tiene cuentaOrigen y cuentaDestino, reconstruir la descripción
+      if (operacionData.tipo === 'retirada-hucha' && 
+          operacionData.cuentaOrigen && 
+          operacionData.cuentaDestino) {
+        operacionData.cuenta = operacionData.cuentaDestino;
+        // Extraer el concepto adicional si existe
+        const conceptoMatch = operacionData.info?.match(/Traspaso desde .+ a .+(?: - (.+))?$/);
+        const concepto = conceptoMatch && conceptoMatch[1] ? conceptoMatch[1] : '';
+        operacionData.info = `Traspaso desde ${operacionData.cuentaOrigen} a ${operacionData.cuentaDestino}${concepto ? ' - ' + concepto : ''}`;
+        // Limpiar campos temporales
+        delete operacionData.cuentaOrigen;
+        delete operacionData.cuentaDestino;
+      }
+      
+      await api.put(`/operaciones/${operacionData.id}`, operacionData);
       setModalEditarOperacion({ abierto: false, operacion: null });
       cargarDatos();
     } catch (error) {
@@ -1040,30 +1069,60 @@ const ParvosAccount = () => {
                 />
               </div>
 
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Categoría</label>
-                <select
-                  value={formNuevaOperacion.categoria}
-                  onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, categoria: e.target.value})}
-                  className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
-                >
-                  {categorias.map(cat => (
-                    <option key={cat.nombre} value={cat.nombre} className="text-slate-900">{cat.nombre}</option>
-                  ))}
-                </select>
-              </div>
+              {formNuevaOperacion.tipo === 'gasto' && (
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Categoría</label>
+                  <select
+                    value={formNuevaOperacion.categoria}
+                    onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, categoria: e.target.value})}
+                    className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                  >
+                    {categorias.map(cat => (
+                      <option key={cat.nombre} value={cat.nombre} className="text-slate-900">{cat.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cuenta</label>
-                <select
-                  value={formNuevaOperacion.cuenta}
-                  onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, cuenta: e.target.value})}
-                  className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
-                >
-                  <option value="BBVA" className="text-slate-900">BBVA</option>
-                  <option value="Imagin" className="text-slate-900">Imagin</option>
-                </select>
-              </div>
+              {formNuevaOperacion.tipo === 'retirada-hucha' ? (
+                <>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cuenta Origen</label>
+                    <select
+                      value={formNuevaOperacion.cuentaOrigen}
+                      onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, cuentaOrigen: e.target.value})}
+                      className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                    >
+                      <option value="Ahorro" className="text-slate-900">Ahorro (Imagin)</option>
+                      <option value="BBVA" className="text-slate-900">BBVA</option>
+                      <option value="Imagin" className="text-slate-900">Imagin</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cuenta Destino</label>
+                    <select
+                      value={formNuevaOperacion.cuentaDestino}
+                      onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, cuentaDestino: e.target.value})}
+                      className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                    >
+                      <option value="BBVA" className="text-slate-900">BBVA</option>
+                      <option value="Imagin" className="text-slate-900">Imagin</option>
+                    </select>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cuenta</label>
+                  <select
+                    value={formNuevaOperacion.cuenta}
+                    onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, cuenta: e.target.value})}
+                    className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                  >
+                    <option value="BBVA" className="text-slate-900">BBVA</option>
+                    <option value="Imagin" className="text-slate-900">Imagin</option>
+                  </select>
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -1345,36 +1404,80 @@ const ParvosAccount = () => {
                 />
               </div>
 
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Categoría</label>
-                <select
-                  value={modalEditarOperacion.operacion?.categoria || ''}
-                  onChange={(e) => setModalEditarOperacion({
-                    ...modalEditarOperacion,
-                    operacion: { ...modalEditarOperacion.operacion, categoria: e.target.value }
-                  })}
-                  className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
-                >
-                  {categorias.map(cat => (
-                    <option key={cat.nombre} value={cat.nombre}>{cat.nombre}</option>
-                  ))}
-                </select>
-              </div>
+              {modalEditarOperacion.operacion?.tipo === 'gasto' && (
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Categoría</label>
+                  <select
+                    value={modalEditarOperacion.operacion?.categoria || ''}
+                    onChange={(e) => setModalEditarOperacion({
+                      ...modalEditarOperacion,
+                      operacion: { ...modalEditarOperacion.operacion, categoria: e.target.value }
+                    })}
+                    className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
+                  >
+                    {categorias.map(cat => (
+                      <option key={cat.nombre} value={cat.nombre}>{cat.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Cuenta</label>
-                <select
-                  value={modalEditarOperacion.operacion?.cuenta || ''}
-                  onChange={(e) => setModalEditarOperacion({
-                    ...modalEditarOperacion,
-                    operacion: { ...modalEditarOperacion.operacion, cuenta: e.target.value }
-                  })}
-                  className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
-                >
-                  <option value="BBVA">BBVA</option>
-                  <option value="Imagin">Imagin</option>
-                </select>
-              </div>
+              {modalEditarOperacion.operacion?.tipo === 'retirada-hucha' ? (
+                <>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Cuenta Origen</label>
+                    <select
+                      value={(() => {
+                        if (modalEditarOperacion.operacion?.cuentaOrigen) return modalEditarOperacion.operacion.cuentaOrigen;
+                        const match = modalEditarOperacion.operacion?.info?.match(/Traspaso desde (.+?) a/);
+                        return match ? match[1] : 'Ahorro';
+                      })()}
+                      onChange={(e) => setModalEditarOperacion({
+                        ...modalEditarOperacion,
+                        operacion: { ...modalEditarOperacion.operacion, cuentaOrigen: e.target.value }
+                      })}
+                      className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
+                    >
+                      <option value="Ahorro">Ahorro (Imagin)</option>
+                      <option value="BBVA">BBVA</option>
+                      <option value="Imagin">Imagin</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Cuenta Destino</label>
+                    <select
+                      value={(() => {
+                        if (modalEditarOperacion.operacion?.cuentaDestino) return modalEditarOperacion.operacion.cuentaDestino;
+                        const match = modalEditarOperacion.operacion?.info?.match(/a (.+?)(?:\s*-|$)/);
+                        return match ? match[1] : modalEditarOperacion.operacion?.cuenta || 'BBVA';
+                      })()}
+                      onChange={(e) => setModalEditarOperacion({
+                        ...modalEditarOperacion,
+                        operacion: { ...modalEditarOperacion.operacion, cuentaDestino: e.target.value }
+                      })}
+                      className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
+                    >
+                      <option value="BBVA">BBVA</option>
+                      <option value="Imagin">Imagin</option>
+                    </select>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Cuenta</label>
+                  <select
+                    value={modalEditarOperacion.operacion?.cuenta || ''}
+                    onChange={(e) => setModalEditarOperacion({
+                      ...modalEditarOperacion,
+                      operacion: { ...modalEditarOperacion.operacion, cuenta: e.target.value }
+                    })}
+                    className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
+                  >
+                    <option value="BBVA">BBVA</option>
+                    <option value="Imagin">Imagin</option>
+                  </select>
+                </div>
+              )}
 
               <div className="flex gap-3 pt-4">
                 <button

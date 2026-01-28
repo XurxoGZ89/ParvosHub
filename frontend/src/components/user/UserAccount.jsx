@@ -80,7 +80,9 @@ const UserAccount = () => {
     cantidad: '',
     descripcion: '',
     categoria: 'Alimentación',
-    cuenta: cuentasUsuario[0]
+    cuenta: cuentasUsuario[0],
+    cuentaOrigen: 'Ahorro',
+    cuentaDestino: cuentasUsuario[0]
   });
 
   const categorias = [
@@ -344,13 +346,22 @@ const UserAccount = () => {
   const handleCrearOperacion = async (e) => {
     e.preventDefault();
     try {
+      // Para traspasos (retiradas), construir descripción especial y usar cuenta destino
+      let accountName = formNuevaOperacion.cuenta;
+      let description = formNuevaOperacion.descripcion;
+      
+      if (formNuevaOperacion.tipo === 'savings_withdrawal') {
+        accountName = formNuevaOperacion.cuentaDestino;
+        description = `Traspaso desde ${formNuevaOperacion.cuentaOrigen} a ${formNuevaOperacion.cuentaDestino}${formNuevaOperacion.descripcion ? ' - ' + formNuevaOperacion.descripcion : ''}`;
+      }
+      
       await api.post('/api/user/operations', {
-        account_name: formNuevaOperacion.cuenta,
+        account_name: accountName,
         date: formNuevaOperacion.fecha,
         type: formNuevaOperacion.tipo,
         amount: parseFloat(formNuevaOperacion.cantidad),
-        description: formNuevaOperacion.descripcion,
-        category: formNuevaOperacion.categoria
+        description: description,
+        category: formNuevaOperacion.tipo === 'expense' ? formNuevaOperacion.categoria : ''
       });
       
       setFormNuevaOperacion({
@@ -359,7 +370,9 @@ const UserAccount = () => {
         cantidad: '',
         descripcion: '',
         categoria: 'Alimentación',
-        cuenta: cuentasUsuario[0]
+        cuenta: cuentasUsuario[0],
+        cuentaOrigen: 'Ahorro',
+        cuentaDestino: cuentasUsuario[0]
       });
       cargarDatos();
     } catch (error) {
@@ -380,13 +393,27 @@ const UserAccount = () => {
   const handleEditarOperacion = async (e) => {
     e.preventDefault();
     try {
+      let accountName = modalEditarOperacion.operacion.account_name;
+      let description = modalEditarOperacion.operacion.description;
+      
+      // Si es un traspaso y tiene cuentaOrigen y cuentaDestino, reconstruir la descripción
+      if (modalEditarOperacion.operacion.type === 'savings_withdrawal' && 
+          modalEditarOperacion.operacion.cuentaOrigen && 
+          modalEditarOperacion.operacion.cuentaDestino) {
+        accountName = modalEditarOperacion.operacion.cuentaDestino;
+        // Extraer el concepto adicional si existe
+        const conceptoMatch = modalEditarOperacion.operacion.description.match(/Traspaso desde .+ a .+(?: - (.+))?$/);
+        const concepto = conceptoMatch && conceptoMatch[1] ? conceptoMatch[1] : '';
+        description = `Traspaso desde ${modalEditarOperacion.operacion.cuentaOrigen} a ${modalEditarOperacion.operacion.cuentaDestino}${concepto ? ' - ' + concepto : ''}`;
+      }
+      
       await api.put(`/api/user/operations/${modalEditarOperacion.operacion.id}`, {
-        account_name: modalEditarOperacion.operacion.account_name,
+        account_name: accountName,
         date: modalEditarOperacion.operacion.date,
         type: modalEditarOperacion.operacion.type,
         amount: parseFloat(modalEditarOperacion.operacion.amount),
-        description: modalEditarOperacion.operacion.description,
-        category: modalEditarOperacion.operacion.category
+        description: description,
+        category: modalEditarOperacion.operacion.type === 'expense' ? modalEditarOperacion.operacion.category : ''
       });
       setModalEditarOperacion({ abierto: false, operacion: null });
       cargarDatos();
@@ -1041,31 +1068,63 @@ const UserAccount = () => {
                 />
               </div>
 
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Categoría</label>
-                <select
-                  value={formNuevaOperacion.categoria}
-                  onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, categoria: e.target.value})}
-                  className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
-                >
-                  {categorias.map(cat => (
-                    <option key={cat.nombre} value={cat.nombre} className="text-slate-900">{cat.nombre}</option>
-                  ))}
-                </select>
-              </div>
+              {formNuevaOperacion.tipo === 'expense' && (
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Categoría</label>
+                  <select
+                    value={formNuevaOperacion.categoria}
+                    onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, categoria: e.target.value})}
+                    className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                  >
+                    {categorias.map(cat => (
+                      <option key={cat.nombre} value={cat.nombre} className="text-slate-900">{cat.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cuenta</label>
-                <select
-                  value={formNuevaOperacion.cuenta}
-                  onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, cuenta: e.target.value})}
-                  className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
-                >
-                  {cuentasUsuario.map(cuenta => (
-                    <option key={cuenta} value={cuenta} className="text-slate-900">{cuenta}</option>
-                  ))}
-                </select>
-              </div>
+              {formNuevaOperacion.tipo === 'savings_withdrawal' ? (
+                <>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cuenta Origen</label>
+                    <select
+                      value={formNuevaOperacion.cuentaOrigen}
+                      onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, cuentaOrigen: e.target.value})}
+                      className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                    >
+                      <option value="Ahorro" className="text-slate-900">Ahorro</option>
+                      {cuentasUsuario.map(cuenta => (
+                        <option key={cuenta} value={cuenta} className="text-slate-900">{cuenta}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cuenta Destino</label>
+                    <select
+                      value={formNuevaOperacion.cuentaDestino}
+                      onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, cuentaDestino: e.target.value})}
+                      className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                    >
+                      {cuentasUsuario.map(cuenta => (
+                        <option key={cuenta} value={cuenta} className="text-slate-900">{cuenta}</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cuenta</label>
+                  <select
+                    value={formNuevaOperacion.cuenta}
+                    onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, cuenta: e.target.value})}
+                    className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                  >
+                    {cuentasUsuario.map(cuenta => (
+                      <option key={cuenta} value={cuenta} className="text-slate-900">{cuenta}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -1183,37 +1242,83 @@ const UserAccount = () => {
                 />
               </div>
 
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Categoría</label>
-                <select
-                  value={modalEditarOperacion.operacion?.category || ''}
-                  onChange={(e) => setModalEditarOperacion({
-                    ...modalEditarOperacion,
-                    operacion: { ...modalEditarOperacion.operacion, category: e.target.value }
-                  })}
-                  className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
-                >
-                  {categorias.map(cat => (
-                    <option key={cat.nombre} value={cat.nombre}>{cat.nombre}</option>
-                  ))}
-                </select>
-              </div>
+              {modalEditarOperacion.operacion?.type === 'expense' && (
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Categoría</label>
+                  <select
+                    value={modalEditarOperacion.operacion?.category || ''}
+                    onChange={(e) => setModalEditarOperacion({
+                      ...modalEditarOperacion,
+                      operacion: { ...modalEditarOperacion.operacion, category: e.target.value }
+                    })}
+                    className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
+                  >
+                    {categorias.map(cat => (
+                      <option key={cat.nombre} value={cat.nombre}>{cat.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Cuenta</label>
-                <select
-                  value={modalEditarOperacion.operacion?.account_name || ''}
-                  onChange={(e) => setModalEditarOperacion({
-                    ...modalEditarOperacion,
-                    operacion: { ...modalEditarOperacion.operacion, account_name: e.target.value }
-                  })}
-                  className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
-                >
-                  {cuentasUsuario.map(cuenta => (
-                    <option key={cuenta} value={cuenta}>{cuenta}</option>
-                  ))}
-                </select>
-              </div>
+              {modalEditarOperacion.operacion?.type === 'savings_withdrawal' ? (
+                <>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Cuenta Origen</label>
+                    <select
+                      value={(() => {
+                        if (modalEditarOperacion.operacion?.cuentaOrigen) return modalEditarOperacion.operacion.cuentaOrigen;
+                        const match = modalEditarOperacion.operacion?.description?.match(/Traspaso desde (.+?) a/);
+                        return match ? match[1] : 'Ahorro';
+                      })()}
+                      onChange={(e) => setModalEditarOperacion({
+                        ...modalEditarOperacion,
+                        operacion: { ...modalEditarOperacion.operacion, cuentaOrigen: e.target.value }
+                      })}
+                      className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
+                    >
+                      <option value="Ahorro">Ahorro</option>
+                      {cuentasUsuario.map(cuenta => (
+                        <option key={cuenta} value={cuenta}>{cuenta}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Cuenta Destino</label>
+                    <select
+                      value={(() => {
+                        if (modalEditarOperacion.operacion?.cuentaDestino) return modalEditarOperacion.operacion.cuentaDestino;
+                        const match = modalEditarOperacion.operacion?.description?.match(/a (.+?)(?:\s*-|$)/);
+                        return match ? match[1] : modalEditarOperacion.operacion?.account_name || cuentasUsuario[0];
+                      })()}
+                      onChange={(e) => setModalEditarOperacion({
+                        ...modalEditarOperacion,
+                        operacion: { ...modalEditarOperacion.operacion, cuentaDestino: e.target.value }
+                      })}
+                      className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
+                    >
+                      {cuentasUsuario.map(cuenta => (
+                        <option key={cuenta} value={cuenta}>{cuenta}</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Cuenta</label>
+                  <select
+                    value={modalEditarOperacion.operacion?.account_name || ''}
+                    onChange={(e) => setModalEditarOperacion({
+                      ...modalEditarOperacion,
+                      operacion: { ...modalEditarOperacion.operacion, account_name: e.target.value }
+                    })}
+                    className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
+                  >
+                    {cuentasUsuario.map(cuenta => (
+                      <option key={cuenta} value={cuenta}>{cuenta}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="flex gap-3 pt-4">
                 <button
