@@ -566,9 +566,9 @@ exports.getUserDashboardSummary = async (req, res) => {
         SELECT 
           COALESCE(SUM(CASE 
             WHEN type = 'income' THEN amount
-            WHEN type = 'savings_withdrawal' THEN amount
             WHEN type = 'expense' THEN -amount
-            WHEN type = 'savings' THEN -amount
+            WHEN type = 'savings' THEN amount
+            WHEN type = 'savings_withdrawal' THEN amount
             ELSE 0
           END), 0) as operations_balance
         FROM user_operations
