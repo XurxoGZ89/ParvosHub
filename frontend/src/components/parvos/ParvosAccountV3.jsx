@@ -240,6 +240,19 @@ const ParvosAccount = () => {
     };
   };
 
+  // Calcular ingresos y gastos del mes seleccionado
+  const calcularIngresosGastosDelMes = () => {
+    const ingresos = operacionesDelMes
+      .filter(op => op.tipo === 'ingreso' || op.tipo === 'retirada-hucha')
+      .reduce((sum, op) => sum + parseFloat(op.cantidad || 0), 0);
+
+    const gastos = operacionesDelMes
+      .filter(op => op.tipo === 'gasto')
+      .reduce((sum, op) => sum + parseFloat(op.cantidad || 0), 0);
+
+    return { ingresos, gastos };
+  };
+
   // Calcular gastos por categoría
   const calcularGastosPorCategoria = () => {
     return categorias.map(cat => {
@@ -459,6 +472,7 @@ const ParvosAccount = () => {
 
   const totales = calcularTotales();
   const ahorro = calcularAhorro();
+  const ingresosGastosDelMes = calcularIngresosGastosDelMes();
   const gastosPorCategoria = calcularGastosPorCategoria();
   const presupuestoVsReal = calcularPresupuestoVsReal();
 
@@ -493,8 +507,18 @@ const ParvosAccount = () => {
       <div className="grid grid-cols-2 lg:grid-cols-12 gap-3 lg:gap-6 p-4 lg:p-0">
         {/* Balance Total */}
         <div className="col-span-2 lg:md:col-span-3 bg-white dark:bg-stone-900 p-4 lg:p-6 rounded-2xl lg:rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm">
-          <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Balance Total</p>
-          <h2 className="text-2xl lg:text-4xl font-extrabold text-emerald-500">{formatAmount(totales.total || 0)} €</h2>
+          <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Balance Total</p>
+          <h2 className="text-2xl lg:text-4xl font-extrabold text-emerald-500 mb-3">{formatAmount(totales.total || 0)} €</h2>
+          <div className="flex gap-2">
+            <div className="flex-1 flex items-center justify-between bg-emerald-50/50 dark:bg-emerald-900/10 px-2.5 py-1.5 rounded-lg border border-emerald-100/50 dark:border-emerald-900/20">
+              <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-500 uppercase">Ingresos</span>
+              <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400">+{formatAmount(ingresosGastosDelMes.ingresos || 0)} €</span>
+            </div>
+            <div className="flex-1 flex items-center justify-between bg-red-50/50 dark:bg-red-900/10 px-2.5 py-1.5 rounded-lg border border-red-100/50 dark:border-red-900/20">
+              <span className="text-[9px] font-bold text-red-600 dark:text-red-500 uppercase">Gastos</span>
+              <span className="text-[9px] font-bold text-red-700 dark:text-red-400">-{formatAmount(ingresosGastosDelMes.gastos || 0)} €</span>
+            </div>
+          </div>
         </div>
 
         {/* BBVA */}
