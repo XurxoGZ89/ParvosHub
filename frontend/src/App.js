@@ -12,7 +12,7 @@ import AppLayout from './components/layout/AppLayout';
 import Home from './components/Home';
 import UserAccount from './components/user/UserAccount';
 import ParvosAccount from './components/parvos/ParvosAccountV3';
-import ResumenAnual from './components/ResumenAnual';
+import ResumenAnual from './components/parvos/ResumenAnual';
 import ExpensesCalendar from './components/calendar/ExpensesCalendar';
 import MealsCalendar from './components/calendar/MealsCalendar';
 

@@ -305,6 +305,7 @@ const ParvosAccount = () => {
     
     switch (ordenamiento.columna) {
       case 'fecha':
+        // Ordenar por fecha y hora (incluye timestamp completo del backend)
         comparacion = new Date(a.fecha) - new Date(b.fecha);
         break;
       case 'tipo':
@@ -718,6 +719,15 @@ const ParvosAccount = () => {
                       <option value="BBVA">BBVA</option>
                       <option value="Imagin">Imagin</option>
                     </select>
+                    {/* Botón limpiar filtros */}
+                    {(filtros.tipo !== 'todos' || filtros.categoria !== 'todas' || filtros.cuenta !== 'todas') && (
+                      <button
+                        onClick={() => setFiltros({ tipo: 'todos', categoria: 'todas', cuenta: 'todas' })}
+                        className="px-3 py-1.5 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 rounded-lg text-[10px] font-bold transition-colors"
+                      >
+                        Limpiar Filtros
+                      </button>
+                    )}
                   </div>
                 </div>
                 {/* Búsqueda */}
@@ -902,7 +912,9 @@ const ParvosAccount = () => {
                         </span>
                       </td>
                       <td className={`px-6 py-4 text-right font-bold ${
-                        op.tipo === 'gasto' ? 'text-red-500' : 'text-emerald-500'
+                        op.tipo === 'gasto' ? 'text-red-500' : 
+                        op.tipo === 'retirada-hucha' && parseFloat(op.cantidad) < 0 ? 'text-red-500' :
+                        'text-emerald-500'
                       }`}>
                         {formatAmount(parseFloat(op.cantidad) || 0)} €
                       </td>
