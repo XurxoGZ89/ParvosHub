@@ -204,8 +204,8 @@ const UserAccount = () => {
       .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
 
     const retiradaAcumulada = operacionesHastaAhora
-      .filter(op => op.type === 'savings_withdrawal')
-      .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
+      .filter(op => op.type === 'savings_withdrawal' && op.account_name === 'Ahorro')
+      .reduce((sum, op) => sum + Math.abs(parseFloat(op.amount || 0)), 0);
 
     const ahorroActual = ahorroAcumulado - retiradaAcumulada;
 
@@ -227,8 +227,8 @@ const UserAccount = () => {
       .filter(op => op.type === 'savings')
       .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0) -
       operacionesHastaMesAnterior
-      .filter(op => op.type === 'savings_withdrawal')
-      .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
+      .filter(op => op.type === 'savings_withdrawal' && op.account_name === 'Ahorro')
+      .reduce((sum, op) => sum + Math.abs(parseFloat(op.amount || 0)), 0);
 
     const diferencia = ahorroActual - ahorroAnterior;
     const porcentaje = ahorroAnterior !== 0 ? ((diferencia / Math.abs(ahorroAnterior)) * 100) : 0;
@@ -1113,7 +1113,20 @@ const UserAccount = () => {
                     </select>
                   </div>
                 </>
-              ) : formNuevaOperacion.tipo !== 'savings' ? (
+              ) : formNuevaOperacion.tipo === 'savings' ? (
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cuenta de origen</label>
+                  <select
+                    value={formNuevaOperacion.cuenta}
+                    onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, cuenta: e.target.value})}
+                    className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                  >
+                    {cuentasUsuario.map(cuenta => (
+                      <option key={cuenta} value={cuenta} className="text-slate-900">{cuenta}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : formNuevaOperacion.tipo !== 'savings_withdrawal' ? (
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cuenta</label>
                   <select

@@ -80,7 +80,29 @@ exports.createUserOperation = async (req, res) => {
       });
     }
 
-    // Si es un traspaso (savings_withdrawal), crear dos operaciones: salida y entrada
+    // Si es ahorro (savings), crear dos operaciones: salida de la cuenta origen y entrada a Ahorro
+    if (type === 'savings') {
+      // Crear operación de salida en la cuenta origen (negativa)
+      await db.query(
+        `INSERT INTO user_operations 
+         (user_id, account_name, date, type, amount, description, category) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [userId, account_name, date, 'savings', -amount, description || 'Ahorro', '']
+      );
+
+      // Crear operación de entrada en la cuenta Ahorro (positiva)
+      const result = await db.query(
+        `INSERT INTO user_operations 
+         (user_id, account_name, date, type, amount, description, category) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7) 
+         RETURNING *`,
+        [userId, 'Ahorro', date, 'savings', amount, description || 'Ahorro', '']
+      );
+
+      console.log(`Ahorro creado para usuario ${userId}: ${account_name} -> Ahorro (${amount}€)`);
+      res.status(201).json(result.rows[0]);
+    } else if (type === 'savings_withdrawal') {
+      // Si es un traspaso (savings_withdrawal), crear dos operaciones: salida y entrada
     if (type === 'savings_withdrawal') {
       // Extraer la cuenta origen de la descripción: "Traspaso desde X a Y"
       const origenMatch = description.match(/Traspaso desde (.+?) a/);
@@ -364,7 +386,7 @@ exports.getUserMonthlySummary = async (req, res) => {
           totales.ahorros += parseFloat(op.amount);
           break;
         case 'savings_withdrawal':
-          totales.retiradas += parseFloat(op.amount);
+          totales.retiradas += Math.abs(parseFloat(op.amount));
           break;
       }
     });
@@ -409,6 +431,8 @@ exports.getUserMonthlySummary = async (req, res) => {
           porCuenta[cuenta].ahorros += parseFloat(op.amount);
           break;
         case 'savings_withdrawal':
+          // Para traspasos: amount negativo en origen, positivo en destino
+          // Siempre sumar para el balance: origen resta, destino suma
           porCuenta[cuenta].retiradas += parseFloat(op.amount);
           break;
       }
@@ -484,7 +508,7 @@ exports.getUserAnnualSummary = async (req, res) => {
             porMes[mes].ahorros += parseFloat(op.amount);
             break;
           case 'savings_withdrawal':
-            porMes[mes].retiradas += parseFloat(op.amount);
+            porMes[mes].retiradas += Math.abs(parseFloat(op.amount));
             break;
         }
 
@@ -526,9 +550,9 @@ exports.getUserDashboardSummary = async (req, res) => {
     
     // Obtener todas las cuentas del usuario con sus saldos (excluyendo ahorros)
     const accountsQuery = `
-      SELECT account_name, initial_balance
+      SELECT account_name, initial_balance, account_type
       FROM user_accounts
-      WHERE user_id = $1 AND account_type != 'savings'
+      WHERE user_id = $1
       ORDER BY id
     `;
     const accountsResult = await db.query(accountsQuery, [userId]);
@@ -536,11 +560,18 @@ exports.getUserDashboardSummary = async (req, res) => {
     // Calcular saldo actual de cada cuenta
     const accounts = [];
     let totalBalance = 0;
+    let savingsBalance = 0;
     
     for (const account of accountsResult.rows) {
       const balanceQuery = `
         SELECT 
-          COALESCE(SUM(CASE WHEN type = 'ingreso' THEN amount ELSE -amount END), 0) as operations_balance
+          COALESCE(SUM(CASE 
+            WHEN type = 'income' THEN amount
+            WHEN type = 'savings_withdrawal' THEN amount
+            WHEN type = 'expense' THEN -amount
+            WHEN type = 'savings' THEN -amount
+            ELSE 0
+          END), 0) as operations_balance
         FROM user_operations
         WHERE user_id = $1 AND account_name = $2
       `;
@@ -552,7 +583,11 @@ exports.getUserDashboardSummary = async (req, res) => {
         balance: currentBalance
       });
       
-      totalBalance += currentBalance;
+      if (account.account_type === 'savings') {
+        savingsBalance = currentBalance;
+      } else {
+        totalBalance += currentBalance;
+      }
     }
     
     // Obtener ingresos y gastos del mes actual
@@ -572,11 +607,12 @@ exports.getUserDashboardSummary = async (req, res) => {
     `;
     const monthSummaryResult = await db.query(monthSummaryQuery, [userId, currentYear, currentMonth]);
     
-    const ingresos = monthSummaryResult.rows.find(r => r.type === 'ingreso')?.total || 0;
-    const gastos = monthSummaryResult.rows.find(r => r.type === 'gasto')?.total || 0;
+    const ingresos = monthSummaryResult.rows.find(r => r.type === 'income')?.total || 0;
+    const gastos = monthSummaryResult.rows.find(r => r.type === 'expense')?.total || 0;
     
     res.json({
       totalBalance,
+      savingsBalance,
       accounts,
       currentMonth: {
         ingresos: parseFloat(ingresos),

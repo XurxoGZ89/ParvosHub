@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import useAuthStore from '../../stores/authStore';
+import usePrivacyStore from '../../stores/privacyStore';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 const AppLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuthStore();
+  const { hiddenNumbers, toggleHiddenNumbers } = usePrivacyStore();
   const { language, setLanguage } = useLanguage();
   const [darkMode, setDarkMode] = useState(false);
 
@@ -103,6 +106,22 @@ const AppLayout = () => {
               </p>
             </div>
             <div className="flex items-center gap-4">
+              {/* Botón de privacidad */}
+              <button
+                onClick={toggleHiddenNumbers}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all shadow-sm ${
+                  hiddenNumbers
+                    ? 'bg-purple-600 border-purple-600 text-white hover:bg-purple-700'
+                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                }`}
+                title={hiddenNumbers ? 'Mostrar números' : 'Ocultar números'}
+              >
+                {hiddenNumbers ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                <span className="text-sm font-medium hidden sm:inline">
+                  {hiddenNumbers ? 'Oculto' : 'Visible'}
+                </span>
+              </button>
+              
               {/* Selector de idioma */}
               <div className="flex bg-white dark:bg-slate-900 rounded-2xl p-1 border border-slate-200 dark:border-slate-800 shadow-sm">
                 <button

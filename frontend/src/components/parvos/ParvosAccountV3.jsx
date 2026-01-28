@@ -109,17 +109,22 @@ const ParvosAccount = () => {
 
   const cargarDatos = async () => {
     try {
-      const [opsResponse, presResponse, metasResponse, actividadResponse] = await Promise.all([
+      const [opsResponse, presResponse, metasResponse] = await Promise.all([
         api.get('/operaciones'),
         api.get('/presupuestos'),
-        api.get('/metas'),
-        api.get('/actividad?limit=5')
+        api.get('/metas')
       ]);
 
-      setOperaciones(opsResponse.data || []);
+      const ops = opsResponse.data || [];
+      setOperaciones(ops);
       setPresupuestos(presResponse.data || []);
       setMetas(metasResponse.data || []);
-      setActividad(actividadResponse.data || []);
+      
+      // Cargar las últimas 5 operaciones para actividad reciente (ordenadas por fecha desc)
+      const actividadReciente = [...ops]
+        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+        .slice(0, 5);
+      setActividad(actividadReciente);
     } catch (error) {
       console.error('Error al cargar datos:', error);
     }
@@ -338,11 +343,6 @@ const ParvosAccount = () => {
       }
       
       await api.post('/operaciones', operacionData);
-      await api.post('/actividad', {
-        tipo: 'operacion',
-        descripcion: `Nueva ${formNuevaOperacion.tipo}: ${formNuevaOperacion.descripcion || formNuevaOperacion.categoria} - ${formNuevaOperacion.cantidad}€`,
-        usuario_id: username === 'Sonia' ? 2 : 1
-      });
       setFormNuevaOperacion({
         fecha: new Date().toISOString().split('T')[0],
         tipo: 'gasto',
@@ -1112,7 +1112,19 @@ const ParvosAccount = () => {
                     </select>
                   </div>
                 </>
-              ) : formNuevaOperacion.tipo !== 'ahorro' ? (
+              ) : formNuevaOperacion.tipo === 'hucha' ? (
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cuenta de origen</label>
+                  <select
+                    value={formNuevaOperacion.cuenta}
+                    onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, cuenta: e.target.value})}
+                    className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                  >
+                    <option value="BBVA" className="text-slate-900">BBVA</option>
+                    <option value="Imagin" className="text-slate-900">Imagin</option>
+                  </select>
+                </div>
+              ) : formNuevaOperacion.tipo !== 'retirada-hucha' ? (
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cuenta</label>
                   <select
@@ -1148,7 +1160,8 @@ const ParvosAccount = () => {
                   const esTraspaso = act.tipo === 'retirada-hucha' && act.info?.includes('Traspaso desde');
                   const tipoLabel = esTraspaso ? 'Traspaso' :
                                    act.tipo === 'gasto' ? 'Gasto' :
-                                   act.tipo === 'ingreso' ? 'Ingreso' : 'Ahorro';
+                                   act.tipo === 'ingreso' ? 'Ingreso' : 
+                                   act.tipo === 'hucha' ? 'Ahorro' : act.tipo;
                   
                   return (
                     <div key={act.id || idx} className="flex gap-3 relative">
@@ -1170,9 +1183,9 @@ const ParvosAccount = () => {
                               {tipoLabel}
                             </span>
                             <span className={`text-sm font-semibold ${
-                              act.cantidad < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
+                              parseFloat(act.cantidad) < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
                             }`}>
-                              {act.cantidad < 0 ? '-' : '+'}{Math.abs(act.cantidad).toFixed(2)}€
+                              {parseFloat(act.cantidad) < 0 ? '-' : '+'}{Math.abs(parseFloat(act.cantidad) || 0).toFixed(2)}€
                             </span>
                           </div>
                           {act.usuario && (

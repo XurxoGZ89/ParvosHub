@@ -195,6 +195,17 @@ const Home = () => {
           cuenta: formData.cuentaDestino,
           usuario: user?.username || 'Sonia'
         };
+      } else if (formData.tipo === 'ahorro') {
+        // Para ahorro, la cuenta seleccionada es el origen
+        payload = {
+          tipo: formData.tipo,
+          fecha: formData.fecha,
+          cantidad: parseFloat(formData.cantidad),
+          descripcion: formData.descripcion,
+          categoria: '',
+          cuenta: formData.cuenta, // Cuenta de origen del dinero que va a ahorro
+          usuario: user?.username || 'Sonia'
+        };
       } else {
         payload = {
           tipo: formData.tipo,
@@ -202,7 +213,7 @@ const Home = () => {
           cantidad: parseFloat(formData.cantidad),
           descripcion: formData.descripcion,
           categoria: formData.tipo === 'gasto' ? formData.categoria : '',
-          cuenta: formData.tipo === 'ahorro' ? 'Ahorro' : formData.cuenta,
+          cuenta: formData.cuenta,
           usuario: user?.username || 'Sonia'
         };
       }
@@ -730,8 +741,32 @@ const Home = () => {
                     </div>
                   )}
 
-                  {/* Account Selector - No visible para ahorro */}
-                  {formData.tipo !== 'ahorro' && (
+                  {/* Account Selector - Para ingreso/gasto muestra "Cuenta", para ahorro muestra "Cuenta de origen" */}
+                  {formData.tipo === 'ahorro' ? (
+                    <div className="col-span-2 flex flex-col gap-2">
+                      <p className="text-gray-700 dark:text-gray-300 text-sm font-medium flex items-center gap-2">
+                        <CreditCard className="w-4 h-4" />
+                        Cuenta de origen
+                      </p>
+                      <select 
+                        value={formData.cuenta}
+                        onChange={(e) => setFormData({...formData, cuenta: e.target.value})}
+                        className="flex w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 h-12 px-4 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 outline-none cursor-pointer"
+                      >
+                        {modalType === 'personal' ? (
+                          <>
+                            <option value="Santander">Santander</option>
+                            <option value="Prepago">Prepago</option>
+                          </>
+                        ) : (
+                          <>
+                            <option value="BBVA">BBVA</option>
+                            <option value="Imagin">Imagin</option>
+                          </>
+                        )}
+                      </select>
+                    </div>
+                  ) : formData.tipo !== 'retirada-hucha' && (
                     <div className={`flex flex-col gap-2 ${formData.tipo === 'gasto' ? '' : 'col-span-2'}`}>
                       <p className="text-gray-700 dark:text-gray-300 text-sm font-medium flex items-center gap-2">
                         <CreditCard className="w-4 h-4" />

@@ -56,11 +56,24 @@ app.post('/operaciones', async (req, res) => {
   }
   
   try {
-    // Convertir tipo de "ahorro" a "retirada-hucha" si es necesario
-    const tipoNormalizado = tipo === 'ahorro' ? 'retirada-hucha' : tipo;
-    
-    // Si es un traspaso (retirada-hucha), crear dos operaciones: salida y entrada
-    if (tipoNormalizado === 'retirada-hucha') {
+    // Si es ahorro (hucha), crear dos operaciones: salida de la cuenta y entrada a Ahorro
+    if (tipo === 'ahorro' || tipo === 'hucha') {
+      // Crear operación de salida en la cuenta origen
+      await db.query(
+        'INSERT INTO operaciones (fecha, tipo, cantidad, info, categoria, cuenta, usuario) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+        [fecha, 'hucha', -cantidad, descripcion || 'Ahorro', '', cuenta, usuario || '']
+      );
+
+      // Crear operación de entrada en la cuenta Ahorro
+      const result = await db.query(
+        'INSERT INTO operaciones (fecha, tipo, cantidad, info, categoria, cuenta, usuario) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+        [fecha, 'hucha', cantidad, descripcion || 'Ahorro', '', 'Ahorro', usuario || '']
+      );
+
+      console.log('Ahorro creado:', cuenta, '-> Ahorro', `(${cantidad}€)`);
+      res.status(201).json(result.rows[0]);
+    } else if (tipo === 'retirada-hucha') {
+      // Si es un traspaso (retirada-hucha), crear dos operaciones: salida y entrada
       // Extraer la cuenta origen de la descripción: "Traspaso desde X a Y"
       const origenMatch = descripcion.match(/Traspaso desde (.+?) a/);
       const cuentaOrigen = origenMatch ? origenMatch[1] : null;
@@ -70,13 +83,13 @@ app.post('/operaciones', async (req, res) => {
         // Crear operación de salida en la cuenta origen
         await db.query(
           'INSERT INTO operaciones (fecha, tipo, cantidad, info, categoria, cuenta, usuario) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-          [fecha, tipoNormalizado, -cantidad, descripcion, '', cuentaOrigen, usuario || '']
+          [fecha, tipo, -cantidad, descripcion, '', cuentaOrigen, usuario || '']
         );
 
         // Crear operación de entrada en la cuenta destino
         const result = await db.query(
           'INSERT INTO operaciones (fecha, tipo, cantidad, info, categoria, cuenta, usuario) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-          [fecha, tipoNormalizado, cantidad, descripcion, '', cuenta, usuario || '']
+          [fecha, tipo, cantidad, descripcion, '', cuenta, usuario || '']
         );
 
         console.log('Traspaso creado:', cuentaOrigen, '->', cuenta, `(${cantidad}€)`);
@@ -85,17 +98,17 @@ app.post('/operaciones', async (req, res) => {
         // No es un traspaso válido o no tiene formato correcto, guardar como una sola operación
         const result = await db.query(
           'INSERT INTO operaciones (fecha, tipo, cantidad, info, categoria, cuenta, usuario) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-          [fecha, tipoNormalizado, cantidad, descripcion || '', categoria || '', cuenta || '', usuario || '']
+          [fecha, tipo, cantidad, descripcion || '', categoria || '', cuenta || '', usuario || '']
         );
         
         console.log('Operación creada:', result.rows[0]);
         res.status(201).json(result.rows[0]);
       }
     } else {
-      // Para otros tipos, crear una única operación
+      // Para otros tipos (ingreso, gasto), crear una única operación
       const result = await db.query(
         'INSERT INTO operaciones (fecha, tipo, cantidad, info, categoria, cuenta, usuario) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-        [fecha, tipoNormalizado, cantidad, descripcion || '', categoria || '', cuenta || '', usuario || '']
+        [fecha, tipo, cantidad, descripcion || '', categoria || '', cuenta || '', usuario || '']
       );
       
       console.log('Operación creada:', result.rows[0]);
