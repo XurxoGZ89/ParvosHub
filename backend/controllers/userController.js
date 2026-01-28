@@ -103,7 +103,6 @@ exports.createUserOperation = async (req, res) => {
       res.status(201).json(result.rows[0]);
     } else if (type === 'savings_withdrawal') {
       // Si es un traspaso (savings_withdrawal), crear dos operaciones: salida y entrada
-    if (type === 'savings_withdrawal') {
       // Extraer la cuenta origen de la descripción: "Traspaso desde X a Y"
       const origenMatch = description.match(/Traspaso desde (.+?) a/);
       const cuentaOrigen = origenMatch ? origenMatch[1] : null;
