@@ -180,19 +180,30 @@ const ParvosAccount = () => {
     });
 
     // DEBUG: Ver qué operaciones tenemos
+    // Nota: operaciones antiguas tienen cuenta=null, nuevas tienen cuenta='Ahorro'
     const operacionesAhorro = operacionesHastaAhora
-      .filter(op => (op.tipo === 'hucha' || op.tipo === 'retirada-hucha') && op.cuenta === 'Ahorro');
+      .filter(op => {
+        const esHucha = op.tipo === 'hucha' && (op.cuenta === 'Ahorro' || op.cuenta === null);
+        const esRetirada = op.tipo === 'retirada-hucha' && op.cuenta === 'Ahorro';
+        return esHucha || esRetirada;
+      });
     
     console.log('📊 DEBUG Ahorro:', {
       totalOperaciones: operaciones.length,
       operacionesHastaAhora: operacionesHastaAhora.length,
       operacionesAhorro: operacionesAhorro.length,
       ejemploOperacion: operaciones[0],
-      operacionesAhorroDetalle: operacionesAhorro
+      operacionesAhorroDetalle: operacionesAhorro.map(op => ({
+        fecha: op.fecha,
+        tipo: op.tipo,
+        cuenta: op.cuenta,
+        cantidad: op.cantidad,
+        info: op.info
+      }))
     });
 
     // Calcular ahorro total: suma todas las operaciones de cuenta Ahorro
-    // (hucha positivas + retiradas negativas = total algebraico)
+    // (hucha/Ahorro positivas + retiradas negativas = total algebraico)
     const ahorroActual = operacionesAhorro
       .reduce((sum, op) => sum + parseFloat(op.cantidad || 0), 0);
 
@@ -211,7 +222,11 @@ const ParvosAccount = () => {
     });
 
     const ahorroAnterior = operacionesHastaMesAnterior
-      .filter(op => (op.tipo === 'hucha' || op.tipo === 'retirada-hucha') && op.cuenta === 'Ahorro')
+      .filter(op => {
+        const esHucha = op.tipo === 'hucha' && (op.cuenta === 'Ahorro' || op.cuenta === null);
+        const esRetirada = op.tipo === 'retirada-hucha' && op.cuenta === 'Ahorro';
+        return esHucha || esRetirada;
+      })
       .reduce((sum, op) => sum + parseFloat(op.cantidad || 0), 0);
 
     const diferencia = ahorroActual - ahorroAnterior;
