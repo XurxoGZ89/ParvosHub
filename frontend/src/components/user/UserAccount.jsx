@@ -1111,7 +1111,7 @@ const UserAccount = () => {
                     </select>
                   </div>
                 </>
-              ) : (
+              ) : formNuevaOperacion.tipo !== 'savings' ? (
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cuenta</label>
                   <select
@@ -1124,7 +1124,7 @@ const UserAccount = () => {
                     ))}
                   </select>
                 </div>
-              )}
+              ) : null}
 
               <button
                 type="submit"
@@ -1302,7 +1302,7 @@ const UserAccount = () => {
                     </select>
                   </div>
                 </>
-              ) : (
+              ) : modalEditarOperacion.operacion?.type !== 'savings' ? (
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Cuenta</label>
                   <select
@@ -1318,7 +1318,7 @@ const UserAccount = () => {
                     ))}
                   </select>
                 </div>
-              )}
+              ) : null}
 
               <div className="flex gap-3 pt-4">
                 <button

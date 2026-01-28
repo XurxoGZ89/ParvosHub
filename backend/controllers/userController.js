@@ -80,16 +80,50 @@ exports.createUserOperation = async (req, res) => {
       });
     }
 
-    const result = await db.query(
-      `INSERT INTO user_operations 
-       (user_id, account_name, date, type, amount, description, category) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) 
-       RETURNING *`,
-      [userId, account_name, date, type, amount, description || '', category || '']
-    );
+    // Si es un traspaso (savings_withdrawal), crear dos operaciones: salida y entrada
+    if (type === 'savings_withdrawal') {
+      // Extraer la cuenta origen de la descripción: "Traspaso desde X a Y"
+      const origenMatch = description.match(/Traspaso desde (.+?) a/);
+      const cuentaOrigen = origenMatch ? origenMatch[1] : null;
+      
+      if (!cuentaOrigen) {
+        return res.status(400).json({ 
+          error: 'Formato de descripción inválido para traspaso. Debe ser: "Traspaso desde X a Y"' 
+        });
+      }
 
-    console.log(`Operación personal creada para usuario ${userId}:`, result.rows[0]);
-    res.status(201).json(result.rows[0]);
+      // Crear operación de salida en la cuenta origen
+      await db.query(
+        `INSERT INTO user_operations 
+         (user_id, account_name, date, type, amount, description, category) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [userId, cuentaOrigen, date, 'savings_withdrawal', -amount, description, '']
+      );
+
+      // Crear operación de entrada en la cuenta destino
+      const result = await db.query(
+        `INSERT INTO user_operations 
+         (user_id, account_name, date, type, amount, description, category) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7) 
+         RETURNING *`,
+        [userId, account_name, date, 'savings_withdrawal', amount, description, '']
+      );
+
+      console.log(`Traspaso creado para usuario ${userId}: ${cuentaOrigen} -> ${account_name} (${amount}€)`);
+      res.status(201).json(result.rows[0]);
+    } else {
+      // Para otros tipos, crear una única operación
+      const result = await db.query(
+        `INSERT INTO user_operations 
+         (user_id, account_name, date, type, amount, description, category) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7) 
+         RETURNING *`,
+        [userId, account_name, date, type, amount, description || '', category || '']
+      );
+
+      console.log(`Operación personal creada para usuario ${userId}:`, result.rows[0]);
+      res.status(201).json(result.rows[0]);
+    }
   } catch (error) {
     console.error('Error al crear operación de usuario:', error);
     res.status(500).json({ error: 'Error al crear operación', details: error.message });
@@ -116,18 +150,98 @@ exports.updateUserOperation = async (req, res) => {
       return res.status(404).json({ error: 'Operación no encontrada o no pertenece al usuario' });
     }
 
-    // Actualizar
-    const result = await db.query(
-      `UPDATE user_operations 
-       SET account_name = $1, date = $2, type = $3, amount = $4, 
-           description = $5, category = $6, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $7 AND user_id = $8
-       RETURNING *`,
-      [account_name, date, type, amount, description || '', category || '', operationId, userId]
-    );
+    const operacionAntigua = checkResult.rows[0];
 
-    console.log(`Operación ${operationId} actualizada para usuario ${userId}`);
-    res.json(result.rows[0]);
+    // Si es un traspaso, necesitamos manejar las dos operaciones
+    if (type === 'savings_withdrawal') {
+      // Extraer la cuenta origen de la descripción
+      const origenMatch = description.match(/Traspaso desde (.+?) a/);
+      const cuentaOrigen = origenMatch ? origenMatch[1] : null;
+      
+      if (!cuentaOrigen) {
+        return res.status(400).json({ 
+          error: 'Formato de descripción inválido para traspaso. Debe ser: "Traspaso desde X a Y"' 
+        });
+      }
+
+      // Si la operación antigua era también un traspaso, eliminar ambas operaciones del antiguo traspaso
+      if (operacionAntigua.type === 'savings_withdrawal') {
+        // Buscar la operación complementaria (con monto opuesto)
+        const complementaria = await db.query(
+          `SELECT id FROM user_operations 
+           WHERE user_id = $1 AND type = 'savings_withdrawal' AND date = $2 
+           AND description = $3 AND amount = $4 AND id != $5
+           LIMIT 1`,
+          [userId, operacionAntigua.date, operacionAntigua.description, -operacionAntigua.amount, operationId]
+        );
+        
+        if (complementaria.rows.length > 0) {
+          // Eliminar la operación complementaria
+          await db.query(
+            'DELETE FROM user_operations WHERE id = $1',
+            [complementaria.rows[0].id]
+          );
+        }
+      }
+
+      // Eliminar la operación original
+      await db.query(
+        'DELETE FROM user_operations WHERE id = $1',
+        [operationId]
+      );
+
+      // Crear las dos nuevas operaciones
+      // Operación de salida en la cuenta origen
+      await db.query(
+        `INSERT INTO user_operations 
+         (user_id, account_name, date, type, amount, description, category) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [userId, cuentaOrigen, date, 'savings_withdrawal', -amount, description, '']
+      );
+
+      // Operación de entrada en la cuenta destino
+      const result = await db.query(
+        `INSERT INTO user_operations 
+         (user_id, account_name, date, type, amount, description, category) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7) 
+         RETURNING *`,
+        [userId, account_name, date, 'savings_withdrawal', amount, description, '']
+      );
+
+      console.log(`Traspaso ${operationId} actualizado para usuario ${userId}: ${cuentaOrigen} -> ${account_name}`);
+      res.json(result.rows[0]);
+    } else {
+      // Si la operación antigua era un traspaso y ahora no lo es, eliminar la operación complementaria
+      if (operacionAntigua.type === 'savings_withdrawal') {
+        const complementaria = await db.query(
+          `SELECT id FROM user_operations 
+           WHERE user_id = $1 AND type = 'savings_withdrawal' AND date = $2 
+           AND description = $3 AND amount = $4 AND id != $5
+           LIMIT 1`,
+          [userId, operacionAntigua.date, operacionAntigua.description, -operacionAntigua.amount, operationId]
+        );
+        
+        if (complementaria.rows.length > 0) {
+          await db.query(
+            'DELETE FROM user_operations WHERE id = $1',
+            [complementaria.rows[0].id]
+          );
+        }
+      }
+
+      // Actualizar la operación normal
+      const result = await db.query(
+        `UPDATE user_operations 
+         SET account_name = $1, date = $2, type = $3, amount = $4, 
+             description = $5, category = $6, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $7 AND user_id = $8
+         RETURNING *`,
+        [account_name, date, type, amount, description || '', category || '', operationId, userId]
+      );
+
+      console.log(`Operación ${operationId} actualizada para usuario ${userId}`);
+      res.json(result.rows[0]);
+    }
   } catch (error) {
     console.error('Error al actualizar operación de usuario:', error);
     res.status(500).json({ error: 'Error al actualizar operación', details: error.message });
@@ -143,14 +257,41 @@ exports.deleteUserOperation = async (req, res) => {
     const userId = req.user.id;
     const operationId = req.params.id;
 
+    // Obtener la operación a eliminar
+    const checkResult = await db.query(
+      'SELECT * FROM user_operations WHERE id = $1 AND user_id = $2',
+      [operationId, userId]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Operación no encontrada o no pertenece al usuario' });
+    }
+
+    const operacion = checkResult.rows[0];
+
+    // Si es un traspaso, eliminar también la operación complementaria
+    if (operacion.type === 'savings_withdrawal') {
+      const complementaria = await db.query(
+        `SELECT id FROM user_operations 
+         WHERE user_id = $1 AND type = 'savings_withdrawal' AND date = $2 
+         AND description = $3 AND amount = $4 AND id != $5
+         LIMIT 1`,
+        [userId, operacion.date, operacion.description, -operacion.amount, operationId]
+      );
+      
+      if (complementaria.rows.length > 0) {
+        await db.query(
+          'DELETE FROM user_operations WHERE id = $1',
+          [complementaria.rows[0].id]
+        );
+      }
+    }
+
+    // Eliminar la operación principal
     const result = await db.query(
       'DELETE FROM user_operations WHERE id = $1 AND user_id = $2 RETURNING *',
       [operationId, userId]
     );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Operación no encontrada o no pertenece al usuario' });
-    }
 
     console.log(`Operación ${operationId} eliminada para usuario ${userId}`);
     res.json({ message: 'Operación eliminada correctamente', operation: result.rows[0] });

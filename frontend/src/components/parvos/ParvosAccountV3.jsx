@@ -1110,7 +1110,7 @@ const ParvosAccount = () => {
                     </select>
                   </div>
                 </>
-              ) : (
+              ) : formNuevaOperacion.tipo !== 'ahorro' ? (
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cuenta</label>
                   <select
@@ -1122,7 +1122,7 @@ const ParvosAccount = () => {
                     <option value="Imagin" className="text-slate-900">Imagin</option>
                   </select>
                 </div>
-              )}
+              ) : null}
 
               <button
                 type="submit"
@@ -1462,7 +1462,7 @@ const ParvosAccount = () => {
                     </select>
                   </div>
                 </>
-              ) : (
+              ) : modalEditarOperacion.operacion?.tipo !== 'ahorro' ? (
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Cuenta</label>
                   <select
@@ -1477,7 +1477,7 @@ const ParvosAccount = () => {
                     <option value="Imagin">Imagin</option>
                   </select>
                 </div>
-              )}
+              ) : null}
 
               <div className="flex gap-3 pt-4">
                 <button

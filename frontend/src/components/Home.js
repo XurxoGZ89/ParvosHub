@@ -24,7 +24,9 @@ const Home = () => {
     cantidad: '',
     descripcion: '',
     categoria: 'Hogar',
-    cuenta: 'BBVA Personal'
+    cuenta: 'BBVA Personal',
+    cuentaOrigen: 'Ahorro',
+    cuentaDestino: 'BBVA'
   });
 
   useEffect(() => {
@@ -176,15 +178,32 @@ const Home = () => {
     try {
       const endpoint = modalType === 'parvos' ? '/operaciones' : '/operaciones'; // Mismo endpoint, diferentes cuentas
       
-      const payload = {
-        tipo: formData.tipo,
-        fecha: formData.fecha,
-        cantidad: parseFloat(formData.cantidad),
-        descripcion: formData.descripcion,
-        categoria: formData.categoria,
-        cuenta: formData.cuenta,
-        usuario: user?.username || 'Sonia'
-      };
+      let payload;
+      
+      if (formData.tipo === 'retirada-hucha') {
+        // Para traspasos, construir la descripción con el formato correcto
+        const descripcionTraspaso = `Traspaso desde ${formData.cuentaOrigen} a ${formData.cuentaDestino}${formData.descripcion ? ' - ' + formData.descripcion : ''}`;
+        
+        payload = {
+          tipo: formData.tipo,
+          fecha: formData.fecha,
+          cantidad: parseFloat(formData.cantidad),
+          descripcion: descripcionTraspaso,
+          categoria: '',
+          cuenta: formData.cuentaDestino,
+          usuario: user?.username || 'Sonia'
+        };
+      } else {
+        payload = {
+          tipo: formData.tipo,
+          fecha: formData.fecha,
+          cantidad: parseFloat(formData.cantidad),
+          descripcion: formData.descripcion,
+          categoria: formData.tipo === 'gasto' ? formData.categoria : '',
+          cuenta: formData.tipo === 'ahorro' ? 'Ahorro' : formData.cuenta,
+          usuario: user?.username || 'Sonia'
+        };
+      }
 
       console.log('Enviando movimiento:', payload);
       await api.post(endpoint, payload);
@@ -197,7 +216,9 @@ const Home = () => {
         cantidad: '',
         descripcion: '',
         categoria: 'Hogar',
-        cuenta: 'BBVA Personal'
+        cuenta: 'BBVA Personal',
+        cuentaOrigen: 'Ahorro',
+        cuentaDestino: 'BBVA'
       });
       
       // Refrescar datos
@@ -242,7 +263,16 @@ const Home = () => {
           <Button 
             onClick={() => {
               setModalType('personal');
-              setFormData({...formData, cuenta: 'Santander'});
+              setFormData({
+                tipo: 'gasto',
+                fecha: new Date().toISOString().split('T')[0],
+                cantidad: '',
+                descripcion: '',
+                categoria: 'Hogar',
+                cuenta: 'Santander',
+                cuentaOrigen: 'Ahorro',
+                cuentaDestino: 'Santander'
+              });
               setShowModal(true);
             }}
             className="bg-purple-600 hover:bg-purple-700 text-white font-semibold shadow-md shadow-purple-600/30 px-4 py-2.5 h-auto rounded-lg"
@@ -308,7 +338,16 @@ const Home = () => {
           <Button 
             onClick={() => {
               setModalType('parvos');
-              setFormData({...formData, cuenta: 'BBVA'});
+              setFormData({
+                tipo: 'gasto',
+                fecha: new Date().toISOString().split('T')[0],
+                cantidad: '',
+                descripcion: '',
+                categoria: 'Hogar',
+                cuenta: 'BBVA',
+                cuentaOrigen: 'Ahorro',
+                cuentaDestino: 'BBVA'
+              });
               setShowModal(true);
             }}
             className="bg-purple-600 hover:bg-purple-700 text-white font-semibold shadow-md shadow-purple-600/30 px-4 py-2.5 h-auto rounded-lg"
@@ -611,53 +650,112 @@ const Home = () => {
               </div>
 
               {/* Selectors Grid */}
-              <div className="grid grid-cols-2 gap-4">
-                {/* Category Selector */}
-                <div className="flex flex-col gap-2">
-                  <p className="text-gray-700 dark:text-gray-300 text-sm font-medium flex items-center gap-2">
-                    <Tag className="w-4 h-4" />
-                    Categoría
-                  </p>
-                  <select 
-                    value={formData.categoria}
-                    onChange={(e) => setFormData({...formData, categoria: e.target.value})}
-                    className="flex w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 h-12 px-4 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 outline-none cursor-pointer"
-                  >
-                    <option value="Alimentación">Alimentación</option>
-                    <option value="Deporte">Deporte</option>
-                    <option value="Extra">Extra</option>
-                    <option value="Hogar">Hogar</option>
-                    <option value="Movilidad">Movilidad</option>
-                    <option value="Ocio">Ocio</option>
-                    <option value="Vacaciones">Vacaciones</option>
-                  </select>
-                </div>
+              {formData.tipo === 'retirada-hucha' ? (
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Cuenta Origen */}
+                  <div className="flex flex-col gap-2">
+                    <p className="text-gray-700 dark:text-gray-300 text-sm font-medium flex items-center gap-2">
+                      <CreditCard className="w-4 h-4" />
+                      Cuenta Origen
+                    </p>
+                    <select 
+                      value={formData.cuentaOrigen}
+                      onChange={(e) => setFormData({...formData, cuentaOrigen: e.target.value})}
+                      className="flex w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 h-12 px-4 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 outline-none cursor-pointer"
+                    >
+                      <option value="Ahorro">Ahorro</option>
+                      {modalType === 'personal' ? (
+                        <>
+                          <option value="Santander">Santander</option>
+                          <option value="Prepago">Prepago</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="BBVA">BBVA</option>
+                          <option value="Imagin">Imagin</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
 
-                {/* Account Selector */}
-                <div className="flex flex-col gap-2">
-                  <p className="text-gray-700 dark:text-gray-300 text-sm font-medium flex items-center gap-2">
-                    <CreditCard className="w-4 h-4" />
-                    Cuenta
-                  </p>
-                  <select 
-                    value={formData.cuenta}
-                    onChange={(e) => setFormData({...formData, cuenta: e.target.value})}
-                    className="flex w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 h-12 px-4 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 outline-none cursor-pointer"
-                  >
-                    {modalType === 'personal' ? (
-                      <>
-                        <option value="Santander">Santander</option>
-                        <option value="Prepago">Prepago</option>
-                      </>
-                    ) : (
-                      <>
-                        <option value="BBVA">BBVA</option>
-                        <option value="Imagin">Imagin</option>
-                      </>
-                    )}
-                  </select>
+                  {/* Cuenta Destino */}
+                  <div className="flex flex-col gap-2">
+                    <p className="text-gray-700 dark:text-gray-300 text-sm font-medium flex items-center gap-2">
+                      <CreditCard className="w-4 h-4" />
+                      Cuenta Destino
+                    </p>
+                    <select 
+                      value={formData.cuentaDestino}
+                      onChange={(e) => setFormData({...formData, cuentaDestino: e.target.value})}
+                      className="flex w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 h-12 px-4 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 outline-none cursor-pointer"
+                    >
+                      {modalType === 'personal' ? (
+                        <>
+                          <option value="Santander">Santander</option>
+                          <option value="Prepago">Prepago</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="BBVA">BBVA</option>
+                          <option value="Imagin">Imagin</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Category Selector - Solo visible para gastos */}
+                  {formData.tipo === 'gasto' && (
+                    <div className="flex flex-col gap-2">
+                      <p className="text-gray-700 dark:text-gray-300 text-sm font-medium flex items-center gap-2">
+                        <Tag className="w-4 h-4" />
+                        Categoría
+                      </p>
+                      <select 
+                        value={formData.categoria}
+                        onChange={(e) => setFormData({...formData, categoria: e.target.value})}
+                        className="flex w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 h-12 px-4 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 outline-none cursor-pointer"
+                      >
+                        <option value="Alimentación">Alimentación</option>
+                        <option value="Deporte">Deporte</option>
+                        <option value="Extra">Extra</option>
+                        <option value="Hogar">Hogar</option>
+                        <option value="Movilidad">Movilidad</option>
+                        <option value="Ocio">Ocio</option>
+                        <option value="Vacaciones">Vacaciones</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Account Selector - No visible para ahorro */}
+                  {formData.tipo !== 'ahorro' && (
+                    <div className={`flex flex-col gap-2 ${formData.tipo === 'gasto' ? '' : 'col-span-2'}`}>
+                      <p className="text-gray-700 dark:text-gray-300 text-sm font-medium flex items-center gap-2">
+                        <CreditCard className="w-4 h-4" />
+                        Cuenta
+                      </p>
+                      <select 
+                        value={formData.cuenta}
+                        onChange={(e) => setFormData({...formData, cuenta: e.target.value})}
+                        className="flex w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 h-12 px-4 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 outline-none cursor-pointer"
+                      >
+                        {modalType === 'personal' ? (
+                          <>
+                            <option value="Santander">Santander</option>
+                            <option value="Prepago">Prepago</option>
+                          </>
+                        ) : (
+                          <>
+                            <option value="BBVA">BBVA</option>
+                            <option value="Imagin">Imagin</option>
+                          </>
+                        )}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
             </form>
 
             {/* Footer Actions */}

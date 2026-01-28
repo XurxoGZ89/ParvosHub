@@ -59,13 +59,48 @@ app.post('/operaciones', async (req, res) => {
     // Convertir tipo de "ahorro" a "retirada-hucha" si es necesario
     const tipoNormalizado = tipo === 'ahorro' ? 'retirada-hucha' : tipo;
     
-    const result = await db.query(
-      'INSERT INTO operaciones (fecha, tipo, cantidad, info, categoria, cuenta, usuario) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      [fecha, tipoNormalizado, cantidad, descripcion || '', categoria || '', cuenta || '', usuario || '']
-    );
-    
-    console.log('Operación creada:', result.rows[0]);
-    res.status(201).json(result.rows[0]);
+    // Si es un traspaso (retirada-hucha), crear dos operaciones: salida y entrada
+    if (tipoNormalizado === 'retirada-hucha') {
+      // Extraer la cuenta origen de la descripción: "Traspaso desde X a Y"
+      const origenMatch = descripcion.match(/Traspaso desde (.+?) a/);
+      const cuentaOrigen = origenMatch ? origenMatch[1] : null;
+      
+      if (cuentaOrigen && cuentaOrigen !== cuenta) {
+        // Es un traspaso entre cuentas diferentes
+        // Crear operación de salida en la cuenta origen
+        await db.query(
+          'INSERT INTO operaciones (fecha, tipo, cantidad, info, categoria, cuenta, usuario) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+          [fecha, tipoNormalizado, -cantidad, descripcion, '', cuentaOrigen, usuario || '']
+        );
+
+        // Crear operación de entrada en la cuenta destino
+        const result = await db.query(
+          'INSERT INTO operaciones (fecha, tipo, cantidad, info, categoria, cuenta, usuario) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+          [fecha, tipoNormalizado, cantidad, descripcion, '', cuenta, usuario || '']
+        );
+
+        console.log('Traspaso creado:', cuentaOrigen, '->', cuenta, `(${cantidad}€)`);
+        res.status(201).json(result.rows[0]);
+      } else {
+        // No es un traspaso válido o no tiene formato correcto, guardar como una sola operación
+        const result = await db.query(
+          'INSERT INTO operaciones (fecha, tipo, cantidad, info, categoria, cuenta, usuario) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+          [fecha, tipoNormalizado, cantidad, descripcion || '', categoria || '', cuenta || '', usuario || '']
+        );
+        
+        console.log('Operación creada:', result.rows[0]);
+        res.status(201).json(result.rows[0]);
+      }
+    } else {
+      // Para otros tipos, crear una única operación
+      const result = await db.query(
+        'INSERT INTO operaciones (fecha, tipo, cantidad, info, categoria, cuenta, usuario) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+        [fecha, tipoNormalizado, cantidad, descripcion || '', categoria || '', cuenta || '', usuario || '']
+      );
+      
+      console.log('Operación creada:', result.rows[0]);
+      res.status(201).json(result.rows[0]);
+    }
   } catch (err) {
     console.error('Error al insertar operación:', err);
     res.status(500).json({ error: err.message });
@@ -114,10 +149,42 @@ app.get('/operaciones', async (req, res) => {
 app.delete('/operaciones/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    const result = await db.query('DELETE FROM operaciones WHERE id = $1', [id]);
-    if (result.rowCount === 0) {
+    // Obtener la operación a eliminar
+    const operacion = await db.query(
+      'SELECT * FROM operaciones WHERE id = $1',
+      [id]
+    );
+
+    if (operacion.rows.length === 0) {
       return res.status(404).json({ error: 'No encontrado' });
     }
+
+    const oper = operacion.rows[0];
+
+    // Si es un traspaso (retirada-hucha), eliminar también la operación complementaria
+    if (oper.tipo === 'retirada-hucha') {
+      const complementaria = await db.query(
+        `SELECT id FROM operaciones 
+         WHERE tipo = 'retirada-hucha' AND fecha = $1 
+         AND info = $2 AND cantidad = $3 AND id != $4
+         LIMIT 1`,
+        [oper.fecha, oper.info, -oper.cantidad, id]
+      );
+      
+      if (complementaria.rows.length > 0) {
+        await db.query(
+          'DELETE FROM operaciones WHERE id = $1',
+          [complementaria.rows[0].id]
+        );
+      }
+    }
+
+    // Eliminar la operación principal
+    const result = await db.query(
+      'DELETE FROM operaciones WHERE id = $1',
+      [id]
+    );
+
     res.json({ success: true });
   } catch (err) {
     console.error('Error al eliminar:', err);
@@ -128,16 +195,115 @@ app.delete('/operaciones/:id', async (req, res) => {
 // Actualizar una operación por id
 app.put('/operaciones/:id', async (req, res) => {
   const { id } = req.params;
-  const { fecha, tipo, cantidad, concepto, categoria, usuario, cuenta } = req.body;
+  const { fecha, tipo, cantidad, concepto, categoria, usuario, cuenta, info } = req.body;
+  const descripcion = concepto || info; // Soportar tanto concepto como info
+  
   try {
-    const result = await db.query(
-      'UPDATE operaciones SET fecha = $1, tipo = $2, cantidad = $3, info = $4, categoria = $5, usuario = $6, cuenta = $7 WHERE id = $8',
-      [fecha, tipo, cantidad, concepto, categoria, usuario, cuenta, id]
+    // Obtener la operación actual
+    const operacionActual = await db.query(
+      'SELECT * FROM operaciones WHERE id = $1',
+      [id]
     );
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: 'No encontrado' });
+
+    if (operacionActual.rows.length === 0) {
+      return res.status(404).json({ error: 'Operación no encontrada' });
     }
-    res.json({ success: true });
+
+    const operAntigua = operacionActual.rows[0];
+
+    // Si es un traspaso (retirada-hucha), manejar especialmente
+    if (tipo === 'retirada-hucha' || tipo === 'ahorro') {
+      const tipoNormalizado = tipo === 'ahorro' ? 'retirada-hucha' : tipo;
+      const origenMatch = descripcion?.match(/Traspaso desde (.+?) a/);
+      const cuentaOrigen = origenMatch ? origenMatch[1] : null;
+
+      if (cuentaOrigen && cuentaOrigen !== cuenta) {
+        // Es un traspaso válido
+
+        // Si la operación antigua era también un traspaso, eliminar la complementaria
+        if (operAntigua.tipo === 'retirada-hucha') {
+          const complementaria = await db.query(
+            `SELECT id FROM operaciones 
+             WHERE tipo = 'retirada-hucha' AND fecha = $1 
+             AND info = $2 AND cantidad = $3 AND id != $4
+             LIMIT 1`,
+            [operAntigua.fecha, operAntigua.info, -operAntigua.cantidad, id]
+          );
+          
+          if (complementaria.rows.length > 0) {
+            await db.query('DELETE FROM operaciones WHERE id = $1', [complementaria.rows[0].id]);
+          }
+        }
+
+        // Eliminar la operación original
+        await db.query('DELETE FROM operaciones WHERE id = $1', [id]);
+
+        // Crear las dos nuevas operaciones
+        // Salida en cuenta origen
+        await db.query(
+          'INSERT INTO operaciones (fecha, tipo, cantidad, info, categoria, cuenta, usuario) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+          [fecha, tipoNormalizado, -cantidad, descripcion, '', cuentaOrigen, usuario]
+        );
+
+        // Entrada en cuenta destino
+        const result = await db.query(
+          'INSERT INTO operaciones (fecha, tipo, cantidad, info, categoria, cuenta, usuario) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+          [fecha, tipoNormalizado, cantidad, descripcion, '', cuenta, usuario]
+        );
+
+        console.log(`Traspaso actualizado: ${cuentaOrigen} -> ${cuenta} (${cantidad}€)`);
+        res.json(result.rows[0]);
+      } else {
+        // No es un traspaso válido, guardar como operación única
+        
+        // Si era un traspaso antes, eliminar la complementaria
+        if (operAntigua.tipo === 'retirada-hucha') {
+          const complementaria = await db.query(
+            `SELECT id FROM operaciones 
+             WHERE tipo = 'retirada-hucha' AND fecha = $1 
+             AND info = $2 AND cantidad = $3 AND id != $4
+             LIMIT 1`,
+            [operAntigua.fecha, operAntigua.info, -operAntigua.cantidad, id]
+          );
+          
+          if (complementaria.rows.length > 0) {
+            await db.query('DELETE FROM operaciones WHERE id = $1', [complementaria.rows[0].id]);
+          }
+        }
+
+        // Actualizar la operación
+        const result = await db.query(
+          'UPDATE operaciones SET fecha = $1, tipo = $2, cantidad = $3, info = $4, categoria = $5, usuario = $6, cuenta = $7 WHERE id = $8 RETURNING *',
+          [fecha, tipoNormalizado, cantidad, descripcion, categoria, usuario, cuenta, id]
+        );
+
+        res.json(result.rows[0]);
+      }
+    } else {
+      // No es un traspaso, actualizar normalmente
+
+      // Si era un traspaso antes, eliminar la complementaria
+      if (operAntigua.tipo === 'retirada-hucha') {
+        const complementaria = await db.query(
+          `SELECT id FROM operaciones 
+           WHERE tipo = 'retirada-hucha' AND fecha = $1 
+           AND info = $2 AND cantidad = $3 AND id != $4
+           LIMIT 1`,
+          [operAntigua.fecha, operAntigua.info, -operAntigua.cantidad, id]
+        );
+        
+        if (complementaria.rows.length > 0) {
+          await db.query('DELETE FROM operaciones WHERE id = $1', [complementaria.rows[0].id]);
+        }
+      }
+
+      const result = await db.query(
+        'UPDATE operaciones SET fecha = $1, tipo = $2, cantidad = $3, info = $4, categoria = $5, usuario = $6, cuenta = $7 WHERE id = $8 RETURNING *',
+        [fecha, tipo, cantidad, descripcion, categoria, usuario, cuenta, id]
+      );
+
+      res.json(result.rows[0]);
+    }
   } catch (err) {
     console.error('Error al actualizar:', err);
     res.status(500).json({ error: err.message });
