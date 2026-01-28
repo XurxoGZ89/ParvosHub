@@ -199,15 +199,11 @@ const UserAccount = () => {
       return false;
     });
 
-    const ahorroAcumulado = operacionesHastaAhora
-      .filter(op => op.type === 'savings')
+    // Calcular ahorro total: suma todas las operaciones de tipo savings/savings_withdrawal
+    // (savings positivas + savings_withdrawal negativas = total algebraico)
+    const ahorroActual = operacionesHastaAhora
+      .filter(op => op.type === 'savings' || (op.type === 'savings_withdrawal' && op.account_name === 'Ahorro'))
       .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
-
-    const retiradaAcumulada = operacionesHastaAhora
-      .filter(op => op.type === 'savings_withdrawal' && op.account_name === 'Ahorro')
-      .reduce((sum, op) => sum + Math.abs(parseFloat(op.amount || 0)), 0);
-
-    const ahorroActual = ahorroAcumulado - retiradaAcumulada;
 
     // Calcular ahorro del mes anterior
     const mesAnteriorIdx = mesIdx === 0 ? 11 : mesIdx - 1;
@@ -224,11 +220,8 @@ const UserAccount = () => {
     });
 
     const ahorroAnterior = operacionesHastaMesAnterior
-      .filter(op => op.type === 'savings')
-      .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0) -
-      operacionesHastaMesAnterior
-      .filter(op => op.type === 'savings_withdrawal' && op.account_name === 'Ahorro')
-      .reduce((sum, op) => sum + Math.abs(parseFloat(op.amount || 0)), 0);
+      .filter(op => op.type === 'savings' || (op.type === 'savings_withdrawal' && op.account_name === 'Ahorro'))
+      .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
 
     const diferencia = ahorroActual - ahorroAnterior;
     const porcentaje = ahorroAnterior !== 0 ? ((diferencia / Math.abs(ahorroAnterior)) * 100) : 0;

@@ -144,17 +144,17 @@ const ParvosAccount = () => {
     const totalBBVA = operaciones
       .filter(op => op.cuenta === 'BBVA' && op.tipo !== 'hucha')
       .reduce((sum, op) => {
-        if (op.tipo === 'ingreso' || op.tipo === 'retirada-hucha') return sum + parseFloat(op.cantidad || 0);
+        // Retiradas e ingresos vienen positivos, gastos positivos (hay que restar)
         if (op.tipo === 'gasto') return sum - parseFloat(op.cantidad || 0);
-        return sum;
+        return sum + parseFloat(op.cantidad || 0);
       }, 0);
 
     const totalImagin = operaciones
       .filter(op => op.cuenta === 'Imagin' && op.tipo !== 'hucha')
       .reduce((sum, op) => {
-        if (op.tipo === 'ingreso' || op.tipo === 'retirada-hucha') return sum + parseFloat(op.cantidad || 0);
+        // Retiradas e ingresos vienen positivos, gastos positivos (hay que restar)
         if (op.tipo === 'gasto') return sum - parseFloat(op.cantidad || 0);
-        return sum;
+        return sum + parseFloat(op.cantidad || 0);
       }, 0);
 
     return {
@@ -168,29 +168,24 @@ const ParvosAccount = () => {
   const calcularAhorro = () => {
     const mesIdx = meses.indexOf(mesSeleccionado);
     
-    // Calcular ahorro acumulado: SOLO hucha - retirada-hucha
+    // Filtrar todas las operaciones hasta el mes seleccionado (incluido)
     const operacionesHastaAhora = operaciones.filter(op => {
       const fecha = new Date(op.fecha);
       const mesOp = fecha.getMonth();
       const añoOp = fecha.getFullYear();
       
-      // Incluir si es antes del mes/año seleccionado, o es el mes/año seleccionado
       if (añoOp < añoSeleccionado) return true;
       if (añoOp === añoSeleccionado && mesOp <= mesIdx) return true;
       return false;
     });
 
-    const huchaAcumulada = operacionesHastaAhora
-      .filter(op => op.tipo === 'hucha' && op.cuenta === 'Ahorro')
+    // Calcular ahorro total: suma todas las operaciones de cuenta Ahorro
+    // (hucha positivas + retiradas negativas = total algebraico)
+    const ahorroActual = operacionesHastaAhora
+      .filter(op => (op.tipo === 'hucha' || op.tipo === 'retirada-hucha') && op.cuenta === 'Ahorro')
       .reduce((sum, op) => sum + parseFloat(op.cantidad || 0), 0);
 
-    const retiradaHuchaAcumulada = operacionesHastaAhora
-      .filter(op => op.tipo === 'retirada-hucha' && op.cuenta === 'Ahorro')
-      .reduce((sum, op) => sum + Math.abs(parseFloat(op.cantidad || 0)), 0);
-
-    const ahorroActual = huchaAcumulada - retiradaHuchaAcumulada;
-
-    // Calcular ahorro del mes anterior (para comparativa)
+    // Calcular ahorro del mes anterior para comparativa
     const mesAnteriorIdx = mesIdx === 0 ? 11 : mesIdx - 1;
     const añoAnterior = mesIdx === 0 ? añoSeleccionado - 1 : añoSeleccionado;
 
@@ -204,15 +199,9 @@ const ParvosAccount = () => {
       return false;
     });
 
-    const huchaAnterior = operacionesHastaMesAnterior
-      .filter(op => op.tipo === 'hucha' && op.cuenta === 'Ahorro')
+    const ahorroAnterior = operacionesHastaMesAnterior
+      .filter(op => (op.tipo === 'hucha' || op.tipo === 'retirada-hucha') && op.cuenta === 'Ahorro')
       .reduce((sum, op) => sum + parseFloat(op.cantidad || 0), 0);
-
-    const retiradaHuchaAnterior = operacionesHastaMesAnterior
-      .filter(op => op.tipo === 'retirada-hucha' && op.cuenta === 'Ahorro')
-      .reduce((sum, op) => sum + Math.abs(parseFloat(op.cantidad || 0)), 0);
-
-    const ahorroAnterior = huchaAnterior - retiradaHuchaAnterior;
 
     const diferencia = ahorroActual - ahorroAnterior;
     const porcentaje = ahorroAnterior !== 0 ? ((diferencia / Math.abs(ahorroAnterior)) * 100) : 0;
