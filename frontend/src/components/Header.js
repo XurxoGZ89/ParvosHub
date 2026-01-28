@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import usePrivacyStore from '../stores/privacyStore';
 
 const Header = ({ title, subtitle }) => {
   const { t, language, changeLanguage } = useLanguage();
+  const { hiddenNumbers, toggleHiddenNumbers } = usePrivacyStore();
   const [fechaHora, setFechaHora] = useState(new Date());
 
   useEffect(() => {
@@ -35,6 +38,43 @@ const Header = ({ title, subtitle }) => {
         <div style={{ fontSize: '0.85rem', color: '#666', textAlign: 'right', whiteSpace: 'nowrap' }}>
           {formatearFechaHora()}
         </div>
+        <button
+          onClick={toggleHiddenNumbers}
+          style={{
+            padding: '6px 12px',
+            borderRadius: 6,
+            border: 'none',
+            background: hiddenNumbers ? '#7c3aed' : '#f0f0f0',
+            color: hiddenNumbers ? '#fff' : '#1d1d1f',
+            cursor: 'pointer',
+            fontSize: 13,
+            fontWeight: 600,
+            transition: 'all 0.2s',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            minWidth: 'fit-content'
+          }}
+          onMouseOver={(e) => {
+            e.target.style.background = hiddenNumbers ? '#6d28d9' : '#e5e5e7';
+          }}
+          onMouseOut={(e) => {
+            e.target.style.background = hiddenNumbers ? '#7c3aed' : '#f0f0f0';
+          }}
+          title={hiddenNumbers ? 'Mostrar números' : 'Ocultar números'}
+        >
+          {hiddenNumbers ? (
+            <>
+              <EyeOff size={16} />
+              <span>Oculto</span>
+            </>
+          ) : (
+            <>
+              <Eye size={16} />
+              <span>Visible</span>
+            </>
+          )}
+        </button>
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             onClick={() => changeLanguage('ca')}

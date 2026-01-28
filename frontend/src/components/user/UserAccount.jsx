@@ -28,6 +28,7 @@ import {
 import api from '../../lib/api';
 import useAuthStore from '../../stores/authStore';
 import bbvaLogo from '../../assets/BBVA_2019.svg.png';
+import { usePrivacyFormatter } from '../../utils/privacyFormatter';
 
 const meses = [
   'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
@@ -36,6 +37,7 @@ const meses = [
 
 const UserAccount = () => {
   const { user } = useAuthStore();
+  const formatAmount = usePrivacyFormatter();
   const [operaciones, setOperaciones] = useState([]);
   const [filtros, setFiltros] = useState({
     tipo: 'todos',
@@ -509,14 +511,14 @@ const UserAccount = () => {
         {/* Balance Total */}
         <div className="col-span-2 lg:col-span-3 bg-white dark:bg-stone-900 p-4 lg:p-6 rounded-2xl lg:rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm">
           <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Balance Total</p>
-          <h2 className="text-2xl lg:text-4xl font-extrabold text-emerald-500">{totales.total.toFixed(2)} €</h2>
+          <h2 className="text-2xl lg:text-4xl font-extrabold text-emerald-500">{formatAmount(totales.total || 0)} €</h2>
         </div>
 
         {/* Cuenta 1 */}
         <div className="lg:col-span-3 bg-white dark:bg-stone-900 p-4 lg:p-5 rounded-2xl border border-slate-200 dark:border-stone-800 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{cuentasUsuario[0]}</p>
-            <h3 className="text-lg lg:text-xl font-bold">{totales.cuenta1.toFixed(2)} €</h3>
+            <h3 className="text-lg lg:text-xl font-bold">{formatAmount(totales.cuenta1 || 0)} €</h3>
           </div>
           <div className="w-10 h-10 lg:w-12 lg:h-12 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center border border-blue-100 dark:border-blue-800/30">
             {cuentasUsuario[0] === 'BBVA' ? (
@@ -531,7 +533,7 @@ const UserAccount = () => {
         <div className="lg:col-span-3 bg-white dark:bg-stone-900 p-4 lg:p-5 rounded-2xl border border-slate-200 dark:border-stone-800 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{cuentasUsuario[1]}</p>
-            <h3 className="text-lg lg:text-xl font-bold">{totales.cuenta2.toFixed(2)} €</h3>
+            <h3 className="text-lg lg:text-xl font-bold">{formatAmount(totales.cuenta2 || 0)} €</h3>
           </div>
           <div className="w-10 h-10 lg:w-12 lg:h-12 bg-purple-50 dark:bg-purple-900/20 rounded-xl flex items-center justify-center border border-purple-100 dark:border-purple-800/30">
             <CreditCard className="w-6 h-6 lg:w-7 lg:h-7 text-purple-600" />
@@ -544,17 +546,17 @@ const UserAccount = () => {
             <p className="text-[9px] lg:text-[10px] font-bold uppercase tracking-widest opacity-90">Ahorro Total</p>
             <PiggyBank className="w-4 h-4 lg:w-5 lg:h-5 opacity-80" />
           </div>
-          <h3 className="text-xl lg:text-2xl font-bold mb-1">{ahorro.actual.toFixed(2)} €</h3>
+          <h3 className="text-xl lg:text-2xl font-bold mb-1">{formatAmount(ahorro.actual || 0)} €</h3>
           <div className="flex items-center gap-2 text-xs">
             {ahorro.diferencia >= 0 ? (
               <>
                 <TrendingUp className="w-3 h-3" />
-                <span className="font-semibold">+{ahorro.diferencia.toFixed(2)} € ({ahorro.porcentaje.toFixed(1)}%)</span>
+                <span className="font-semibold">+{formatAmount(ahorro.diferencia || 0)} € ({ahorro.porcentaje.toFixed(1)}%)</span>
               </>
             ) : (
               <>
                 <TrendingDown className="w-3 h-3" />
-                <span className="font-semibold">{ahorro.diferencia.toFixed(2)} € ({ahorro.porcentaje.toFixed(1)}%)</span>
+                <span className="font-semibold">{formatAmount(ahorro.diferencia || 0)} € ({ahorro.porcentaje.toFixed(1)}%)</span>
               </>
             )}
             <span className="opacity-75 hidden lg:inline">vs mes anterior</span>
@@ -600,7 +602,7 @@ const UserAccount = () => {
                       >
                         {item.cantidad > 0 && (
                           <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-[10px] font-bold whitespace-nowrap">
-                            {item.cantidad.toFixed(0)}€
+                            {formatAmount(item.cantidad || 0)}€
                           </div>
                         )}
                       </div>
@@ -651,19 +653,19 @@ const UserAccount = () => {
                   {presupuestoVsReal.filter(item => item.presupuesto > 0 || item.gastado > 0).map((item, idx) => (
                     <tr key={idx}>
                       <td className="py-3 font-semibold">{item.categoria}</td>
-                      <td className="py-3">{item.presupuesto.toFixed(0)} €</td>
-                      <td className="py-3 text-blue-500 font-bold">{item.gastado.toFixed(2)} €</td>
+                      <td className="py-3">{formatAmount(item.presupuesto || 0)} €</td>
+                      <td className="py-3 text-blue-500 font-bold">{formatAmount(item.gastado || 0)} €</td>
                       <td className={`py-3 font-bold text-right ${item.diferencia >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                        {item.diferencia >= 0 ? '+' : ''}{item.diferencia.toFixed(2)} €
+                        {item.diferencia >= 0 ? '+' : ''}{formatAmount(item.diferencia || 0)} €
                       </td>
                     </tr>
                   ))}
                   <tr className="bg-slate-50/50 dark:bg-stone-800/30 font-bold">
                     <td className="py-3">TOTAL</td>
-                    <td className="py-3">{presupuestoVsReal.reduce((sum, item) => sum + item.presupuesto, 0).toFixed(0)} €</td>
-                    <td className="py-3 text-blue-600">{presupuestoVsReal.reduce((sum, item) => sum + item.gastado, 0).toFixed(2)} €</td>
+                    <td className="py-3">{formatAmount(presupuestoVsReal.reduce((sum, item) => sum + item.presupuesto, 0))} €</td>
+                    <td className="py-3 text-blue-600">{formatAmount(presupuestoVsReal.reduce((sum, item) => sum + item.gastado, 0))} €</td>
                     <td className={`py-3 text-right ${presupuestoVsReal.reduce((sum, item) => sum + item.diferencia, 0) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {presupuestoVsReal.reduce((sum, item) => sum + item.diferencia, 0).toFixed(2)} €
+                      {formatAmount(presupuestoVsReal.reduce((sum, item) => sum + item.diferencia, 0))} €
                     </td>
                   </tr>
                 </tbody>
@@ -783,7 +785,7 @@ const UserAccount = () => {
                         <span className={`text-lg font-bold ${
                           op.type === 'expense' ? 'text-red-500' : 'text-emerald-500'
                         }`}>
-                          {parseFloat(op.amount).toFixed(2)} €
+                          {formatAmount(parseFloat(op.amount) || 0)} €
                         </span>
                         <div className="flex gap-1">
                           <button 
@@ -896,7 +898,7 @@ const UserAccount = () => {
                         <td className={`px-6 py-4 text-right font-bold ${
                           op.type === 'expense' ? 'text-red-500' : 'text-emerald-500'
                         }`}>
-                          {parseFloat(op.amount).toFixed(2)} €
+                          {formatAmount(parseFloat(op.amount) || 0)} €
                         </td>
                         <td className="px-6 py-4 text-slate-500 italic">{op.description || '-'}</td>
                         <td className="px-6 py-4 font-medium">{op.category}</td>

@@ -27,9 +27,11 @@ import api from '../../lib/api';
 import useAuthStore from '../../stores/authStore';
 import bbvaLogo from '../../assets/BBVA_2019.svg.png';
 import imaginLogo from '../../assets/imagin.webp';
+import { usePrivacyFormatter } from '../../utils/privacyFormatter';
 
 const ParvosAccount = () => {
   const { user } = useAuthStore();
+  const formatAmount = usePrivacyFormatter();
   const [operaciones, setOperaciones] = useState([]);
   const [presupuestos, setPresupuestos] = useState([]);
   const [metas, setMetas] = useState([]);
@@ -476,14 +478,14 @@ const ParvosAccount = () => {
         {/* Balance Total */}
         <div className="col-span-2 lg:md:col-span-3 bg-white dark:bg-stone-900 p-4 lg:p-6 rounded-2xl lg:rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm">
           <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Balance Total</p>
-          <h2 className="text-2xl lg:text-4xl font-extrabold text-emerald-500">{totales.total.toFixed(2)} €</h2>
+          <h2 className="text-2xl lg:text-4xl font-extrabold text-emerald-500">{formatAmount(totales.total || 0)} €</h2>
         </div>
 
         {/* BBVA */}
         <div className="lg:md:col-span-3 bg-white dark:bg-stone-900 p-4 lg:p-5 rounded-2xl border border-slate-200 dark:border-stone-800 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BBVA Principal</p>
-            <h3 className="text-lg lg:text-xl font-bold">{totales.bbva.toFixed(2)} €</h3>
+            <h3 className="text-lg lg:text-xl font-bold">{formatAmount(totales.bbva || 0)} €</h3>
           </div>
           <div className="w-10 h-10 lg:w-12 lg:h-12 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center border border-blue-100 dark:border-blue-800/30 overflow-hidden">
             <img src={bbvaLogo} alt="BBVA" className="w-8 h-8 lg:w-10 lg:h-10 object-contain" />
@@ -494,7 +496,7 @@ const ParvosAccount = () => {
         <div className="lg:md:col-span-3 bg-white dark:bg-stone-900 p-4 lg:p-5 rounded-2xl border border-slate-200 dark:border-stone-800 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Ahorro Imagin</p>
-            <h3 className="text-lg lg:text-xl font-bold">{totales.imagin.toFixed(2)} €</h3>
+            <h3 className="text-lg lg:text-xl font-bold">{formatAmount(totales.imagin || 0)} €</h3>
           </div>
           <div className="w-10 h-10 lg:w-12 lg:h-12 bg-[#00FFAB]/10 rounded-xl flex items-center justify-center border border-[#00FFAB]/20 overflow-hidden">
             <img src={imaginLogo} alt="Imagin" className="w-9 h-9 lg:w-11 lg:h-11 object-contain" />
@@ -507,17 +509,17 @@ const ParvosAccount = () => {
             <p className="text-[9px] lg:text-[10px] font-bold uppercase tracking-widest opacity-90">Ahorro Total</p>
             <PiggyBank className="w-4 h-4 lg:w-5 lg:h-5 opacity-80" />
           </div>
-          <h3 className="text-xl lg:text-2xl font-bold mb-1">{ahorro.actual.toFixed(2)} €</h3>
+          <h3 className="text-xl lg:text-2xl font-bold mb-1">{formatAmount(ahorro.actual || 0)} €</h3>
           <div className="flex items-center gap-2 text-xs">
             {ahorro.diferencia >= 0 ? (
               <>
                 <TrendingUp className="w-3 h-3" />
-                <span className="font-semibold">+{ahorro.diferencia.toFixed(2)} € ({ahorro.porcentaje.toFixed(1)}%)</span>
+                <span className="font-semibold">+{formatAmount(ahorro.diferencia || 0)} € ({ahorro.porcentaje.toFixed(1)}%)</span>
               </>
             ) : (
               <>
                 <TrendingDown className="w-3 h-3" />
-                <span className="font-semibold">{ahorro.diferencia.toFixed(2)} € ({ahorro.porcentaje.toFixed(1)}%)</span>
+                <span className="font-semibold">{formatAmount(ahorro.diferencia || 0)} € ({ahorro.porcentaje.toFixed(1)}%)</span>
               </>
             )}
             <span className="opacity-75 hidden lg:inline">vs mes anterior</span>
@@ -577,7 +579,7 @@ const ParvosAccount = () => {
                         >
                           {item.cantidad > 0 && (
                             <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-[10px] font-bold whitespace-nowrap">
-                              {item.cantidad.toFixed(0)}€
+                              {formatAmount(item.cantidad || 0)}€
                             </div>
                           )}
                         </div>
@@ -771,7 +773,7 @@ const ParvosAccount = () => {
                         <span className={`text-lg font-bold ${
                           op.tipo === 'gasto' ? 'text-red-500' : 'text-emerald-500'
                         }`}>
-                          {parseFloat(op.cantidad).toFixed(2)} €
+                          {formatAmount(parseFloat(op.cantidad) || 0)} €
                         </span>
                         <div className="flex gap-1">
                           <button 
@@ -887,7 +889,7 @@ const ParvosAccount = () => {
                       <td className={`px-6 py-4 text-right font-bold ${
                         op.tipo === 'gasto' ? 'text-red-500' : 'text-emerald-500'
                       }`}>
-                        {parseFloat(op.cantidad).toFixed(2)} €
+                        {formatAmount(parseFloat(op.cantidad) || 0)} €
                       </td>
                       <td className="px-6 py-4 text-slate-500 italic">{op.info || op.descripcion || '-'}</td>
                       <td className="px-6 py-4 font-medium">{op.categoria}</td>
@@ -1141,24 +1143,56 @@ const ParvosAccount = () => {
             </h3>
             {actividad.length > 0 ? (
               <div className="space-y-4 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-100 dark:before:bg-stone-800">
-                {actividad.map((act, idx) => (
-                  <div key={act.id || idx} className="flex gap-3 relative">
-                    <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/40 border-4 border-white dark:border-stone-900 z-10 flex-shrink-0"></div>
-                    <div className="flex-1">
-                      <p className="text-sm leading-tight font-medium text-slate-900 dark:text-white">
-                        {act.descripcion}
-                      </p>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                        {new Date(act.created_at).toLocaleDateString('es-ES', { 
-                          day: '2-digit', 
-                          month: 'short', 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
-                      </span>
+                {actividad.slice(0, 5).map((act, idx) => {
+                  // Detectar tipo de operación
+                  const esTraspaso = act.tipo === 'retirada-hucha' && act.info?.includes('Traspaso desde');
+                  const tipoLabel = esTraspaso ? 'Traspaso' :
+                                   act.tipo === 'gasto' ? 'Gasto' :
+                                   act.tipo === 'ingreso' ? 'Ingreso' : 'Ahorro';
+                  
+                  return (
+                    <div key={act.id || idx} className="flex gap-3 relative">
+                      <div className={`w-6 h-6 rounded-full ${
+                        esTraspaso ? 'bg-blue-100 dark:bg-blue-900/40' :
+                        act.tipo === 'gasto' ? 'bg-red-100 dark:bg-red-900/40' :
+                        act.tipo === 'ingreso' ? 'bg-green-100 dark:bg-green-900/40' :
+                        'bg-purple-100 dark:bg-purple-900/40'
+                      } border-4 border-white dark:border-stone-900 z-10 flex-shrink-0`}></div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 flex-1">
+                            <span className={`text-sm font-bold ${
+                              esTraspaso ? 'text-blue-600 dark:text-blue-400' :
+                              act.tipo === 'gasto' ? 'text-red-600 dark:text-red-400' :
+                              act.tipo === 'ingreso' ? 'text-green-600 dark:text-green-400' :
+                              'text-purple-600 dark:text-purple-400'
+                            }`}>
+                              {tipoLabel}
+                            </span>
+                            <span className={`text-sm font-semibold ${
+                              act.cantidad < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
+                            }`}>
+                              {act.cantidad < 0 ? '-' : '+'}{Math.abs(act.cantidad).toFixed(2)}€
+                            </span>
+                          </div>
+                          {act.usuario && (
+                            <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-slate-100 dark:bg-stone-800 text-slate-600 dark:text-slate-400 flex-shrink-0">
+                              {act.usuario}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                          {new Date(act.fecha).toLocaleDateString('es-ES', { 
+                            day: '2-digit', 
+                            month: 'short', 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-8 text-slate-400">
@@ -1166,9 +1200,6 @@ const ParvosAccount = () => {
                 <p className="text-sm">No hay actividad reciente</p>
               </div>
             )}
-            <button className="w-full mt-6 py-3 border border-slate-100 dark:border-stone-800 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-stone-800/50 transition-all">
-              Ver historial completo
-            </button>
           </div>
 
           {/* Widget de Meta - Viaje a Japón */}
@@ -1195,8 +1226,8 @@ const ParvosAccount = () => {
                       ></div>
                     </div>
                     <div className="flex justify-between text-xs font-bold">
-                      <span>{meta.cantidad_actual} €</span>
-                      <span>{meta.cantidad_objetivo} €</span>
+                      <span>{formatAmount(meta.cantidad_actual || 0)} €</span>
+                      <span>{formatAmount(meta.cantidad_objetivo || 0)} €</span>
                     </div>
                     <button
                       onClick={() => setModalEditarMeta({ abierto: true, meta })}

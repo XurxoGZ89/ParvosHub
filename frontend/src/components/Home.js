@@ -6,10 +6,12 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import api from '../lib/api';
 import useAuthStore from '../stores/authStore';
+import { usePrivacyFormatter } from '../utils/privacyFormatter';
 
 const Home = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const formatAmount = usePrivacyFormatter();
   const [userStats, setUserStats] = useState(null);
   const [parvosStats, setParvosStats] = useState(null);
   const [mealData, setMealData] = useState([]);
@@ -257,7 +259,7 @@ const Home = () => {
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Saldo Total</p>
             <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              {userStats?.totalBalance ? userStats.totalBalance.toFixed(2) : '0.00'}€
+              {formatAmount(userStats?.totalBalance || 0)}€
             </h3>
           </div>
           <Button 
@@ -288,7 +290,7 @@ const Home = () => {
             <div key={idx} className="bg-slate-50 dark:bg-slate-800/40 px-3 py-2.5 rounded-lg border border-slate-100 dark:border-slate-800 flex justify-between items-center">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{account.account_name}</span>
               <span className="text-xs font-bold text-slate-900 dark:text-white">
-                {account.balance ? account.balance.toFixed(2) : '0.00'}€
+                {formatAmount(account.balance || 0)}€
               </span>
             </div>
           ))}
@@ -298,13 +300,13 @@ const Home = () => {
           <div className="flex-1 flex items-center justify-between bg-green-50/50 dark:bg-green-900/10 px-3 py-2 rounded-lg border border-green-100/50 dark:border-green-900/20">
             <span className="text-xs font-bold text-green-600 dark:text-green-500 uppercase">Ingresos</span>
             <span className="text-xs font-bold text-green-700 dark:text-green-400">
-              +{userStats?.ingresosMes ? userStats.ingresosMes.toFixed(2) : '0.00'}€
+              +{formatAmount(userStats?.ingresosMes || 0)}€
             </span>
           </div>
           <div className="flex-1 flex items-center justify-between bg-red-50/50 dark:bg-red-900/10 px-3 py-2 rounded-lg border border-red-100/50 dark:border-red-900/20">
             <span className="text-xs font-bold text-red-600 dark:text-red-500 uppercase">Gastos</span>
             <span className="text-xs font-bold text-red-700 dark:text-red-400">
-              -{userStats?.gastosMes ? userStats.gastosMes.toFixed(2) : '0.00'}€
+              -{formatAmount(userStats?.gastosMes || 0)}€
             </span>
           </div>
         </div>
@@ -332,7 +334,7 @@ const Home = () => {
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Saldo Total</p>
             <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              {parvosStats?.total.toFixed(2)}€
+              {formatAmount(parvosStats?.total || 0)}€
             </h3>
           </div>
           <Button 
@@ -361,22 +363,22 @@ const Home = () => {
         <div className="grid grid-cols-2 gap-2 mb-4">
           <div className="bg-slate-50 dark:bg-slate-800/40 px-3 py-2.5 rounded-lg border border-slate-100 dark:border-slate-800 flex justify-between items-center">
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">BBVA</span>
-            <span className="text-xs font-bold text-slate-900 dark:text-white">{parvosStats?.bbva.toFixed(2)}€</span>
+            <span className="text-xs font-bold text-slate-900 dark:text-white">{formatAmount(parvosStats?.bbva || 0)}€</span>
           </div>
           <div className="bg-slate-50 dark:bg-slate-800/40 px-3 py-2.5 rounded-lg border border-slate-100 dark:border-slate-800 flex justify-between items-center">
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Imagin</span>
-            <span className="text-xs font-bold text-slate-900 dark:text-white">{parvosStats?.imagin.toFixed(2)}€</span>
+            <span className="text-xs font-bold text-slate-900 dark:text-white">{formatAmount(parvosStats?.imagin || 0)}€</span>
           </div>
         </div>
 
         <div className="flex gap-2">
           <div className="flex-1 flex items-center justify-between bg-green-50/50 dark:bg-green-900/10 px-3 py-2 rounded-lg border border-green-100/50 dark:border-green-900/20">
             <span className="text-xs font-bold text-green-600 dark:text-green-500 uppercase">Ingresos</span>
-            <span className="text-xs font-bold text-green-700 dark:text-green-400">+{parvosStats?.ingresosMes.toFixed(2)}€</span>
+            <span className="text-xs font-bold text-green-700 dark:text-green-400">+{formatAmount(parvosStats?.ingresosMes || 0)}€</span>
           </div>
           <div className="flex-1 flex items-center justify-between bg-red-50/50 dark:bg-red-900/10 px-3 py-2 rounded-lg border border-red-100/50 dark:border-red-900/20">
             <span className="text-xs font-bold text-red-600 dark:text-red-500 uppercase">Gastos</span>
-            <span className="text-xs font-bold text-red-700 dark:text-red-400">-{parvosStats?.gastosMes.toFixed(2)}€</span>
+            <span className="text-xs font-bold text-red-700 dark:text-red-400">-{formatAmount(parvosStats?.gastosMes || 0)}€</span>
           </div>
         </div>
       </div>
