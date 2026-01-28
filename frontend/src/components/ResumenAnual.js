@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useLanguage } from '../contexts/LanguageContext';
-import Header from './Header';
 
 const mesKeys = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const categorias = ['Vacaciones', 'Ocio', 'Hogar', 'Movilidad', 'Deporte', 'Extra', 'Alimentación'];
@@ -148,8 +147,8 @@ const ResumenAnual = ({ onBack }) => {
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f7', padding: '40px 20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-        {/* Header con Fecha/Hora e Idioma */}
-        <Header title={t('resumenDelAno')} />
+        {/* Título */}
+        <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: 40, color: '#1d1d1f' }}>{t('resumenDelAno')}</h1>
 
         {/* Botón atrás */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40, justifyContent: 'space-between', flexWrap: 'wrap' }}>
