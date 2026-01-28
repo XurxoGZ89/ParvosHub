@@ -181,12 +181,12 @@ const ParvosAccount = () => {
     });
 
     const huchaAcumulada = operacionesHastaAhora
-      .filter(op => op.tipo === 'hucha')
+      .filter(op => op.tipo === 'hucha' && op.cuenta === 'Ahorro')
       .reduce((sum, op) => sum + parseFloat(op.cantidad || 0), 0);
 
     const retiradaHuchaAcumulada = operacionesHastaAhora
-      .filter(op => op.tipo === 'retirada-hucha')
-      .reduce((sum, op) => sum + parseFloat(op.cantidad || 0), 0);
+      .filter(op => op.tipo === 'retirada-hucha' && op.cuenta === 'Ahorro')
+      .reduce((sum, op) => sum + Math.abs(parseFloat(op.cantidad || 0)), 0);
 
     const ahorroActual = huchaAcumulada - retiradaHuchaAcumulada;
 
@@ -205,12 +205,12 @@ const ParvosAccount = () => {
     });
 
     const huchaAnterior = operacionesHastaMesAnterior
-      .filter(op => op.tipo === 'hucha')
+      .filter(op => op.tipo === 'hucha' && op.cuenta === 'Ahorro')
       .reduce((sum, op) => sum + parseFloat(op.cantidad || 0), 0);
 
     const retiradaHuchaAnterior = operacionesHastaMesAnterior
-      .filter(op => op.tipo === 'retirada-hucha')
-      .reduce((sum, op) => sum + parseFloat(op.cantidad || 0), 0);
+      .filter(op => op.tipo === 'retirada-hucha' && op.cuenta === 'Ahorro')
+      .reduce((sum, op) => sum + Math.abs(parseFloat(op.cantidad || 0)), 0);
 
     const ahorroAnterior = huchaAnterior - retiradaHuchaAnterior;
 
