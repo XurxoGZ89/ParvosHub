@@ -179,10 +179,21 @@ const ParvosAccount = () => {
       return false;
     });
 
+    // DEBUG: Ver qué operaciones tenemos
+    const operacionesAhorro = operacionesHastaAhora
+      .filter(op => (op.tipo === 'hucha' || op.tipo === 'retirada-hucha') && op.cuenta === 'Ahorro');
+    
+    console.log('📊 DEBUG Ahorro:', {
+      totalOperaciones: operaciones.length,
+      operacionesHastaAhora: operacionesHastaAhora.length,
+      operacionesAhorro: operacionesAhorro.length,
+      ejemploOperacion: operaciones[0],
+      operacionesAhorroDetalle: operacionesAhorro
+    });
+
     // Calcular ahorro total: suma todas las operaciones de cuenta Ahorro
     // (hucha positivas + retiradas negativas = total algebraico)
-    const ahorroActual = operacionesHastaAhora
-      .filter(op => (op.tipo === 'hucha' || op.tipo === 'retirada-hucha') && op.cuenta === 'Ahorro')
+    const ahorroActual = operacionesAhorro
       .reduce((sum, op) => sum + parseFloat(op.cantidad || 0), 0);
 
     // Calcular ahorro del mes anterior para comparativa
