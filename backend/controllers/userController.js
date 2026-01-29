@@ -632,7 +632,7 @@ exports.getUserBudgets = async (req, res) => {
   try {
     const userId = req.user.id;
     const result = await db.query(
-      'SELECT * FROM user_budgets WHERE user_id = $1 ORDER BY mes DESC',
+      'SELECT id, user_id, month as mes, category as categoria, amount as cantidad, created_at, updated_at FROM user_budgets WHERE user_id = $1 ORDER BY month DESC',
       [userId]
     );
     res.json(result.rows);
@@ -654,13 +654,13 @@ exports.getUserBudgetsByMonth = async (req, res) => {
     const keyMes = `${year}-${mesFormatted}`;
     
     const result = await db.query(
-      'SELECT categoria, cantidad FROM user_budgets WHERE user_id = $1 AND mes = $2',
+      'SELECT category as categoria, amount as cantidad FROM user_budgets WHERE user_id = $1 AND month = $2',
       [userId, keyMes]
     );
     
     const presupuestos = {};
     result.rows.forEach(row => {
-      presupuestos[row.categoria] = row.cantidad;
+      presupuestos[row.categoria] = parseFloat(row.cantidad);
     });
     
     res.json({ mes: keyMes, presupuestos });
@@ -690,14 +690,14 @@ exports.saveUserBudgets = async (req, res) => {
     
     // Primero, eliminar presupuestos existentes para ese mes
     await db.query(
-      'DELETE FROM user_budgets WHERE user_id = $1 AND mes = $2',
+      'DELETE FROM user_budgets WHERE user_id = $1 AND month = $2',
       [userId, keyMes]
     );
     
     // Luego, insertar los nuevos presupuestos
     const insertPromises = Object.entries(presupuestos).map(([categoria, cantidad]) => {
       return db.query(
-        'INSERT INTO user_budgets (user_id, mes, categoria, cantidad) VALUES ($1, $2, $3, $4)',
+        'INSERT INTO user_budgets (user_id, month, category, amount) VALUES ($1, $2, $3, $4)',
         [userId, keyMes, categoria, cantidad]
       );
     });

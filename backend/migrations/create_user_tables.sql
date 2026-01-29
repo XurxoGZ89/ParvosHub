@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS user_operations (
   account_id INTEGER REFERENCES user_accounts(id) ON DELETE SET NULL,
   account_name VARCHAR(50) NOT NULL,
   date DATE NOT NULL,
-  type VARCHAR(20) NOT NULL CHECK (type IN ('ingreso', 'gasto', 'ahorro', 'retirada-ahorro')),
+  type VARCHAR(20) NOT NULL CHECK (type IN ('income', 'expense', 'savings', 'savings_withdrawal')),
   amount DECIMAL(10,2) NOT NULL,
   description TEXT,
   category VARCHAR(50),

@@ -239,7 +239,7 @@ const UserAccount = () => {
     const ingresos = operacionesDelMes
       .filter(op => 
         op.type === 'income' || 
-        (op.type === 'savings_withdrawal' && op.account_name !== 'Ahorro')
+        (op.type === 'savings_withdrawal' && op.account_name !== 'Ahorro' && parseFloat(op.amount) > 0)
       )
       .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
 
