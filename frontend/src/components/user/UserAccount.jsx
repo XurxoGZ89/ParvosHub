@@ -520,17 +520,17 @@ const UserAccount = () => {
       <div className="grid grid-cols-2 lg:grid-cols-12 gap-3 lg:gap-6 p-4 lg:p-0">
         {/* Balance Total */}
         <div className="col-span-2 lg:col-span-3 bg-white dark:bg-stone-900 p-4 lg:p-6 rounded-2xl lg:rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm">
-          <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Balance Total</p>
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-2xl lg:text-4xl font-extrabold text-emerald-500">{formatAmount(totales.total || 0)} €</h2>
-            <div className="flex flex-col gap-2">
-              <div className="bg-emerald-50/50 dark:bg-emerald-900/10 px-3 py-1.5 rounded-lg border border-emerald-100/50 dark:border-emerald-900/20">
-                <div className="text-right text-[10px] lg:text-xs font-bold text-emerald-700 dark:text-emerald-400">
+          <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Balance Total</p>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-xl lg:text-4xl font-extrabold text-emerald-500">{formatAmount(totales.total || 0)} €</h2>
+            <div className="flex flex-col gap-1.5">
+              <div className="bg-emerald-50/50 dark:bg-emerald-900/10 px-2 py-1 lg:px-3 lg:py-1.5 rounded-lg border border-emerald-100/50 dark:border-emerald-900/20">
+                <div className="text-right text-[9px] lg:text-xs font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
                   +{formatAmount(ingresosGastosDelMes.ingresos || 0)} €
                 </div>
               </div>
-              <div className="bg-red-50/50 dark:bg-red-900/10 px-3 py-1.5 rounded-lg border border-red-100/50 dark:border-red-900/20">
-                <div className="text-right text-[10px] lg:text-xs font-bold text-red-700 dark:text-red-400">
+              <div className="bg-red-50/50 dark:bg-red-900/10 px-2 py-1 lg:px-3 lg:py-1.5 rounded-lg border border-red-100/50 dark:border-red-900/20">
+                <div className="text-right text-[9px] lg:text-xs font-bold text-red-700 dark:text-red-400 whitespace-nowrap">
                   -{formatAmount(ingresosGastosDelMes.gastos || 0)} €
                 </div>
               </div>
