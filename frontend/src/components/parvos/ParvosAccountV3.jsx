@@ -240,6 +240,44 @@ const ParvosAccount = () => {
     };
   };
 
+  // Calcular el saldo total del mes anterior
+  const calcularSaldoMesAnterior = () => {
+    const mesIdx = meses.indexOf(mesSeleccionado);
+    const mesAnteriorIdx = mesIdx === 0 ? 11 : mesIdx - 1;
+    const añoAnterior = mesIdx === 0 ? añoSeleccionado - 1 : añoSeleccionado;
+
+    const operacionesHastaMesAnterior = operaciones.filter(op => {
+      const fecha = new Date(op.fecha);
+      const mesOp = fecha.getMonth();
+      const añoOp = fecha.getFullYear();
+      
+      if (añoOp < añoAnterior) return true;
+      if (añoOp === añoAnterior && mesOp <= mesAnteriorIdx) return true;
+      return false;
+    });
+
+    const totalBBVAAnterior = operacionesHastaMesAnterior
+      .filter(op => op.cuenta === 'BBVA' && op.tipo !== 'hucha')
+      .reduce((sum, op) => {
+        if (op.tipo === 'gasto') return sum - parseFloat(op.cantidad || 0);
+        return sum + parseFloat(op.cantidad || 0);
+      }, 0);
+
+    const totalImaginAnterior = operacionesHastaMesAnterior
+      .filter(op => op.cuenta === 'Imagin' && op.tipo !== 'hucha')
+      .reduce((sum, op) => {
+        if (op.tipo === 'gasto') return sum - parseFloat(op.cantidad || 0);
+        return sum + parseFloat(op.cantidad || 0);
+      }, 0);
+
+    const nombreMesAnterior = meses[mesAnteriorIdx].charAt(0).toUpperCase() + meses[mesAnteriorIdx].slice(1);
+
+    return {
+      total: totalBBVAAnterior + totalImaginAnterior,
+      nombreMes: nombreMesAnterior
+    };
+  };
+
   // Calcular ingresos y gastos del mes seleccionado
   const calcularIngresosGastosDelMes = () => {
     const ingresos = operacionesDelMes
@@ -475,6 +513,7 @@ const ParvosAccount = () => {
 
   const totales = calcularTotales();
   const ahorro = calcularAhorro();
+  const saldoMesAnterior = calcularSaldoMesAnterior();
   const ingresosGastosDelMes = calcularIngresosGastosDelMes();
   const gastosPorCategoria = calcularGastosPorCategoria();
   const presupuestoVsReal = calcularPresupuestoVsReal();
@@ -506,57 +545,72 @@ const ParvosAccount = () => {
         </div>
       </div>
 
-      {/* Tarjetas de Balance - Swipeable en móvil */}
+      {/* Tarjetas de Balance */}
       <div className="grid grid-cols-2 lg:grid-cols-12 gap-3 lg:gap-6 p-4 lg:p-0">
-        {/* Balance Total */}
-        <div className="col-span-2 lg:md:col-span-3 bg-white dark:bg-stone-900 p-4 lg:p-6 rounded-2xl lg:rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm">
-          <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Balance Total</p>
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-xl lg:text-4xl font-extrabold text-emerald-500">{formatAmount(totales.total || 0)} €</h2>
-            <div className="flex flex-col gap-1.5">
-              <div className="bg-emerald-50/50 dark:bg-emerald-900/10 px-2 py-1 lg:px-3 lg:py-1.5 rounded-lg border border-emerald-100/50 dark:border-emerald-900/20">
-                <div className="text-right text-[9px] lg:text-xs font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
-                  +{formatAmount(ingresosGastosDelMes.ingresos || 0)} €
-                </div>
-              </div>
-              <div className="bg-red-50/50 dark:bg-red-900/10 px-2 py-1 lg:px-3 lg:py-1.5 rounded-lg border border-red-100/50 dark:border-red-900/20">
-                <div className="text-right text-[9px] lg:text-xs font-bold text-red-700 dark:text-red-400 whitespace-nowrap">
-                  -{formatAmount(ingresosGastosDelMes.gastos || 0)} €
-                </div>
+        {/* Card 1: Saldo Actual */}
+        <div className="col-span-2 lg:col-span-3 bg-white dark:bg-stone-900 p-2.5 lg:p-3 rounded-2xl lg:rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm flex flex-col justify-between">
+          <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Saldo Actual</p>
+          <h2 className="text-xl lg:text-4xl font-extrabold text-emerald-500">{formatAmount(totales.total || 0)} €</h2>
+          <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+            {formatAmount(saldoMesAnterior.total || 0)} € de {saldoMesAnterior.nombreMes}
+          </p>
+        </div>
+
+        {/* Card 2: Cuentas (BBVA e Imagin) */}
+        <div className="col-span-2 lg:col-span-3 bg-white dark:bg-stone-900 p-2.5 lg:p-3 rounded-2xl border border-slate-200 dark:border-stone-800 shadow-sm">
+          <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Cuentas</p>
+          <div className="space-y-1.5">
+            {/* BBVA */}
+            <div className="flex items-center justify-between">
+              <img src={bbvaLogo} alt="BBVA" className="w-12 h-12 lg:w-14 lg:h-14 object-contain" />
+              <h3 className="text-base lg:text-lg font-bold">{formatAmount(totales.bbva || 0)} €</h3>
+            </div>
+            {/* Imagin */}
+            <div className="flex items-center justify-between">
+              <img src={imaginLogo} alt="Imagin" className="w-12 h-12 lg:w-14 lg:h-14 object-contain" />
+              <h3 className="text-base lg:text-lg font-bold">{formatAmount(totales.imagin || 0)} €</h3>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Balance del Mes (Ingresos/Gastos/Resultado) */}
+        <div className="col-span-2 lg:col-span-3 bg-white dark:bg-stone-900 p-2.5 lg:p-3 rounded-2xl border border-slate-200 dark:border-stone-800 shadow-sm">
+          <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Balance del Mes</p>
+          <div className="space-y-1.5">
+            {/* Ingresos */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs lg:text-sm font-semibold text-emerald-600 dark:text-emerald-400">Ingresos</span>
+              <span className="text-sm lg:text-base font-bold text-emerald-600 dark:text-emerald-400">+{formatAmount(ingresosGastosDelMes.ingresos || 0)} €</span>
+            </div>
+            {/* Gastos */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs lg:text-sm font-semibold text-red-600 dark:text-red-400">Gastos</span>
+              <span className="text-sm lg:text-base font-bold text-red-600 dark:text-red-400">-{formatAmount(ingresosGastosDelMes.gastos || 0)} €</span>
+            </div>
+            {/* Separador */}
+            <div className="border-t border-slate-200 dark:border-stone-700 pt-1.5">
+              {/* Resultado */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs lg:text-sm font-bold text-slate-700 dark:text-slate-300">Resultado</span>
+                <span className={`text-base lg:text-lg font-extrabold ${
+                  (ingresosGastosDelMes.ingresos - ingresosGastosDelMes.gastos) >= 0 
+                    ? 'text-teal-500 dark:text-teal-400' 
+                    : 'text-orange-500 dark:text-orange-400'
+                }`}>
+                  {(ingresosGastosDelMes.ingresos - ingresosGastosDelMes.gastos) >= 0 ? '+' : ''}{formatAmount((ingresosGastosDelMes.ingresos - ingresosGastosDelMes.gastos) || 0)} €
+                </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* BBVA */}
-        <div className="lg:md:col-span-3 bg-white dark:bg-stone-900 p-4 lg:p-5 rounded-2xl border border-slate-200 dark:border-stone-800 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BBVA Principal</p>
-            <h3 className="text-lg lg:text-xl font-bold">{formatAmount(totales.bbva || 0)} €</h3>
-          </div>
-          <div className="w-10 h-10 lg:w-12 lg:h-12 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center border border-blue-100 dark:border-blue-800/30 overflow-hidden">
-            <img src={bbvaLogo} alt="BBVA" className="w-8 h-8 lg:w-10 lg:h-10 object-contain" />
-          </div>
-        </div>
-
-        {/* Imagin */}
-        <div className="lg:md:col-span-3 bg-white dark:bg-stone-900 p-4 lg:p-5 rounded-2xl border border-slate-200 dark:border-stone-800 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Ahorro Imagin</p>
-            <h3 className="text-lg lg:text-xl font-bold">{formatAmount(totales.imagin || 0)} €</h3>
-          </div>
-          <div className="w-10 h-10 lg:w-12 lg:h-12 bg-[#00FFAB]/10 rounded-xl flex items-center justify-center border border-[#00FFAB]/20 overflow-hidden">
-            <img src={imaginLogo} alt="Imagin" className="w-9 h-9 lg:w-11 lg:h-11 object-contain" />
-          </div>
-        </div>
-
-        {/* Ahorro Total */}
-        <div className="col-span-2 lg:md:col-span-3 bg-gradient-to-br from-emerald-500 to-teal-600 p-4 lg:p-5 rounded-2xl shadow-sm flex flex-col justify-between text-white">
-          <div className="flex items-center justify-between mb-2">
+        {/* Card 4: Ahorro Total */}
+        <div className="col-span-2 lg:col-span-3 bg-gradient-to-br from-emerald-500 to-teal-600 p-2.5 lg:p-3 rounded-2xl shadow-sm flex flex-col justify-between text-white">
+          <div className="flex items-center justify-between mb-0.5">
             <p className="text-[9px] lg:text-[10px] font-bold uppercase tracking-widest opacity-90">Ahorro Total</p>
             <PiggyBank className="w-4 h-4 lg:w-5 lg:h-5 opacity-80" />
           </div>
-          <h3 className="text-xl lg:text-2xl font-bold mb-1">{formatAmount(ahorro.actual || 0)} €</h3>
+          <h3 className="text-xl lg:text-4xl font-extrabold">{formatAmount(ahorro.actual || 0)} €</h3>
           <div className="flex items-center gap-2 text-xs">
             {ahorro.diferencia >= 0 ? (
               <>
@@ -587,7 +641,7 @@ const ParvosAccount = () => {
                   Gastos por Categoría
                 </h3>
               </div>
-              <div className="h-64 flex items-end justify-around gap-2 px-2">
+              <div className="h-64 flex items-end justify-around gap-2 px-2 pt-10">
                 {gastosPorCategoria.map((item, idx) => {
                   const Icon = item.icon;
                   const maxGasto = Math.max(...gastosPorCategoria.map(g => g.cantidad), 1);
@@ -613,20 +667,22 @@ const ParvosAccount = () => {
                   return (
                     <div key={idx} className="flex flex-col items-center gap-2 w-full h-full">
                       <div className="relative w-full flex-1 flex flex-col justify-end">
-                        {presupuestoCategoria > 0 && (
+                        {presupuestoCategoria > 0 && alturaPresupuesto <= 100 && (
                           <div 
-                            className="absolute w-full border-t-2 border-black dark:border-white border-dashed z-10"
-                            style={{ bottom: `${alturaPresupuesto}%` }}
+                            className="absolute w-full border-t-2 border-black dark:border-white border-dashed z-[5]"
+                            style={{ bottom: `${Math.min(alturaPresupuesto, 100)}%` }}
                             title={`Presupuesto: ${presupuestoCategoria}€`}
                           />
                         )}
                         <div 
-                          className={`w-full ${coloresBarras[item.color] || 'bg-slate-400'} rounded-t-lg transition-all hover:opacity-80 relative`}
-                          style={{ height: `${altura}%`, minHeight: item.cantidad > 0 ? '20px' : '0px' }}
+                          className={`w-full ${coloresBarras[item.color] || 'bg-slate-400'} rounded-t-lg transition-all hover:opacity-80 relative z-10`}
+                          style={{ height: `${Math.min(altura, 100)}%`, minHeight: item.cantidad > 0 ? '20px' : '0px' }}
                         >
                           {item.cantidad > 0 && (
-                            <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-[10px] font-bold whitespace-nowrap">
-                              {formatAmount(item.cantidad || 0)}€
+                            <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 z-20">
+                              <span className="text-[10px] font-bold whitespace-nowrap bg-white dark:bg-stone-900 px-1.5 py-0.5 rounded shadow-sm">
+                                {formatAmount(item.cantidad || 0)}€
+                              </span>
                             </div>
                           )}
                         </div>
@@ -703,7 +759,7 @@ const ParvosAccount = () => {
             <div className="p-4 lg:p-6 border-b border-slate-100 dark:border-stone-800 bg-slate-50/50 dark:bg-stone-900/50">
               <div className="flex flex-col gap-3 lg:gap-4">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 lg:gap-4">
-                  <h3 className="font-bold text-base lg:text-lg">Listado de Movimientos</h3>
+                  <h3 className="font-bold text-base lg:text-lg">Movimientos</h3>
                   
                   {/* Botón de filtros en móvil */}
                   {isMobile && (
@@ -719,11 +775,15 @@ const ParvosAccount = () => {
                   )}
                   
                   {/* Filtros desktop */}
-                  <div className={`${isMobile ? 'hidden' : 'flex'} items-center gap-2 flex-wrap`}>
+                  <div className={`${isMobile ? 'hidden' : 'flex'} items-center gap-2 flex-nowrap`}>
                     <select 
                       value={filtros.tipo}
                       onChange={(e) => setFiltros({...filtros, tipo: e.target.value})}
-                      className="bg-white dark:bg-stone-800 border-slate-200 dark:border-stone-700 rounded-lg text-[10px] font-bold py-1.5 focus:ring-purple-500/20"
+                      className={`bg-white dark:bg-stone-800 border-2 rounded-lg text-xs font-semibold px-2.5 py-1.5 cursor-pointer transition-all focus:ring-2 focus:ring-purple-500/20 focus:outline-none min-w-0 ${
+                        filtros.tipo !== 'todos' 
+                          ? 'border-purple-500 dark:border-purple-400 text-purple-700 dark:text-purple-300' 
+                          : 'border-slate-200 dark:border-stone-700 hover:border-slate-300 dark:hover:border-stone-600'
+                      }`}
                     >
                       <option value="todos">Tipo: Todos</option>
                       <option value="gasto">Gasto</option>
@@ -734,7 +794,11 @@ const ParvosAccount = () => {
                     <select 
                       value={filtros.categoria}
                       onChange={(e) => setFiltros({...filtros, categoria: e.target.value})}
-                      className="bg-white dark:bg-stone-800 border-slate-200 dark:border-stone-700 rounded-lg text-[10px] font-bold py-1.5 focus:ring-purple-500/20"
+                      className={`bg-white dark:bg-stone-800 border-2 rounded-lg text-xs font-semibold px-2.5 py-1.5 cursor-pointer transition-all focus:ring-2 focus:ring-purple-500/20 focus:outline-none min-w-0 ${
+                        filtros.categoria !== 'todas' 
+                          ? 'border-purple-500 dark:border-purple-400 text-purple-700 dark:text-purple-300' 
+                          : 'border-slate-200 dark:border-stone-700 hover:border-slate-300 dark:hover:border-stone-600'
+                      }`}
                     >
                       <option value="todas">Categoría: Todas</option>
                       {categorias.map(cat => (
@@ -744,19 +808,24 @@ const ParvosAccount = () => {
                     <select 
                       value={filtros.cuenta}
                       onChange={(e) => setFiltros({...filtros, cuenta: e.target.value})}
-                      className="bg-white dark:bg-stone-800 border-slate-200 dark:border-stone-700 rounded-lg text-[10px] font-bold py-1.5 focus:ring-purple-500/20"
+                      className={`bg-white dark:bg-stone-800 border-2 rounded-lg text-xs font-semibold px-2.5 py-1.5 cursor-pointer transition-all focus:ring-2 focus:ring-purple-500/20 focus:outline-none min-w-0 ${
+                        filtros.cuenta !== 'todas' 
+                          ? 'border-purple-500 dark:border-purple-400 text-purple-700 dark:text-purple-300' 
+                          : 'border-slate-200 dark:border-stone-700 hover:border-slate-300 dark:hover:border-stone-600'
+                      }`}
                     >
                       <option value="todas">Cuenta: Todas</option>
                       <option value="BBVA">BBVA</option>
                       <option value="Imagin">Imagin</option>
                     </select>
-                    {/* Botón limpiar filtros */}
+                    {/* Botón limpiar filtros - Solo icono */}
                     {(filtros.tipo !== 'todos' || filtros.categoria !== 'todas' || filtros.cuenta !== 'todas') && (
                       <button
                         onClick={() => setFiltros({ tipo: 'todos', categoria: 'todas', cuenta: 'todas' })}
-                        className="px-3 py-1.5 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 rounded-lg text-[10px] font-bold transition-colors"
+                        className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-stone-700 dark:hover:bg-stone-600 text-slate-700 dark:text-slate-200 rounded-lg transition-all active:scale-95 flex-shrink-0"
+                        title="Limpiar todos los filtros"
                       >
-                        Limpiar Filtros
+                        <X className="w-4 h-4" />
                       </button>
                     )}
                   </div>
@@ -831,16 +900,18 @@ const ParvosAccount = () => {
                         }`}>
                           {formatAmount(parseFloat(op.cantidad) || 0)} €
                         </span>
-                        <div className="flex gap-1">
+                        <div className="flex gap-2">
                           <button 
                             onClick={() => setModalEditarOperacion({ abierto: true, operacion: {...op} })}
-                            className="p-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 active:scale-95 transition-all"
+                            className="p-2.5 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 active:scale-95 transition-all shadow-sm"
+                            title="Editar"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button 
                             onClick={() => setModalEliminar({ abierto: true, id: op.id })}
-                            className="p-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 active:scale-95 transition-all"
+                            className="p-2.5 rounded-xl bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 active:scale-95 transition-all shadow-sm"
+                            title="Eliminar"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -963,17 +1034,17 @@ const ParvosAccount = () => {
                         )}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-1.5">
+                        <div className="flex justify-end gap-2">
                           <button 
                             onClick={() => setModalEditarOperacion({ abierto: true, operacion: {...op} })}
-                            className="p-2 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all"
+                            className="p-2 rounded-lg bg-slate-100 hover:bg-purple-100 dark:bg-stone-800 dark:hover:bg-purple-900/30 text-slate-600 hover:text-purple-600 dark:text-slate-400 dark:hover:text-purple-400 transition-all active:scale-95"
                             title="Editar operación"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button 
                             onClick={() => setModalEliminar({ abierto: true, id: op.id })}
-                            className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-all"
+                            className="p-2 rounded-lg bg-slate-100 hover:bg-red-100 dark:bg-stone-800 dark:hover:bg-red-900/30 text-slate-600 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400 transition-all active:scale-95"
                             title="Eliminar operación"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1252,14 +1323,24 @@ const ParvosAccount = () => {
                             </span>
                           )}
                         </div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                          {new Date(act.fecha).toLocaleDateString('es-ES', { 
-                            day: '2-digit', 
-                            month: 'short', 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </span>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                            {new Date(act.fecha).toLocaleDateString('es-ES', { 
+                              day: '2-digit', 
+                              month: 'short', 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </span>
+                          {act.categoria && (
+                            <>
+                              <span className="text-[10px] text-slate-300 dark:text-slate-600">•</span>
+                              <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                                {act.categoria}
+                              </span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
