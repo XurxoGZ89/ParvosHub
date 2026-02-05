@@ -985,12 +985,19 @@ exports.getTotalSavings = async (req, res) => {
              END), 0) as ahorro_anterior
       FROM users u
       LEFT JOIN user_operations uo ON u.id = uo.user_id AND uo.account_name = 'Ahorro'
-      WHERE u.username = 'Sonia'
+      WHERE u.username = 'sonia'
       GROUP BY u.id, u.username
     `;
     const soniaResult = await db.query(soniaQuery, [lastMonthYear, lastMonth]);
     const ahorroSoniaCurrent = soniaResult.rows[0]?.ahorro_actual ? parseFloat(soniaResult.rows[0].ahorro_actual) : 0;
     const ahorroSoniaPrev = soniaResult.rows[0]?.ahorro_anterior ? parseFloat(soniaResult.rows[0].ahorro_anterior) : 0;
+    
+    // DEBUG: Log de resultados
+    console.log('📊 Total Savings Debug:', {
+      parvos: { current: ahorroParvosCurrent, prev: ahorroParvosPrev },
+      xurxo: { current: ahorroXurxoCurrent, prev: ahorroXurxoPrev, rows: xurxoResult.rows },
+      sonia: { current: ahorroSoniaCurrent, prev: ahorroSoniaPrev, rows: soniaResult.rows }
+    });
     
     // Calcular totales
     const totalCurrent = ahorroParvosCurrent + ahorroXurxoCurrent + ahorroSoniaCurrent;
