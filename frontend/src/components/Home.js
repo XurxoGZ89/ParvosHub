@@ -14,6 +14,7 @@ const Home = () => {
   const formatAmount = usePrivacyFormatter();
   const [userStats, setUserStats] = useState(null);
   const [parvosStats, setParvosStats] = useState(null);
+  const [totalSavingsStats, setTotalSavingsStats] = useState(null);
   const [mealData, setMealData] = useState([]);
   const [mealPage, setMealPage] = useState(0);
   const [calendarEvents, setCalendarEvents] = useState([]);
@@ -40,6 +41,10 @@ const Home = () => {
         // Obtener resumen del dashboard personal del usuario
         const userDashboardResponse = await api.get('/api/user/dashboard-summary');
         const userDashboard = userDashboardResponse.data;
+
+        // Obtener ahorro total combinado
+        const totalSavingsResponse = await api.get('/api/user/total-savings');
+        setTotalSavingsStats(totalSavingsResponse.data);
 
         const operationsResponse = await api.get('/operaciones');
         const mealsResponse = await api.get('/comidas-planificadas');
@@ -242,12 +247,14 @@ const Home = () => {
     }
   };
 
-  if (!parvosStats || !userStats) {
+  if (!parvosStats || !userStats || !totalSavingsStats) {
     return <div className="flex items-center justify-center h-64">Cargando...</div>;
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="space-y-6">
+      {/* Primera fila - 3 widgets de situación */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Personal Situation */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="flex items-center justify-between mb-5">
@@ -393,6 +400,87 @@ const Home = () => {
           </div>
         </div>
       </div>
+
+      {/* Ahorro Total Parvos */}
+      <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 p-6 rounded-2xl border border-emerald-200 dark:border-emerald-800 shadow-sm">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-lg bg-emerald-600/20 flex items-center justify-center">
+              <span className="text-lg">💰</span>
+            </div>
+            <h2 className="text-sm font-bold text-emerald-900 dark:text-emerald-200">Ahorro Total Parvos</h2>
+          </div>
+          <Button 
+            onClick={() => navigate('/user-account')}
+            variant="ghost"
+            className="text-emerald-700 dark:text-emerald-400 font-bold text-xs hover:opacity-80 h-auto p-0"
+          >
+            Ver todo
+          </Button>
+        </div>
+
+        <div className="mb-4">
+          <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-1">Saldo Total</p>
+          <h3 className="text-2xl font-extrabold text-emerald-900 dark:text-emerald-100 tracking-tight">
+            {formatAmount(totalSavingsStats?.totalSavings || 0)}€
+          </h3>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          <div className="bg-white/60 dark:bg-slate-800/40 px-2 py-2 rounded-lg border border-emerald-100 dark:border-emerald-800/50">
+            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 block mb-1">Parvos</span>
+            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-100">
+              {formatAmount(totalSavingsStats?.parvos || 0)}€
+            </span>
+          </div>
+          <div className="bg-white/60 dark:bg-slate-800/40 px-2 py-2 rounded-lg border border-emerald-100 dark:border-emerald-800/50">
+            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 block mb-1">Xurxo</span>
+            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-100">
+              {formatAmount(totalSavingsStats?.xurxo || 0)}€
+            </span>
+          </div>
+          <div className="bg-white/60 dark:bg-slate-800/40 px-2 py-2 rounded-lg border border-emerald-100 dark:border-emerald-800/50">
+            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 block mb-1">Sonia</span>
+            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-100">
+              {formatAmount(totalSavingsStats?.sonia || 0)}€
+            </span>
+          </div>
+        </div>
+
+        <div className={`flex items-center justify-between px-3 py-2 rounded-lg border ${
+          totalSavingsStats?.difference >= 0 
+            ? 'bg-emerald-100/60 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' 
+            : 'bg-red-50/50 dark:bg-red-900/10 border-red-100/50 dark:border-red-900/20'
+        }`}>
+          <span className={`text-xs font-bold uppercase ${
+            totalSavingsStats?.difference >= 0 
+              ? 'text-emerald-700 dark:text-emerald-400' 
+              : 'text-red-600 dark:text-red-500'
+          }`}>
+            vs. Mes Anterior
+          </span>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs font-bold ${
+              totalSavingsStats?.difference >= 0 
+                ? 'text-emerald-800 dark:text-emerald-300' 
+                : 'text-red-700 dark:text-red-400'
+            }`}>
+              {totalSavingsStats?.difference >= 0 ? '+' : ''}{formatAmount(totalSavingsStats?.difference || 0)}€
+            </span>
+            <span className={`text-xs font-bold ${
+              totalSavingsStats?.difference >= 0 
+                ? 'text-emerald-800 dark:text-emerald-300' 
+                : 'text-red-700 dark:text-red-400'
+            }`}>
+              ({totalSavingsStats?.percentageChange >= 0 ? '+' : ''}{totalSavingsStats?.percentageChange?.toFixed(1) || 0}%)
+            </span>
+          </div>
+        </div>
+      </div>
+      </div>
+
+      {/* Segunda fila - Resto de widgets */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
       {/* Menú Semanal */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -857,6 +945,7 @@ const Home = () => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

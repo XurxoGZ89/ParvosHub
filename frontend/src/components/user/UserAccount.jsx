@@ -2,12 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactPaginate from 'react-paginate';
 import { 
   ShoppingCart, 
-  Dumbbell, 
   Home as HomeIcon, 
   Car, 
   Utensils,
   Plus,
-  Plane,
   Edit,
   Trash2,
   ChevronLeft,
@@ -16,18 +14,21 @@ import {
   PiggyBank,
   TrendingUp,
   TrendingDown,
+  Target,
+  Clock,
   Search,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
   CreditCard,
-  Coffee,
-  Briefcase,
-  Building2
+  DollarSign,
+  FileText
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../stores/authStore';
 import bbvaLogo from '../../assets/BBVA_2019.svg.png';
+import santanderLogo from '../../assets/santander.png';
+import imaginLogo from '../../assets/imagin.webp';
 import { usePrivacyFormatter } from '../../utils/privacyFormatter';
 
 const meses = [
@@ -63,10 +64,15 @@ const UserAccount = () => {
   const [modalEliminar, setModalEliminar] = useState({ abierto: false, id: null });
   const [modalEditarOperacion, setModalEditarOperacion] = useState({ abierto: false, operacion: null });
   const [modalEditarPresupuesto, setModalEditarPresupuesto] = useState(false);
+  const [modalEditarMeta, setModalEditarMeta] = useState({ abierto: false, meta: null });
 
   // Estados para presupuestos
   const [presupuestos, setPresupuestos] = useState([]);
   const [presupuestosEditables, setPresupuestosEditables] = useState({});
+  
+  // Estados para metas y actividad
+  const [metas, setMetas] = useState([]);
+  const [actividad, setActividad] = useState([]);
   
   // Todas las operaciones (sin filtrar) para cálculos de ahorro
   const [todasLasOperaciones, setTodasLasOperaciones] = useState([]);
@@ -78,7 +84,7 @@ const UserAccount = () => {
 
   const [formNuevaOperacion, setFormNuevaOperacion] = useState({
     fecha: new Date().toISOString().split('T')[0],
-    tipo: 'expense',
+    tipo: 'gasto',
     cantidad: '',
     descripcion: '',
     categoria: 'Alimentación',
@@ -89,15 +95,12 @@ const UserAccount = () => {
 
   const categorias = [
     { nombre: 'Alimentación', icon: ShoppingCart, color: 'amber' },
-    { nombre: 'Deporte', icon: Dumbbell, color: 'cyan' },
     { nombre: 'Ocio', icon: Utensils, color: 'red' },
     { nombre: 'Hogar', icon: HomeIcon, color: 'emerald' },
-    { nombre: 'Movilidad', icon: Car, color: 'blue' },
+    { nombre: 'Alquiler', icon: DollarSign, color: 'indigo' },
     { nombre: 'Extra', icon: Plus, color: 'purple' },
-    { nombre: 'Vacaciones', icon: Plane, color: 'orange' },
-    { nombre: 'Café', icon: Coffee, color: 'orange' },
-    { nombre: 'Trabajo', icon: Briefcase, color: 'slate' },
-    { nombre: 'Banco', icon: Building2, color: 'indigo' }
+    { nombre: 'Recibos', icon: FileText, color: 'slate' },
+    { nombre: 'Movilidad', icon: Car, color: 'blue' }
   ];
 
   const tablaRef = useRef(null);
@@ -122,19 +125,34 @@ const UserAccount = () => {
       // Cargar operaciones del mes
       try {
         const opsResponse = await api.get('/api/user/operations', { params: { mes: mesFormato } });
-        setOperaciones(opsResponse.data || []);
+        const ops = (opsResponse.data || []).map(op => ({
+          ...op,
+          type: tipoEnToEs(op.type)
+        }));
+        setOperaciones(ops);
       } catch (opsError) {
         console.error('Error al cargar operaciones:', opsError);
         setOperaciones([]);
       }
 
-      // Cargar todas las operaciones (sin filtrar) para cálculos de ahorro acumulado
+      // Cargar todas las operaciones (sin filtrar) para cálculos de ahorro acumulado y actividad
       try {
         const allOpsResponse = await api.get('/api/user/operations');
-        setTodasLasOperaciones(allOpsResponse.data || []);
+        const ops = (allOpsResponse.data || []).map(op => ({
+          ...op,
+          type: tipoEnToEs(op.type)
+        }));
+        setTodasLasOperaciones(ops);
+        
+        // Cargar las últimas 5 operaciones para actividad reciente (ordenadas por fecha desc)
+        const actividadReciente = [...ops]
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .slice(0, 5);
+        setActividad(actividadReciente);
       } catch (allOpsError) {
         console.error('Error al cargar todas las operaciones:', allOpsError);
         setTodasLasOperaciones([]);
+        setActividad([]);
       }
 
       // Cargar presupuestos
@@ -144,6 +162,15 @@ const UserAccount = () => {
       } catch (budgetsError) {
         console.error('Error al cargar presupuestos:', budgetsError);
         setPresupuestos([]);
+      }
+
+      // Cargar metas
+      try {
+        const metasResponse = await api.get('/api/user/goals');
+        setMetas(metasResponse.data || []);
+      } catch (metasError) {
+        console.error('Error al cargar metas:', metasError);
+        setMetas([]);
       }
     } catch (error) {
       console.error('Error al cargar datos personales:', error);
@@ -163,25 +190,37 @@ const UserAccount = () => {
     const cuenta2 = cuentasUsuario[1];
 
     const totalCuenta1 = todasLasOperaciones
-      .filter(op => op.account_name === cuenta1 && op.type !== 'savings')
+      .filter(op => op.account_name === cuenta1 && op.type !== 'hucha')
       .reduce((sum, op) => {
-        if (op.type === 'income' || op.type === 'savings_withdrawal') return sum + parseFloat(op.amount || 0);
-        if (op.type === 'expense') return sum - parseFloat(op.amount || 0);
+        if (op.type === 'ingreso' || op.type === 'retirada-hucha') return sum + parseFloat(op.amount || 0);
+        if (op.type === 'gasto') return sum - parseFloat(op.amount || 0);
         return sum;
       }, 0);
 
     const totalCuenta2 = todasLasOperaciones
-      .filter(op => op.account_name === cuenta2 && op.type !== 'savings')
+      .filter(op => op.account_name === cuenta2 && op.type !== 'hucha')
       .reduce((sum, op) => {
-        if (op.type === 'income' || op.type === 'savings_withdrawal') return sum + parseFloat(op.amount || 0);
-        if (op.type === 'expense') return sum - parseFloat(op.amount || 0);
+        if (op.type === 'ingreso' || op.type === 'retirada-hucha') return sum + parseFloat(op.amount || 0);
+        if (op.type === 'gasto') return sum - parseFloat(op.amount || 0);
         return sum;
       }, 0);
+
+    // Ingresos del mes incluyen ingresos y retiradas a las cuentas principales
+    const ingresos = operacionesDelMes
+      .filter(op => op.type === 'ingreso' || 
+        (op.type === 'retirada-hucha' && (op.account_name === cuenta1 || op.account_name === cuenta2)))
+      .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
+
+    const gastos = operacionesDelMes
+      .filter(op => op.type === 'gasto')
+      .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
 
     return {
       cuenta1: totalCuenta1,
       cuenta2: totalCuenta2,
-      total: totalCuenta1 + totalCuenta2
+      total: totalCuenta1 + totalCuenta2,
+      ingresos,
+      gastos
     };
   };
 
@@ -199,11 +238,22 @@ const UserAccount = () => {
       return false;
     });
 
-    // Calcular ahorro total: suma todas las operaciones de tipo savings/savings_withdrawal
-    // (savings positivas + savings_withdrawal negativas = total algebraico)
+    // Calcular ahorro total: hucha suma, retirada-hucha resta
     const ahorroActual = operacionesHastaAhora
-      .filter(op => op.type === 'savings' || (op.type === 'savings_withdrawal' && op.account_name === 'Ahorro'))
-      .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
+      .filter(op => {
+        // Reconocer tanto tipos español como inglés para compatibilidad
+        const esHucha = (op.type === 'hucha' || op.type === 'savings') && (op.account_name === 'Ahorro' || op.account_name === null);
+        const esRetirada = (op.type === 'retirada-hucha' || op.type === 'savings_withdrawal') && op.account_name === 'Ahorro';
+        return esHucha || esRetirada;
+      })
+      .reduce((sum, op) => {
+        if (op.type === 'hucha' || op.type === 'savings') {
+          return sum + parseFloat(op.amount || 0);
+        } else if (op.type === 'retirada-hucha' || op.type === 'savings_withdrawal') {
+          return sum - parseFloat(op.amount || 0);
+        }
+        return sum;
+      }, 0);
 
     // Calcular ahorro del mes anterior
     const mesAnteriorIdx = mesIdx === 0 ? 11 : mesIdx - 1;
@@ -220,8 +270,20 @@ const UserAccount = () => {
     });
 
     const ahorroAnterior = operacionesHastaMesAnterior
-      .filter(op => op.type === 'savings' || (op.type === 'savings_withdrawal' && op.account_name === 'Ahorro'))
-      .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
+      .filter(op => {
+        // Reconocer tanto tipos español como inglés para compatibilidad
+        const esHucha = (op.type === 'hucha' || op.type === 'savings') && (op.account_name === 'Ahorro' || op.account_name === null);
+        const esRetirada = (op.type === 'retirada-hucha' || op.type === 'savings_withdrawal') && op.account_name === 'Ahorro';
+        return esHucha || esRetirada;
+      })
+      .reduce((sum, op) => {
+        if (op.type === 'hucha' || op.type === 'savings') {
+          return sum + parseFloat(op.amount || 0);
+        } else if (op.type === 'retirada-hucha' || op.type === 'savings_withdrawal') {
+          return sum - parseFloat(op.amount || 0);
+        }
+        return sum;
+      }, 0);
 
     const diferencia = ahorroActual - ahorroAnterior;
     const porcentaje = ahorroAnterior !== 0 ? ((diferencia / Math.abs(ahorroAnterior)) * 100) : 0;
@@ -234,17 +296,58 @@ const UserAccount = () => {
     };
   };
 
+  // Calcular el saldo total del mes anterior
+  const calcularSaldoMesAnterior = () => {
+    const mesIdx = meses.indexOf(mesSeleccionado);
+    const mesAnteriorIdx = mesIdx === 0 ? 11 : mesIdx - 1;
+    const añoAnterior = mesIdx === 0 ? añoSeleccionado - 1 : añoSeleccionado;
+
+    const operacionesHastaMesAnterior = todasLasOperaciones.filter(op => {
+      const fecha = new Date(op.date);
+      const mesOp = fecha.getMonth();
+      const añoOp = fecha.getFullYear();
+      
+      if (añoOp < añoAnterior) return true;
+      if (añoOp === añoAnterior && mesOp <= mesAnteriorIdx) return true;
+      return false;
+    });
+
+    const totalCuenta1Anterior = operacionesHastaMesAnterior
+      .filter(op => op.account_name === cuentasUsuario[0] && op.type !== 'hucha')
+      .reduce((sum, op) => {
+        if (op.type === 'ingreso' || op.type === 'retirada-hucha') return sum + parseFloat(op.amount || 0);
+        if (op.type === 'gasto') return sum - parseFloat(op.amount || 0);
+        return sum;
+      }, 0);
+
+    const totalCuenta2Anterior = operacionesHastaMesAnterior
+      .filter(op => op.account_name === cuentasUsuario[1] && op.type !== 'hucha')
+      .reduce((sum, op) => {
+        if (op.type === 'ingreso' || op.type === 'retirada-hucha') return sum + parseFloat(op.amount || 0);
+        if (op.type === 'gasto') return sum - parseFloat(op.amount || 0);
+        return sum;
+      }, 0);
+
+    const nombreMesAnterior = meses[mesAnteriorIdx].charAt(0).toUpperCase() + meses[mesAnteriorIdx].slice(1);
+
+    return {
+      total: totalCuenta1Anterior + totalCuenta2Anterior,
+      nombreMes: nombreMesAnterior
+    };
+  };
+
   // Calcular ingresos y gastos del mes seleccionado
+  // eslint-disable-next-line no-unused-vars
   const calcularIngresosGastosDelMes = () => {
     const ingresos = operacionesDelMes
       .filter(op => 
-        op.type === 'income' || 
-        (op.type === 'savings_withdrawal' && op.account_name !== 'Ahorro' && parseFloat(op.amount) > 0)
+        op.type === 'ingreso' || 
+        (op.type === 'retirada-hucha' && op.account_name !== 'Ahorro' && parseFloat(op.amount) > 0)
       )
       .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
 
     const gastos = operacionesDelMes
-      .filter(op => op.type === 'expense')
+      .filter(op => op.type === 'gasto')
       .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
 
     return { ingresos, gastos };
@@ -254,7 +357,7 @@ const UserAccount = () => {
   const calcularGastosPorCategoria = () => {
     return categorias.map(cat => {
       const gastos = operacionesDelMes
-        .filter(op => op.type === 'expense' && op.category === cat.nombre)
+        .filter(op => op.type === 'gasto' && op.category === cat.nombre)
         .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
 
       return {
@@ -273,9 +376,10 @@ const UserAccount = () => {
     const presupuestosDelMes = presupuestos.filter(p => p.mes === mesClave);
     
     return categorias.map(cat => {
-      const presupuesto = presupuestosDelMes.find(p => p.categoria === cat.nombre)?.cantidad || 0;
+      const presupuestoRaw = presupuestosDelMes.find(p => p.categoria === cat.nombre)?.cantidad;
+      const presupuesto = parseFloat(presupuestoRaw) || 0;
       const gastado = operacionesDelMes
-        .filter(op => op.type === 'expense' && op.category === cat.nombre)
+        .filter(op => op.type === 'gasto' && op.category === cat.nombre)
         .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
 
       return {
@@ -361,7 +465,7 @@ const UserAccount = () => {
       let accountName = formNuevaOperacion.cuenta;
       let description = formNuevaOperacion.descripcion;
       
-      if (formNuevaOperacion.tipo === 'savings_withdrawal') {
+      if (formNuevaOperacion.tipo === 'retirada-hucha') {
         accountName = formNuevaOperacion.cuentaDestino;
         description = `Traspaso desde ${formNuevaOperacion.cuentaOrigen} a ${formNuevaOperacion.cuentaDestino}${formNuevaOperacion.descripcion ? ' - ' + formNuevaOperacion.descripcion : ''}`;
       }
@@ -369,15 +473,15 @@ const UserAccount = () => {
       await api.post('/api/user/operations', {
         account_name: accountName,
         date: formNuevaOperacion.fecha,
-        type: formNuevaOperacion.tipo,
+        type: tipoEsToEn(formNuevaOperacion.tipo),
         amount: parseFloat(formNuevaOperacion.cantidad),
         description: description,
-        category: formNuevaOperacion.tipo === 'expense' ? formNuevaOperacion.categoria : ''
+        category: formNuevaOperacion.tipo === 'gasto' ? formNuevaOperacion.categoria : ''
       });
       
       setFormNuevaOperacion({
         fecha: new Date().toISOString().split('T')[0],
-        tipo: 'expense',
+        tipo: 'gasto',
         cantidad: '',
         descripcion: '',
         categoria: 'Alimentación',
@@ -408,7 +512,7 @@ const UserAccount = () => {
       let description = modalEditarOperacion.operacion.description;
       
       // Si es un traspaso y tiene cuentaOrigen y cuentaDestino, reconstruir la descripción
-      if (modalEditarOperacion.operacion.type === 'savings_withdrawal' && 
+      if (modalEditarOperacion.operacion.type === 'retirada-hucha' && 
           modalEditarOperacion.operacion.cuentaOrigen && 
           modalEditarOperacion.operacion.cuentaDestino) {
         accountName = modalEditarOperacion.operacion.cuentaDestino;
@@ -421,10 +525,10 @@ const UserAccount = () => {
       await api.put(`/api/user/operations/${modalEditarOperacion.operacion.id}`, {
         account_name: accountName,
         date: modalEditarOperacion.operacion.date,
-        type: modalEditarOperacion.operacion.type,
+        type: tipoEsToEn(modalEditarOperacion.operacion.type),
         amount: parseFloat(modalEditarOperacion.operacion.amount),
         description: description,
-        category: modalEditarOperacion.operacion.type === 'expense' ? modalEditarOperacion.operacion.category : ''
+        category: modalEditarOperacion.operacion.type === 'gasto' ? modalEditarOperacion.operacion.category : ''
       });
       setModalEditarOperacion({ abierto: false, operacion: null });
       cargarDatos();
@@ -443,6 +547,21 @@ const UserAccount = () => {
       cargarDatos();
     } catch (error) {
       console.error('Error al guardar presupuestos:', error);
+    }
+  };
+
+  const handleGuardarMeta = async (e) => {
+    e.preventDefault();
+    try {
+      if (modalEditarMeta.meta.id) {
+        await api.put(`/api/user/goals/${modalEditarMeta.meta.id}`, modalEditarMeta.meta);
+      } else {
+        await api.post('/api/user/goals', modalEditarMeta.meta);
+      }
+      setModalEditarMeta({ abierto: false, meta: null });
+      cargarDatos();
+    } catch (error) {
+      console.error('Error al guardar meta:', error);
     }
   };
 
@@ -466,10 +585,10 @@ const UserAccount = () => {
   // Mapeo de tipos para mostrar
   const tipoLabel = (tipo) => {
     const tipos = {
-      'expense': 'Gasto',
-      'income': 'Ingreso',
-      'savings': 'Ahorro',
-      'savings_withdrawal': 'Retirada'
+      'gasto': 'Gasto',
+      'ingreso': 'Ingreso',
+      'hucha': 'Ahorro',
+      'retirada-hucha': 'Retirada'
     };
     return tipos[tipo] || tipo;
   };
@@ -481,9 +600,32 @@ const UserAccount = () => {
     return d.toISOString().split('T')[0];
   };
 
+  // Mapear tipos español -> inglés para API
+  const tipoEsToEn = (tipo) => {
+    const map = {
+      'gasto': 'expense',
+      'ingreso': 'income',
+      'hucha': 'savings',
+      'retirada-hucha': 'savings_withdrawal'
+    };
+    return map[tipo] || tipo;
+  };
+
+  // Mapear tipos inglés -> español para UI
+  const tipoEnToEs = (tipo) => {
+    const map = {
+      'expense': 'gasto',
+      'income': 'ingreso',
+      'savings': 'hucha',
+      'savings_withdrawal': 'retirada-hucha'
+    };
+    return map[tipo] || tipo;
+  };
+
   const totales = calcularTotales();
   const ahorro = calcularAhorro();
-  const ingresosGastosDelMes = calcularIngresosGastosDelMes();
+  const saldoMesAnterior = calcularSaldoMesAnterior();
+  // const ingresosGastosDelMes = calcularIngresosGastosDelMes();
   const gastosPorCategoria = calcularGastosPorCategoria();
   const presupuestoVsReal = calcularPresupuestoVsReal();
 
@@ -518,59 +660,76 @@ const UserAccount = () => {
 
       {/* Tarjetas de Balance */}
       <div className="grid grid-cols-2 lg:grid-cols-12 gap-3 lg:gap-6 p-4 lg:p-0">
-        {/* Balance Total */}
-        <div className="col-span-2 lg:col-span-3 bg-white dark:bg-stone-900 p-4 lg:p-6 rounded-2xl lg:rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm">
-          <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Balance Total</p>
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-xl lg:text-4xl font-extrabold text-emerald-500">{formatAmount(totales.total || 0)} €</h2>
-            <div className="flex flex-col gap-1.5">
-              <div className="bg-emerald-50/50 dark:bg-emerald-900/10 px-2 py-1 lg:px-3 lg:py-1.5 rounded-lg border border-emerald-100/50 dark:border-emerald-900/20">
-                <div className="text-right text-[9px] lg:text-xs font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
-                  +{formatAmount(ingresosGastosDelMes.ingresos || 0)} €
-                </div>
+        {/* Saldo Actual */}
+        <div className="col-span-2 lg:col-span-3 bg-white dark:bg-stone-900 p-2.5 lg:p-3 rounded-2xl lg:rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm flex flex-col justify-between">
+          <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Saldo Actual</p>
+          <h2 className="text-xl lg:text-4xl font-extrabold text-emerald-500">{formatAmount(totales.total || 0)} €</h2>
+          <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+            {formatAmount(saldoMesAnterior.total || 0)} € de {saldoMesAnterior.nombreMes}
+          </p>
+        </div>
+
+        {/* Card 2: Cuentas */}
+        <div className="col-span-2 lg:col-span-3 bg-white dark:bg-stone-900 p-2.5 lg:p-3 rounded-2xl border border-slate-200 dark:border-stone-800 shadow-sm">
+          <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Cuentas</p>
+          <div className="space-y-1.5">
+            {/* Cuenta Principal */}
+            <div className="flex items-center justify-between">
+              {user?.username === 'xurxo' ? (
+                <img src={santanderLogo} alt="Santander" className="w-12 h-12 lg:w-14 lg:h-14 object-contain" />
+              ) : (
+                <img src={bbvaLogo} alt="BBVA" className="w-12 h-12 lg:w-14 lg:h-14 object-contain" />
+              )}
+              <h3 className="text-base lg:text-lg font-bold">{formatAmount(totales.cuenta1 || 0)} €</h3>
+            </div>
+            {/* Segunda Cuenta */}
+            <div className="flex items-center justify-between">
+              <div className="w-12 h-12 lg:w-14 lg:h-14 bg-purple-50 dark:bg-purple-900/20 rounded-xl flex items-center justify-center border border-purple-100 dark:border-purple-800/30">
+                <CreditCard className="w-6 h-6 lg:w-7 lg:h-7 text-purple-600" />
               </div>
-              <div className="bg-red-50/50 dark:bg-red-900/10 px-2 py-1 lg:px-3 lg:py-1.5 rounded-lg border border-red-100/50 dark:border-red-900/20">
-                <div className="text-right text-[9px] lg:text-xs font-bold text-red-700 dark:text-red-400 whitespace-nowrap">
-                  -{formatAmount(ingresosGastosDelMes.gastos || 0)} €
-                </div>
+              <h3 className="text-base lg:text-lg font-bold">{formatAmount(totales.cuenta2 || 0)} €</h3>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Balance del Mes (Ingresos/Gastos/Resultado) */}
+        <div className="col-span-2 lg:col-span-3 bg-white dark:bg-stone-900 p-2.5 lg:p-3 rounded-2xl border border-slate-200 dark:border-stone-800 shadow-sm">
+          <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Balance del Mes</p>
+          <div className="space-y-1.5">
+            {/* Ingresos */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs lg:text-sm font-semibold text-emerald-600 dark:text-emerald-400">Ingresos</span>
+              <span className="text-sm lg:text-base font-bold text-emerald-600 dark:text-emerald-400">+{formatAmount(totales.ingresos || 0)} €</span>
+            </div>
+            {/* Gastos */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs lg:text-sm font-semibold text-red-600 dark:text-red-400">Gastos</span>
+              <span className="text-sm lg:text-base font-bold text-red-600 dark:text-red-400">-{formatAmount(totales.gastos || 0)} €</span>
+            </div>
+            {/* Separador */}
+            <div className="border-t border-slate-200 dark:border-stone-700 pt-1.5">
+              {/* Resultado */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs lg:text-sm font-bold text-slate-700 dark:text-slate-300">Resultado</span>
+                <span className={`text-base lg:text-lg font-extrabold ${
+                  (totales.ingresos - totales.gastos) >= 0 
+                    ? 'text-teal-500 dark:text-teal-400' 
+                    : 'text-orange-500 dark:text-orange-400'
+                }`}>
+                  {(totales.ingresos - totales.gastos) >= 0 ? '+' : ''}{formatAmount((totales.ingresos - totales.gastos) || 0)} €
+                </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Cuenta 1 */}
-        <div className="lg:col-span-3 bg-white dark:bg-stone-900 p-4 lg:p-5 rounded-2xl border border-slate-200 dark:border-stone-800 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{cuentasUsuario[0]}</p>
-            <h3 className="text-lg lg:text-xl font-bold">{formatAmount(totales.cuenta1 || 0)} €</h3>
-          </div>
-          <div className="w-10 h-10 lg:w-12 lg:h-12 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center border border-blue-100 dark:border-blue-800/30">
-            {cuentasUsuario[0] === 'BBVA' ? (
-              <img src={bbvaLogo} alt="BBVA" className="w-8 h-8 lg:w-10 lg:h-10 object-contain" />
-            ) : (
-              <CreditCard className="w-6 h-6 lg:w-7 lg:h-7 text-blue-600" />
-            )}
-          </div>
-        </div>
-
-        {/* Cuenta 2 */}
-        <div className="lg:col-span-3 bg-white dark:bg-stone-900 p-4 lg:p-5 rounded-2xl border border-slate-200 dark:border-stone-800 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{cuentasUsuario[1]}</p>
-            <h3 className="text-lg lg:text-xl font-bold">{formatAmount(totales.cuenta2 || 0)} €</h3>
-          </div>
-          <div className="w-10 h-10 lg:w-12 lg:h-12 bg-purple-50 dark:bg-purple-900/20 rounded-xl flex items-center justify-center border border-purple-100 dark:border-purple-800/30">
-            <CreditCard className="w-6 h-6 lg:w-7 lg:h-7 text-purple-600" />
-          </div>
-        </div>
-
-        {/* Ahorro Total */}
-        <div className="col-span-2 lg:col-span-3 bg-gradient-to-br from-emerald-500 to-teal-600 p-4 lg:p-5 rounded-2xl shadow-sm flex flex-col justify-between text-white">
-          <div className="flex items-center justify-between mb-2">
+        {/* Card 4: Ahorro Total */}
+        <div className="col-span-2 lg:col-span-3 bg-gradient-to-br from-emerald-500 to-teal-600 p-2.5 lg:p-3 rounded-2xl shadow-sm flex flex-col justify-between text-white">
+          <div className="flex items-center justify-between mb-0.5">
             <p className="text-[9px] lg:text-[10px] font-bold uppercase tracking-widest opacity-90">Ahorro Total</p>
             <PiggyBank className="w-4 h-4 lg:w-5 lg:h-5 opacity-80" />
           </div>
-          <h3 className="text-xl lg:text-2xl font-bold mb-1">{formatAmount(ahorro.actual || 0)} €</h3>
+          <h3 className="text-xl lg:text-4xl font-extrabold">{formatAmount(ahorro.actual || 0)} €</h3>
           <div className="flex items-center gap-2 text-xs">
             {ahorro.diferencia >= 0 ? (
               <>
@@ -591,19 +750,28 @@ const UserAccount = () => {
       <div className="grid grid-cols-12 gap-4 lg:gap-8 p-4 lg:p-0">
         {/* Columna Principal */}
         <div className="col-span-12 lg:col-span-8 space-y-4 lg:space-y-8">
-          {/* Gráfico de Gastos por Categoría */}
-          <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm">
+          {/* Gráficos - Colapsables en móvil */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-8">
+            {/* Gastos por Categoría */}
+            <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-bold flex items-center gap-2">
                 <span className="text-lg">📊</span>
                 Gastos por Categoría
               </h3>
             </div>
-            <div className="h-64 flex items-end justify-around gap-2 px-2">
+            <div className="h-64 flex items-end justify-around gap-2 px-2 pt-10">
               {gastosPorCategoria.map((item, idx) => {
                 const Icon = item.icon;
                 const maxGasto = Math.max(...gastosPorCategoria.map(g => g.cantidad), 1);
                 const altura = (item.cantidad / maxGasto) * 100;
+                
+                // Encontrar presupuesto de esta categoría
+                const mesIdx = meses.indexOf(mesSeleccionado);
+                const mesClave = `${añoSeleccionado}-${String(mesIdx + 1).padStart(2, '0')}`;
+                const presupuestosDelMes = presupuestos.filter(p => p.mes === mesClave);
+                const presupuestoCategoria = presupuestosDelMes.find(p => p.categoria === item.categoria)?.cantidad || 0;
+                const alturaPresupuesto = presupuestoCategoria > 0 ? (presupuestoCategoria / maxGasto) * 100 : 0;
                 
                 const coloresBarras = {
                   'amber': 'bg-amber-400',
@@ -620,13 +788,22 @@ const UserAccount = () => {
                 return (
                   <div key={idx} className="flex flex-col items-center gap-2 w-full h-full">
                     <div className="relative w-full flex-1 flex flex-col justify-end">
+                      {presupuestoCategoria > 0 && alturaPresupuesto <= 100 && (
+                        <div 
+                          className="absolute w-full border-t-2 border-black dark:border-white border-dashed z-[5]"
+                          style={{ bottom: `${Math.min(alturaPresupuesto, 100)}%` }}
+                          title={`Presupuesto: ${presupuestoCategoria}€`}
+                        />
+                      )}
                       <div 
-                        className={`w-full ${coloresBarras[item.color] || 'bg-slate-400'} rounded-t-lg transition-all hover:opacity-80 relative`}
-                        style={{ height: `${altura}%`, minHeight: item.cantidad > 0 ? '20px' : '0px' }}
+                        className={`w-full ${coloresBarras[item.color] || 'bg-slate-400'} rounded-t-lg transition-all hover:opacity-80 relative z-10`}
+                        style={{ height: `${Math.min(altura, 100)}%`, minHeight: item.cantidad > 0 ? '20px' : '0px' }}
                       >
                         {item.cantidad > 0 && (
-                          <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-[10px] font-bold whitespace-nowrap">
-                            {formatAmount(item.cantidad || 0)}€
+                          <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 z-20">
+                            <span className="text-[10px] font-bold whitespace-nowrap bg-white dark:bg-stone-900 px-1.5 py-0.5 rounded shadow-sm">
+                              {formatAmount(item.cantidad || 0)}€
+                            </span>
                           </div>
                         )}
                       </div>
@@ -677,32 +854,33 @@ const UserAccount = () => {
                   {presupuestoVsReal.filter(item => item.presupuesto > 0 || item.gastado > 0).map((item, idx) => (
                     <tr key={idx}>
                       <td className="py-3 font-semibold">{item.categoria}</td>
-                      <td className="py-3">{formatAmount(item.presupuesto || 0)} €</td>
-                      <td className="py-3 text-blue-500 font-bold">{formatAmount(item.gastado || 0)} €</td>
+                      <td className="py-3">{(parseFloat(item.presupuesto) || 0).toFixed(0)} €</td>
+                      <td className="py-3 text-blue-500 font-bold">{(parseFloat(item.gastado) || 0).toFixed(2)} €</td>
                       <td className={`py-3 font-bold text-right ${item.diferencia >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                        {item.diferencia >= 0 ? '+' : ''}{formatAmount(item.diferencia || 0)} €
+                        {item.diferencia >= 0 ? '+' : ''}{(parseFloat(item.diferencia) || 0).toFixed(2)} €
                       </td>
                     </tr>
                   ))}
                   <tr className="bg-slate-50/50 dark:bg-stone-800/30 font-bold">
                     <td className="py-3">TOTAL</td>
-                    <td className="py-3">{formatAmount(presupuestoVsReal.reduce((sum, item) => sum + item.presupuesto, 0))} €</td>
-                    <td className="py-3 text-blue-600">{formatAmount(presupuestoVsReal.reduce((sum, item) => sum + item.gastado, 0))} €</td>
-                    <td className={`py-3 text-right ${presupuestoVsReal.reduce((sum, item) => sum + item.diferencia, 0) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {formatAmount(presupuestoVsReal.reduce((sum, item) => sum + item.diferencia, 0))} €
+                    <td className="py-3">{presupuestoVsReal.reduce((sum, item) => sum + (parseFloat(item.presupuesto) || 0), 0).toFixed(0)} €</td>
+                    <td className="py-3 text-blue-600">{presupuestoVsReal.reduce((sum, item) => sum + (parseFloat(item.gastado) || 0), 0).toFixed(2)} €</td>
+                    <td className={`py-3 text-right ${presupuestoVsReal.reduce((sum, item) => sum + (parseFloat(item.diferencia) || 0), 0) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {presupuestoVsReal.reduce((sum, item) => sum + (parseFloat(item.diferencia) || 0), 0).toFixed(2)} €
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
+        </div>
 
           {/* Tabla de Movimientos */}
           <div ref={tablaRef} className="bg-white dark:bg-stone-900 rounded-2xl lg:rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm overflow-hidden">
             <div className="p-4 lg:p-6 border-b border-slate-100 dark:border-stone-800 bg-slate-50/50 dark:bg-stone-900/50">
               <div className="flex flex-col gap-3 lg:gap-4">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 lg:gap-4">
-                  <h3 className="font-bold text-base lg:text-lg">Listado de Movimientos</h3>
+                  <h3 className="font-bold text-base lg:text-lg">Movimientos</h3>
                   
                   {/* Botón de filtros en móvil */}
                   {isMobile && (
@@ -718,22 +896,30 @@ const UserAccount = () => {
                   )}
                   
                   {/* Filtros desktop */}
-                  <div className={`${isMobile ? 'hidden' : 'flex'} items-center gap-2 flex-wrap`}>
+                  <div className={`${isMobile ? 'hidden' : 'flex'} items-center gap-2 flex-nowrap`}>
                     <select 
                       value={filtros.tipo}
                       onChange={(e) => setFiltros({...filtros, tipo: e.target.value})}
-                      className="bg-white dark:bg-stone-800 border-slate-200 dark:border-stone-700 rounded-lg text-[10px] font-bold py-1.5 focus:ring-purple-500/20"
+                      className={`bg-white dark:bg-stone-800 border-2 rounded-lg text-xs font-semibold px-2.5 py-1.5 cursor-pointer transition-all focus:ring-2 focus:ring-purple-500/20 focus:outline-none min-w-0 ${
+                        filtros.tipo !== 'todos' 
+                          ? 'border-purple-500 dark:border-purple-400 text-purple-700 dark:text-purple-300' 
+                          : 'border-slate-200 dark:border-stone-700 hover:border-slate-300 dark:hover:border-stone-600'
+                      }`}
                     >
                       <option value="todos">Tipo: Todos</option>
-                      <option value="expense">Gasto</option>
-                      <option value="income">Ingreso</option>
-                      <option value="savings">Ahorro</option>
-                      <option value="savings_withdrawal">Retirada</option>
+                      <option value="gasto">Gasto</option>
+                      <option value="ingreso">Ingreso</option>
+                      <option value="hucha">Ahorro</option>
+                      <option value="retirada-hucha">Retirada</option>
                     </select>
                     <select 
                       value={filtros.categoria}
                       onChange={(e) => setFiltros({...filtros, categoria: e.target.value})}
-                      className="bg-white dark:bg-stone-800 border-slate-200 dark:border-stone-700 rounded-lg text-[10px] font-bold py-1.5 focus:ring-purple-500/20"
+                      className={`bg-white dark:bg-stone-800 border-2 rounded-lg text-xs font-semibold px-2.5 py-1.5 cursor-pointer transition-all focus:ring-2 focus:ring-purple-500/20 focus:outline-none min-w-0 ${
+                        filtros.categoria !== 'todas' 
+                          ? 'border-purple-500 dark:border-purple-400 text-purple-700 dark:text-purple-300' 
+                          : 'border-slate-200 dark:border-stone-700 hover:border-slate-300 dark:hover:border-stone-600'
+                      }`}
                     >
                       <option value="todas">Categoría: Todas</option>
                       {categorias.map(cat => (
@@ -743,13 +929,27 @@ const UserAccount = () => {
                     <select 
                       value={filtros.cuenta}
                       onChange={(e) => setFiltros({...filtros, cuenta: e.target.value})}
-                      className="bg-white dark:bg-stone-800 border-slate-200 dark:border-stone-700 rounded-lg text-[10px] font-bold py-1.5 focus:ring-purple-500/20"
+                      className={`bg-white dark:bg-stone-800 border-2 rounded-lg text-xs font-semibold px-2.5 py-1.5 cursor-pointer transition-all focus:ring-2 focus:ring-purple-500/20 focus:outline-none min-w-0 ${
+                        filtros.cuenta !== 'todas' 
+                          ? 'border-purple-500 dark:border-purple-400 text-purple-700 dark:text-purple-300' 
+                          : 'border-slate-200 dark:border-stone-700 hover:border-slate-300 dark:hover:border-stone-600'
+                      }`}
                     >
                       <option value="todas">Cuenta: Todas</option>
                       {cuentasUsuario.map(cuenta => (
                         <option key={cuenta} value={cuenta}>{cuenta}</option>
                       ))}
                     </select>
+                    {/* Botón limpiar filtros - Solo icono */}
+                    {(filtros.tipo !== 'todos' || filtros.categoria !== 'todas' || filtros.cuenta !== 'todas') && (
+                      <button
+                        onClick={() => setFiltros({ tipo: 'todos', categoria: 'todas', cuenta: 'todas' })}
+                        className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-stone-700 dark:hover:bg-stone-600 text-slate-700 dark:text-slate-200 rounded-lg transition-all active:scale-95 flex-shrink-0"
+                        title="Limpiar todos los filtros"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
                 {/* Búsqueda */}
@@ -787,9 +987,9 @@ const UserAccount = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                            op.type === 'expense' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
-                            op.type === 'income' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                            op.type === 'savings' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' :
+                            op.type === 'gasto' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
+                            op.type === 'ingreso' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                            op.type === 'hucha' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' :
                             'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
                           }`}>
                             {tipoLabel(op.type)}
@@ -807,7 +1007,7 @@ const UserAccount = () => {
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         <span className={`text-lg font-bold ${
-                          op.type === 'expense' ? 'text-red-500' : 'text-emerald-500'
+                          op.type === 'gasto' ? 'text-red-500' : 'text-emerald-500'
                         }`}>
                           {formatAmount(parseFloat(op.amount) || 0)} €
                         </span>
@@ -911,22 +1111,38 @@ const UserAccount = () => {
                         <td className="px-6 py-4 font-medium text-slate-400">{formatearFecha(op.date)}</td>
                         <td className="px-6 py-4">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                            op.type === 'expense' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
-                            op.type === 'income' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                            op.type === 'savings' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' :
+                            op.type === 'gasto' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
+                            op.type === 'ingreso' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                            op.type === 'hucha' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' :
                             'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
                           }`}>
                             {tipoLabel(op.type)}
                           </span>
                         </td>
                         <td className={`px-6 py-4 text-right font-bold ${
-                          op.type === 'expense' ? 'text-red-500' : 'text-emerald-500'
+                          op.type === 'gasto' ? 'text-red-500' : 'text-emerald-500'
                         }`}>
                           {formatAmount(parseFloat(op.amount) || 0)} €
                         </td>
                         <td className="px-6 py-4 text-slate-500 italic">{op.description || '-'}</td>
                         <td className="px-6 py-4 font-medium">{op.category}</td>
-                        <td className="px-6 py-4 font-medium">{op.account_name}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-center">
+                            {user?.username === 'xurxo' && op.account_name === 'Santander' ? (
+                              <img src={santanderLogo} alt="Santander" className="w-6 h-6 object-contain" title="Santander" />
+                            ) : user?.username !== 'xurxo' && op.account_name === 'BBVA' ? (
+                              <img src={bbvaLogo} alt="BBVA" className="w-6 h-6 object-contain" title="BBVA" />
+                            ) : op.account_name === 'Prepago' ? (
+                              <div className="w-6 h-6 bg-purple-50 dark:bg-purple-900/20 rounded flex items-center justify-center border border-purple-100 dark:border-purple-800/30" title="Prepago">
+                                <CreditCard className="w-3.5 h-3.5 text-purple-600" />
+                              </div>
+                            ) : op.account_name === 'Ahorro' ? (
+                              <div className="w-6 h-6 bg-emerald-50 dark:bg-emerald-900/20 rounded flex items-center justify-center border border-emerald-100 dark:border-emerald-800/30" title="Ahorro">
+                                <PiggyBank className="w-3.5 h-3.5 text-emerald-600" />
+                              </div>
+                            ) : null}
+                          </div>
+                        </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-1.5">
                             <button 
@@ -1025,9 +1241,9 @@ const UserAccount = () => {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => setFormNuevaOperacion({...formNuevaOperacion, tipo: 'expense'})}
+                    onClick={() => setFormNuevaOperacion({...formNuevaOperacion, tipo: 'gasto'})}
                     className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
-                      formNuevaOperacion.tipo === 'expense'
+                      formNuevaOperacion.tipo === 'gasto'
                         ? 'bg-white text-purple-600 shadow-lg'
                         : 'bg-white/20 border border-white/30 text-white'
                     }`}
@@ -1036,9 +1252,9 @@ const UserAccount = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setFormNuevaOperacion({...formNuevaOperacion, tipo: 'income'})}
+                    onClick={() => setFormNuevaOperacion({...formNuevaOperacion, tipo: 'ingreso'})}
                     className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
-                      formNuevaOperacion.tipo === 'income'
+                      formNuevaOperacion.tipo === 'ingreso'
                         ? 'bg-white text-purple-600 shadow-lg'
                         : 'bg-white/20 border border-white/30 text-white'
                     }`}
@@ -1047,9 +1263,9 @@ const UserAccount = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setFormNuevaOperacion({...formNuevaOperacion, tipo: 'savings'})}
+                    onClick={() => setFormNuevaOperacion({...formNuevaOperacion, tipo: 'hucha'})}
                     className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
-                      formNuevaOperacion.tipo === 'savings'
+                      formNuevaOperacion.tipo === 'hucha'
                         ? 'bg-white text-purple-600 shadow-lg'
                         : 'bg-white/20 border border-white/30 text-white'
                     }`}
@@ -1058,9 +1274,9 @@ const UserAccount = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setFormNuevaOperacion({...formNuevaOperacion, tipo: 'savings_withdrawal'})}
+                    onClick={() => setFormNuevaOperacion({...formNuevaOperacion, tipo: 'retirada-hucha'})}
                     className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
-                      formNuevaOperacion.tipo === 'savings_withdrawal'
+                      formNuevaOperacion.tipo === 'retirada-hucha'
                         ? 'bg-white text-purple-600 shadow-lg'
                         : 'bg-white/20 border border-white/30 text-white'
                     }`}
@@ -1094,7 +1310,7 @@ const UserAccount = () => {
                 />
               </div>
 
-              {formNuevaOperacion.tipo === 'expense' && (
+              {formNuevaOperacion.tipo === 'gasto' && (
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Categoría</label>
                   <select
@@ -1109,7 +1325,7 @@ const UserAccount = () => {
                 </div>
               )}
 
-              {formNuevaOperacion.tipo === 'savings_withdrawal' ? (
+              {formNuevaOperacion.tipo === 'retirada-hucha' ? (
                 <>
                   <div>
                     <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cuenta Origen</label>
@@ -1137,7 +1353,7 @@ const UserAccount = () => {
                     </select>
                   </div>
                 </>
-              ) : formNuevaOperacion.tipo === 'savings' ? (
+              ) : formNuevaOperacion.tipo === 'hucha' ? (
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cuenta de origen</label>
                   <select
@@ -1150,7 +1366,7 @@ const UserAccount = () => {
                     ))}
                   </select>
                 </div>
-              ) : formNuevaOperacion.tipo !== 'savings_withdrawal' ? (
+              ) : formNuevaOperacion.tipo !== 'retirada-hucha' ? (
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cuenta</label>
                   <select
@@ -1172,6 +1388,150 @@ const UserAccount = () => {
                 Guardar Operación
               </button>
             </form>
+          </div>
+
+          {/* Widget de Actividad Reciente */}
+          <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm">
+            <h3 className="font-bold flex items-center gap-2 mb-6">
+              <Clock className="w-5 h-5 text-purple-600" />
+              Actividad Reciente
+            </h3>
+            {actividad.length > 0 ? (
+              <div className="space-y-4 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-100 dark:before:bg-stone-800">
+                {actividad.slice(0, 5).map((act, idx) => {
+                  // Detectar tipo de operación
+                  const esTraspaso = act.type === 'retirada-hucha' && act.description?.includes('Traspaso desde');
+                  const getTipoLabel = (tipo) => {
+                    const tipos = {
+                      'gasto': 'Gasto',
+                      'ingreso': 'Ingreso',
+                      'hucha': 'Ahorro',
+                      'retirada-hucha': 'Retirada'
+                    };
+                    return tipos[tipo] || tipo;
+                  };
+                  const tipoLabelText = esTraspaso ? 'Traspaso' : getTipoLabel(act.type);
+                  
+                  return (
+                    <div key={act.id || idx} className="flex gap-3 relative">
+                      <div className={`w-6 h-6 rounded-full ${
+                        esTraspaso ? 'bg-blue-100 dark:bg-blue-900/40' :
+                        act.type === 'gasto' ? 'bg-red-100 dark:bg-red-900/40' :
+                        act.type === 'ingreso' ? 'bg-green-100 dark:bg-green-900/40' :
+                        'bg-purple-100 dark:bg-purple-900/40'
+                      } border-4 border-white dark:border-stone-900 z-10 flex-shrink-0`}></div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 flex-1">
+                            <span className={`text-sm font-bold ${
+                              esTraspaso ? 'text-blue-600 dark:text-blue-400' :
+                              act.type === 'gasto' ? 'text-red-600 dark:text-red-400' :
+                              act.type === 'ingreso' ? 'text-green-600 dark:text-green-400' :
+                              'text-purple-600 dark:text-purple-400'
+                            }`}>
+                              {tipoLabelText}
+                            </span>
+                            <span className={`text-sm font-semibold ${
+                              parseFloat(act.amount) < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
+                            }`}>
+                              {parseFloat(act.amount) < 0 ? '-' : '+'}{Math.abs(parseFloat(act.amount) || 0).toFixed(2)}€
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                            {new Date(act.date).toLocaleDateString('es-ES', { 
+                              day: '2-digit', 
+                              month: 'short', 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </span>
+                          {act.category && (
+                            <>
+                              <span className="text-[10px] text-slate-300 dark:text-slate-600">•</span>
+                              <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                                {act.category}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-slate-400">
+                <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">No hay actividad reciente</p>
+              </div>
+            )}
+          </div>
+
+          {/* Widget de Meta Personal */}
+          <div className="bg-gradient-to-br from-purple-600 to-rose-400 p-8 rounded-3xl text-white shadow-xl">
+            {metas.filter(m => !m.completada).length > 0 ? (
+              metas.filter(m => !m.completada).map(meta => {
+                const progreso = (meta.cantidad_actual / meta.cantidad_objetivo) * 100;
+                return (
+                  <div key={meta.id}>
+                    <div className="flex justify-between items-start mb-6">
+                      <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md">
+                        <Target className="w-6 h-6" />
+                      </div>
+                      <span className="bg-white/20 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">Meta {user?.username}</span>
+                    </div>
+                    <h3 className="text-xl font-bold mb-1">{meta.nombre}</h3>
+                    <p className="text-white/80 text-sm mb-6 font-medium">
+                      Has ahorrado el {progreso.toFixed(0)}%
+                    </p>
+                    <div className="w-full bg-white/20 h-4 rounded-full overflow-hidden mb-3 p-1">
+                      <div 
+                        className="bg-white h-full rounded-full transition-all"
+                        style={{ width: `${Math.min(progreso, 100)}%` }}
+                      ></div>
+                    </div>
+                    <div className="flex justify-between text-xs font-bold">
+                      <span>{formatAmount(meta.cantidad_actual || 0)} €</span>
+                      <span>{formatAmount(meta.cantidad_objetivo || 0)} €</span>
+                    </div>
+                    <button
+                      onClick={() => setModalEditarMeta({ abierto: true, meta })}
+                      className="w-full mt-6 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-bold transition-all"
+                    >
+                      Editar Meta
+                    </button>
+                  </div>
+                );
+              })
+            ) : (
+              <div>
+                <div className="flex justify-between items-start mb-6">
+                  <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md">
+                    <Target className="w-6 h-6" />
+                  </div>
+                  <span className="bg-white/20 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">Meta {user?.username}</span>
+                </div>
+                <h3 className="text-xl font-bold mb-1">Sin meta activa</h3>
+                <p className="text-white/80 text-sm mb-6 font-medium">Crea una meta para empezar a ahorrar</p>
+                <button
+                  onClick={() => setModalEditarMeta({ abierto: true, meta: {
+                    nombre: 'Mi objetivo 2026',
+                    cantidad_objetivo: 2000,
+                    cantidad_actual: 0,
+                    fecha_inicio: new Date().toISOString().split('T')[0],
+                    fecha_objetivo: '',
+                    categoria: 'Personal',
+                    notas: '',
+                    completada: false
+                  }})}
+                  className="w-full mt-6 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-bold transition-all"
+                >
+                  Crear Meta
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1238,7 +1598,7 @@ const UserAccount = () => {
               <div>
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Tipo</label>
                 <select
-                  value={modalEditarOperacion.operacion?.type || 'expense'}
+                  value={modalEditarOperacion.operacion?.type || 'gasto'}
                   onChange={(e) => setModalEditarOperacion({
                     ...modalEditarOperacion,
                     operacion: { ...modalEditarOperacion.operacion, type: e.target.value }
@@ -1246,10 +1606,10 @@ const UserAccount = () => {
                   className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
                   required
                 >
-                  <option value="expense">Gasto</option>
-                  <option value="income">Ingreso</option>
-                  <option value="savings">Ahorro</option>
-                  <option value="savings_withdrawal">Retirada</option>
+                  <option value="gasto">Gasto</option>
+                  <option value="ingreso">Ingreso</option>
+                  <option value="hucha">Ahorro</option>
+                  <option value="retirada-hucha">Retirada</option>
                 </select>
               </div>
 
@@ -1281,7 +1641,7 @@ const UserAccount = () => {
                 />
               </div>
 
-              {modalEditarOperacion.operacion?.type === 'expense' && (
+              {modalEditarOperacion.operacion?.type === 'gasto' && (
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Categoría</label>
                   <select
@@ -1299,7 +1659,7 @@ const UserAccount = () => {
                 </div>
               )}
 
-              {modalEditarOperacion.operacion?.type === 'savings_withdrawal' ? (
+              {modalEditarOperacion.operacion?.type === 'retirada-hucha' ? (
                 <>
                   <div>
                     <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Cuenta Origen</label>
@@ -1341,7 +1701,7 @@ const UserAccount = () => {
                     </select>
                   </div>
                 </>
-              ) : modalEditarOperacion.operacion?.type !== 'savings' ? (
+              ) : modalEditarOperacion.operacion?.type !== 'hucha' ? (
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Cuenta</label>
                   <select
@@ -1436,6 +1796,136 @@ const UserAccount = () => {
                 Guardar Cambios
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editar Meta */}
+      {modalEditarMeta.abierto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-stone-900 w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 dark:border-stone-800 overflow-hidden">
+            <div className="p-6 border-b border-slate-100 dark:border-stone-800 flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold">
+                  {modalEditarMeta.meta?.id ? 'Editar Meta' : 'Nueva Meta de Ahorro'}
+                </h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Define tu objetivo de ahorro
+                </p>
+              </div>
+              <button 
+                onClick={() => setModalEditarMeta({ abierto: false, meta: null })}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleGuardarMeta} className="p-6 space-y-4">
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Nombre de la Meta</label>
+                <input
+                  type="text"
+                  value={modalEditarMeta.meta?.nombre || ''}
+                  onChange={(e) => setModalEditarMeta({
+                    ...modalEditarMeta,
+                    meta: { ...modalEditarMeta.meta, nombre: e.target.value }
+                  })}
+                  className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
+                  placeholder="Ej: Vacaciones, Coche nuevo..."
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Cantidad Objetivo</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={modalEditarMeta.meta?.cantidad_objetivo || 0}
+                    onChange={(e) => setModalEditarMeta({
+                      ...modalEditarMeta,
+                      meta: { ...modalEditarMeta.meta, cantidad_objetivo: parseFloat(e.target.value) }
+                    })}
+                    className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Cantidad Actual</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={modalEditarMeta.meta?.cantidad_actual || 0}
+                    onChange={(e) => setModalEditarMeta({
+                      ...modalEditarMeta,
+                      meta: { ...modalEditarMeta.meta, cantidad_actual: parseFloat(e.target.value) }
+                    })}
+                    className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Fecha Inicio</label>
+                  <input
+                    type="date"
+                    value={modalEditarMeta.meta?.fecha_inicio || ''}
+                    onChange={(e) => setModalEditarMeta({
+                      ...modalEditarMeta,
+                      meta: { ...modalEditarMeta.meta, fecha_inicio: e.target.value }
+                    })}
+                    className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Fecha Objetivo</label>
+                  <input
+                    type="date"
+                    value={modalEditarMeta.meta?.fecha_objetivo || ''}
+                    onChange={(e) => setModalEditarMeta({
+                      ...modalEditarMeta,
+                      meta: { ...modalEditarMeta.meta, fecha_objetivo: e.target.value }
+                    })}
+                    className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Notas</label>
+                <textarea
+                  value={modalEditarMeta.meta?.notas || ''}
+                  onChange={(e) => setModalEditarMeta({
+                    ...modalEditarMeta,
+                    meta: { ...modalEditarMeta.meta, notas: e.target.value }
+                  })}
+                  className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
+                  rows="3"
+                  placeholder="Notas adicionales..."
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setModalEditarMeta({ abierto: false, meta: null })}
+                  className="flex-1 px-6 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-6 py-2.5 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors"
+                >
+                  Guardar Meta
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

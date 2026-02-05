@@ -710,3 +710,310 @@ exports.saveUserBudgets = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// ============================================
+// GESTIÓN DE METAS DE AHORRO
+// ============================================
+
+/**
+ * Obtener todas las metas del usuario logueado
+ * GET /api/user/goals
+ */
+exports.getUserGoals = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const result = await db.query(
+      `SELECT * FROM user_goals 
+       WHERE user_id = $1 
+       ORDER BY completada ASC, fecha_objetivo ASC NULLS LAST, created_at DESC`,
+      [userId]
+    );
+    
+    console.log(`Metas obtenidas para usuario ${userId}:`, result.rows.length);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error al obtener metas de usuario:', error);
+    res.status(500).json({ error: 'Error al obtener metas', details: error.message });
+  }
+};
+
+/**
+ * Crear nueva meta para el usuario logueado
+ * POST /api/user/goals
+ */
+exports.createUserGoal = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { 
+      nombre, 
+      cantidad_objetivo, 
+      cantidad_actual, 
+      fecha_inicio, 
+      fecha_objetivo, 
+      categoria, 
+      notas,
+      completada
+    } = req.body;
+
+    // Validación de campos requeridos
+    if (!nombre || !cantidad_objetivo || !fecha_inicio) {
+      return res.status(400).json({ 
+        error: 'Faltan campos requeridos: nombre, cantidad_objetivo, fecha_inicio' 
+      });
+    }
+
+    // Validar que la cantidad objetivo sea positiva
+    if (parseFloat(cantidad_objetivo) <= 0) {
+      return res.status(400).json({ 
+        error: 'La cantidad objetivo debe ser mayor a 0' 
+      });
+    }
+
+    const result = await db.query(
+      `INSERT INTO user_goals 
+       (user_id, nombre, cantidad_objetivo, cantidad_actual, fecha_inicio, fecha_objetivo, categoria, notas, completada) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+       RETURNING *`,
+      [
+        userId, 
+        nombre, 
+        parseFloat(cantidad_objetivo), 
+        parseFloat(cantidad_actual || 0), 
+        fecha_inicio, 
+        fecha_objetivo || null, 
+        categoria || 'Personal', 
+        notas || '', 
+        completada || false
+      ]
+    );
+
+    console.log(`Meta creada para usuario ${userId}:`, result.rows[0]);
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error al crear meta de usuario:', error);
+    res.status(500).json({ error: 'Error al crear meta', details: error.message });
+  }
+};
+
+/**
+ * Actualizar meta del usuario logueado
+ * PUT /api/user/goals/:id
+ */
+exports.updateUserGoal = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const goalId = req.params.id;
+    const { 
+      nombre, 
+      cantidad_objetivo, 
+      cantidad_actual, 
+      fecha_inicio, 
+      fecha_objetivo, 
+      categoria, 
+      notas,
+      completada
+    } = req.body;
+
+    // Verificar que la meta pertenece al usuario
+    const checkResult = await db.query(
+      'SELECT * FROM user_goals WHERE id = $1 AND user_id = $2',
+      [goalId, userId]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Meta no encontrada o no pertenece al usuario' });
+    }
+
+    // Actualizar la meta
+    const result = await db.query(
+      `UPDATE user_goals 
+       SET nombre = $1, 
+           cantidad_objetivo = $2, 
+           cantidad_actual = $3, 
+           fecha_inicio = $4, 
+           fecha_objetivo = $5, 
+           categoria = $6, 
+           notas = $7,
+           completada = $8,
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $9 AND user_id = $10 
+       RETURNING *`,
+      [
+        nombre, 
+        parseFloat(cantidad_objetivo), 
+        parseFloat(cantidad_actual || 0), 
+        fecha_inicio, 
+        fecha_objetivo || null, 
+        categoria || 'Personal', 
+        notas || '', 
+        completada || false,
+        goalId, 
+        userId
+      ]
+    );
+
+    console.log(`Meta ${goalId} actualizada para usuario ${userId}`);
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error al actualizar meta de usuario:', error);
+    res.status(500).json({ error: 'Error al actualizar meta', details: error.message });
+  }
+};
+
+/**
+ * Eliminar meta del usuario logueado
+ * DELETE /api/user/goals/:id
+ */
+exports.deleteUserGoal = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const goalId = req.params.id;
+
+    // Verificar que la meta pertenece al usuario
+    const checkResult = await db.query(
+      'SELECT * FROM user_goals WHERE id = $1 AND user_id = $2',
+      [goalId, userId]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Meta no encontrada o no pertenece al usuario' });
+    }
+
+    await db.query(
+      'DELETE FROM user_goals WHERE id = $1 AND user_id = $2',
+      [goalId, userId]
+    );
+
+    console.log(`Meta ${goalId} eliminada para usuario ${userId}`);
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error al eliminar meta de usuario:', error);
+    res.status(500).json({ error: 'Error al eliminar meta', details: error.message });
+  }
+};
+
+/**
+ * Obtener ahorro total combinado (Parvos + Xurxo + Sonia)
+ * GET /api/user/total-savings
+ */
+exports.getTotalSavings = async (req, res) => {
+  try {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    
+    // Calcular fecha del mes anterior
+    const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+    const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+    
+    // 1. Obtener ahorro de Parvos (cuenta "Ahorro" en operaciones)
+    // Calcular el saldo total acumulado de la cuenta Ahorro sumando algebraicamente todas las operaciones
+    // - tipo 'hucha' con cuenta 'Ahorro' o NULL (entradas positivas/negativas)
+    // - tipo 'retirada-hucha' con cuenta 'Ahorro' (retiradas)
+    const parvosCurrentQuery = `
+      SELECT COALESCE(SUM(cantidad), 0) as ahorro_parvos
+      FROM operaciones
+      WHERE (
+        (tipo = 'hucha' AND (cuenta = 'Ahorro' OR cuenta IS NULL))
+        OR (tipo = 'retirada-hucha' AND cuenta = 'Ahorro')
+      )
+    `;
+    const parvosCurrentResult = await db.query(parvosCurrentQuery);
+    const ahorroParvosCurrent = parseFloat(parvosCurrentResult.rows[0].ahorro_parvos || 0);
+    
+    // Calcular saldo al final del mes anterior
+    const lastMonthEndDate = new Date(lastMonthYear, lastMonth, 0); // Último día del mes anterior
+    const parvosPrevQuery = `
+      SELECT COALESCE(SUM(cantidad), 0) as ahorro_parvos
+      FROM operaciones
+      WHERE (
+        (tipo = 'hucha' AND (cuenta = 'Ahorro' OR cuenta IS NULL))
+        OR (tipo = 'retirada-hucha' AND cuenta = 'Ahorro')
+      )
+      AND fecha::date <= $1
+    `;
+    const parvosPrevResult = await db.query(parvosPrevQuery, [lastMonthEndDate.toISOString().split('T')[0]]);
+    const ahorroParvosPrev = parseFloat(parvosPrevResult.rows[0].ahorro_parvos || 0);
+    
+    // 2. Obtener ahorro de Xurxo
+    const xurxoQuery = `
+      SELECT u.id as user_id, u.username,
+             COALESCE(SUM(CASE 
+               WHEN uo.type = 'savings' THEN uo.amount
+               WHEN uo.type = 'savings_withdrawal' THEN uo.amount
+               ELSE 0
+             END), 0) as ahorro_actual,
+             COALESCE(SUM(CASE 
+               WHEN uo.type = 'savings' AND (
+                 EXTRACT(YEAR FROM uo.date) < $1
+                 OR (EXTRACT(YEAR FROM uo.date) = $1 AND EXTRACT(MONTH FROM uo.date) < $2)
+               ) THEN uo.amount
+               WHEN uo.type = 'savings_withdrawal' AND (
+                 EXTRACT(YEAR FROM uo.date) < $1
+                 OR (EXTRACT(YEAR FROM uo.date) = $1 AND EXTRACT(MONTH FROM uo.date) < $2)
+               ) THEN uo.amount
+               ELSE 0
+             END), 0) as ahorro_anterior
+      FROM users u
+      LEFT JOIN user_operations uo ON u.id = uo.user_id AND uo.account_name = 'Ahorro'
+      WHERE u.username = 'xurxo'
+      GROUP BY u.id, u.username
+    `;
+    const xurxoResult = await db.query(xurxoQuery, [lastMonthYear, lastMonth]);
+    const ahorroXurxoCurrent = xurxoResult.rows[0]?.ahorro_actual ? parseFloat(xurxoResult.rows[0].ahorro_actual) : 0;
+    const ahorroXurxoPrev = xurxoResult.rows[0]?.ahorro_anterior ? parseFloat(xurxoResult.rows[0].ahorro_anterior) : 0;
+    
+    // 3. Obtener ahorro de Sonia
+    const soniaQuery = `
+      SELECT u.id as user_id, u.username,
+             COALESCE(SUM(CASE 
+               WHEN uo.type = 'savings' THEN uo.amount
+               WHEN uo.type = 'savings_withdrawal' THEN uo.amount
+               ELSE 0
+             END), 0) as ahorro_actual,
+             COALESCE(SUM(CASE 
+               WHEN uo.type = 'savings' AND (
+                 EXTRACT(YEAR FROM uo.date) < $1
+                 OR (EXTRACT(YEAR FROM uo.date) = $1 AND EXTRACT(MONTH FROM uo.date) < $2)
+               ) THEN uo.amount
+               WHEN uo.type = 'savings_withdrawal' AND (
+                 EXTRACT(YEAR FROM uo.date) < $1
+                 OR (EXTRACT(YEAR FROM uo.date) = $1 AND EXTRACT(MONTH FROM uo.date) < $2)
+               ) THEN uo.amount
+               ELSE 0
+             END), 0) as ahorro_anterior
+      FROM users u
+      LEFT JOIN user_operations uo ON u.id = uo.user_id AND uo.account_name = 'Ahorro'
+      WHERE u.username = 'Sonia'
+      GROUP BY u.id, u.username
+    `;
+    const soniaResult = await db.query(soniaQuery, [lastMonthYear, lastMonth]);
+    const ahorroSoniaCurrent = soniaResult.rows[0]?.ahorro_actual ? parseFloat(soniaResult.rows[0].ahorro_actual) : 0;
+    const ahorroSoniaPrev = soniaResult.rows[0]?.ahorro_anterior ? parseFloat(soniaResult.rows[0].ahorro_anterior) : 0;
+    
+    // Calcular totales
+    const totalCurrent = ahorroParvosCurrent + ahorroXurxoCurrent + ahorroSoniaCurrent;
+    const totalPrev = ahorroParvosPrev + ahorroXurxoPrev + ahorroSoniaPrev;
+    const difference = totalCurrent - totalPrev;
+    const percentageChange = totalPrev !== 0 ? ((difference / totalPrev) * 100) : 0;
+    
+    res.json({
+      totalSavings: totalCurrent,
+      parvos: ahorroParvosCurrent,
+      xurxo: ahorroXurxoCurrent,
+      sonia: ahorroSoniaCurrent,
+      previousMonth: {
+        total: totalPrev,
+        parvos: ahorroParvosPrev,
+        xurxo: ahorroXurxoPrev,
+        sonia: ahorroSoniaPrev
+      },
+      difference: difference,
+      percentageChange: percentageChange
+    });
+  } catch (error) {
+    console.error('Error getting total savings:', error);
+    res.status(500).json({ error: 'Error al obtener ahorro total', details: error.message });
+  }
+};
