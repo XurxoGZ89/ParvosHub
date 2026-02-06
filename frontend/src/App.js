@@ -7,6 +7,7 @@ import { CalendarEventsProvider } from './contexts/CalendarEventsContext';
 import Login from './components/auth/Login';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import AppLayout from './components/layout/AppLayout';
+import ScrollToTop from './components/ScrollToTop';
 
 // Pages
 import Home from './components/Home';
@@ -23,6 +24,7 @@ function App() {
     <LanguageProvider>
       <CalendarEventsProvider>
         <Router>
+          <ScrollToTop />
           <Routes>
             {/* Ruta pública de login */}
             <Route path="/login" element={<Login />} />

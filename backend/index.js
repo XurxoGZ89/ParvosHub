@@ -611,7 +611,8 @@ app.get('/comidas-planificadas/vencidas', async (req, res) => {
     lunesActual.setHours(0, 0, 0, 0);
 
     const result = await db.query(`
-      SELECT cp.*, cc.nombre as comida_nombre 
+      SELECT cp.*, COALESCE(cp.comida_nombre, cc.nombre) as comida_nombre,
+             COALESCE(cp.categoria, cc.categoria) as categoria
       FROM comidas_planificadas cp
       LEFT JOIN comidas_congeladas cc ON cp.comida_id = cc.id
       WHERE cp.fecha < $1
@@ -631,6 +632,7 @@ app.get('/comidas-planificadas', async (req, res) => {
     const result = await db.query(`
       SELECT cp.id, cp.comida_id, cp.tipo_comida, cp.notas, cp.created_at,
              COALESCE(cp.comida_nombre, cc.nombre) as comida_nombre,
+             COALESCE(cp.categoria, cc.categoria) as categoria,
              TO_CHAR(cp.fecha, 'YYYY-MM-DD') as fecha
       FROM comidas_planificadas cp
       LEFT JOIN comidas_congeladas cc ON cp.comida_id = cc.id
@@ -645,7 +647,7 @@ app.get('/comidas-planificadas', async (req, res) => {
 
 // Crear una comida planificada
 app.post('/comidas-planificadas', async (req, res) => {
-  const { comida_id, comida_nombre, fecha, tipo_comida } = req.body;
+  const { comida_id, comida_nombre, fecha, tipo_comida, categoria } = req.body;
   
   if (!fecha || !tipo_comida) {
     return res.status(400).json({ error: 'Fecha y tipo de comida son obligatorios' });
@@ -655,11 +657,11 @@ app.post('/comidas-planificadas', async (req, res) => {
     // Guardar la fecha con hora fija en UTC para evitar problemas de zona horaria
     const fechaUTC = `${fecha}T12:00:00.000Z`;
     const result = await db.query(
-      `INSERT INTO comidas_planificadas (comida_id, comida_nombre, fecha, tipo_comida) 
-       VALUES ($1, $2, $3, $4) 
-       RETURNING id, comida_id, tipo_comida, notas, created_at, comida_nombre, 
+      `INSERT INTO comidas_planificadas (comida_id, comida_nombre, fecha, tipo_comida, categoria) 
+       VALUES ($1, $2, $3, $4, $5) 
+       RETURNING id, comida_id, tipo_comida, notas, created_at, comida_nombre, categoria,
                  TO_CHAR(fecha, 'YYYY-MM-DD') as fecha`,
-      [comida_id || null, comida_nombre, fechaUTC, tipo_comida]
+      [comida_id || null, comida_nombre, fechaUTC, tipo_comida, categoria || null]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -704,9 +706,15 @@ app.put('/comidas-planificadas/:id', async (req, res) => {
       params.push(comida_nombre);
       paramIndex++;
     }
+    if (req.body.categoria !== undefined) {
+      if (params.length > 0) updateQuery += ', ';
+      updateQuery += `categoria = $${paramIndex}`;
+      params.push(req.body.categoria);
+      paramIndex++;
+    }
 
     updateQuery += ` WHERE id = $${paramIndex} 
-                     RETURNING id, comida_id, tipo_comida, notas, created_at, comida_nombre,
+                     RETURNING id, comida_id, tipo_comida, notas, created_at, comida_nombre, categoria,
                                TO_CHAR(fecha, 'YYYY-MM-DD') as fecha`;
     params.push(id);
 

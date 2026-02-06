@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Plus, Calendar, Euro, FileText, Tag, CreditCard, X } from 'lucide-react';
+import { ChevronRight, Plus, Calendar, Euro, FileText, Tag, CreditCard, X, Sun, Moon, AlertTriangle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -71,7 +71,15 @@ const Home = () => {
         const relevantMeals = meals.filter(meal => {
           const mealDate = meal.fecha;
           return mealDate >= todayStr && mealDate <= sevenDaysStr;
-        }).sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+        }).sort((a, b) => {
+          // Primero por fecha ASC
+          const dateCompare = a.fecha.localeCompare(b.fecha);
+          if (dateCompare !== 0) return dateCompare;
+          // Luego comida antes que cena
+          if (a.tipo_comida === 'comida' && b.tipo_comida === 'cena') return -1;
+          if (a.tipo_comida === 'cena' && b.tipo_comida === 'comida') return 1;
+          return 0;
+        });
 
         console.log('Comidas filtradas (próximos 8 días):', relevantMeals);
 
@@ -488,12 +496,12 @@ const Home = () => {
       {/* Segunda fila - Resto de widgets */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
 
-      {/* Menú Semanal */}
+      {/* Menú Semanal - Lista + Stats */}
       <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-orange-500/10 text-orange-500 rounded-xl flex items-center justify-center">
-              <span className="text-xl">🍽️</span>
+            <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-amber-500 rounded-xl flex items-center justify-center shadow-sm">
+              <span className="text-lg">🍽️</span>
             </div>
             <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Menú Semanal</h2>
           </div>
@@ -505,70 +513,142 @@ const Home = () => {
           </button>
         </div>
 
-        <div className="space-y-3">
+        {/* Mini Stats Row */}
+        {(() => {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const startOfWeek = new Date(today);
+          startOfWeek.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+          const weekDates = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(startOfWeek);
+            d.setDate(startOfWeek.getDate() + i);
+            return d.toISOString().split('T')[0];
+          });
+          const planificadas = mealData.filter(m => weekDates.includes(m.fecha)).length;
+          const pct = Math.round((planificadas / 14) * 100);
+          
+          return (
+            <div className="flex gap-2 mb-3">
+              <div className="flex-1 bg-slate-50 dark:bg-slate-800/50 px-2.5 py-1.5 rounded-lg flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-slate-500">Semana</span>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-12 bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
+                    <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-[10px] font-bold text-purple-600">{planificadas}/14</span>
+                </div>
+              </div>
+              <div className="bg-red-50 dark:bg-red-900/20 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
+                <span className="text-[10px]">🥩</span>
+                <span className="text-[10px] font-bold text-red-600">{mealData.filter(m => m.categoria === 'carne').length}</span>
+              </div>
+              <div className="bg-blue-50 dark:bg-blue-900/20 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
+                <span className="text-[10px]">🐟</span>
+                <span className="text-[10px] font-bold text-blue-600">{mealData.filter(m => m.categoria === 'pescado').length}</span>
+              </div>
+              <div className="bg-green-50 dark:bg-green-900/20 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
+                <span className="text-[10px]">🥬</span>
+                <span className="text-[10px] font-bold text-green-600">{mealData.filter(m => m.categoria === 'vegetariano').length}</span>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Lista de comidas */}
+        <div className="space-y-1.5">
           {mealData.length > 0 ? (
             <>
-              {mealData.slice(mealPage * 5, (mealPage + 1) * 5).map((meal, idx) => {
-                const mealDate = new Date(meal.fecha);
+              {[...mealData].sort((a, b) => {
+                // Ordenar: fecha ASC, luego comida antes que cena
+                const dateCompare = a.fecha.localeCompare(b.fecha);
+                if (dateCompare !== 0) return dateCompare;
+                if (a.tipo_comida === 'comida' && b.tipo_comida === 'cena') return -1;
+                if (a.tipo_comida === 'cena' && b.tipo_comida === 'comida') return 1;
+                return 0;
+              }).slice(mealPage * 8, (mealPage + 1) * 8).map((meal, idx) => {
+                const mealDate = new Date(meal.fecha + 'T12:00:00');
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 const daysFromNow = Math.floor((mealDate - today) / (1000 * 60 * 60 * 24));
                 
-                let dateLabel = '';
-                if (daysFromNow === 0) dateLabel = 'Hoy';
-                else if (daysFromNow === 1) dateLabel = 'Mañ';
-                else {
-                  const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sab'];
-                  dateLabel = dayNames[mealDate.getDay()];
-                }
+                const esHoy = daysFromNow === 0;
+                const esManana = daysFromNow === 1;
+                const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sab'];
+                const dateLabel = esHoy ? 'Hoy' : esManana ? 'Mañana' : dayNames[mealDate.getDay()];
+
+                const getCatDot = (cat, manual) => {
+                  if (manual || cat === 'comer_fuera') return 'bg-amber-400';
+                  switch(cat) {
+                    case 'carne': return 'bg-red-400';
+                    case 'pescado': return 'bg-blue-400';
+                    case 'vegetariano': return 'bg-green-400';
+                    default: return 'bg-slate-300';
+                  }
+                };
+
+                const esManual = !meal.comida_id;
+                const esComida = meal.tipo_comida === 'comida';
                 
                 return (
-                  <div key={meal.id || idx} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                    <div className="text-center w-12 shrink-0">
-                      <p className="text-xs font-bold text-slate-400 uppercase leading-none mb-1">{dateLabel}</p>
-                      <p className="text-sm font-extrabold text-purple-600">{mealDate.getDate()}</p>
+                  <div 
+                    key={meal.id || idx} 
+                    onClick={() => navigate('/calendario-comidas')}
+                    className={`flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-all group ${
+                      esHoy 
+                        ? 'bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800' 
+                        : 'bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-700/50'
+                    }`}
+                  >
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${getCatDot(meal.categoria, esManual)}`} />
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${esComida ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-indigo-100 dark:bg-indigo-900/40'}`}>
+                      {esComida 
+                        ? <Sun className="w-3 h-3 text-amber-500" />
+                        : <Moon className="w-3 h-3 text-indigo-400" />
+                      }
                     </div>
-                    <div className="h-6 w-px bg-slate-200 dark:bg-slate-700"></div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold truncate">
-                        {meal.tipo_comida === 'comida' ? 'Comida' : 'Cena'}: {meal.comida_nombre}
+                      <p className="text-xs font-medium truncate text-slate-700 dark:text-slate-200">
+                        {meal.comida_nombre}
                       </p>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                    <div className="text-right shrink-0">
+                      <p className={`text-[10px] font-bold ${esHoy ? 'text-purple-600' : 'text-slate-400'}`}>{dateLabel}</p>
+                      <p className="text-[10px] text-slate-400">{mealDate.getDate()}/{mealDate.getMonth() + 1}</p>
+                    </div>
                   </div>
                 );
               })}
               
-              {/* Paginación */}
-              {mealData.length > 5 && (
-                <div className="flex items-center justify-center gap-2 pt-2">
-                  <Button
-                    onClick={() => setMealPage(Math.max(0, mealPage - 1))}
+              {/* Paginación compacta */}
+              {mealData.length > 8 && (
+                <div className="flex items-center justify-center gap-3 pt-1">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setMealPage(Math.max(0, mealPage - 1)); }}
                     disabled={mealPage === 0}
-                    variant="ghost"
-                    size="icon"
-                    className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 disabled:opacity-30"
+                    className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-600 disabled:opacity-30 text-sm"
                   >
                     ‹
-                  </Button>
-                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    {mealPage + 1} / {Math.ceil(mealData.length / 5)}
+                  </button>
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    {mealPage + 1}/{Math.ceil(mealData.length / 8)}
                   </span>
-                  <Button
-                    onClick={() => setMealPage(Math.min(Math.ceil(mealData.length / 5) - 1, mealPage + 1))}
-                    disabled={mealPage >= Math.ceil(mealData.length / 5) - 1}
-                    variant="ghost"
-                    size="icon"
-                    className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 disabled:opacity-30"
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setMealPage(Math.min(Math.ceil(mealData.length / 8) - 1, mealPage + 1)); }}
+                    disabled={mealPage >= Math.ceil(mealData.length / 8) - 1}
+                    className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-600 disabled:opacity-30 text-sm"
                   >
                     ›
-                  </Button>
+                  </button>
                 </div>
               )}
             </>
           ) : (
-            <div className="flex items-center justify-center p-8 text-slate-500 text-xs">
-              No hay comidas planificadas
+            <div 
+              onClick={() => navigate('/calendario-comidas')}
+              className="flex items-center justify-center gap-2 p-4 text-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors"
+            >
+              <Plus className="w-4 h-4 text-slate-400" />
+              <p className="text-xs text-slate-500">Planificar semana</p>
             </div>
           )}
         </div>
