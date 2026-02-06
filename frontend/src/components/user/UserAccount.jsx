@@ -28,7 +28,6 @@ import api from '../../lib/api';
 import useAuthStore from '../../stores/authStore';
 import bbvaLogo from '../../assets/BBVA_2019.svg.png';
 import santanderLogo from '../../assets/santander.png';
-import imaginLogo from '../../assets/imagin.webp';
 import { usePrivacyFormatter } from '../../utils/privacyFormatter';
 
 const meses = [
@@ -190,18 +189,36 @@ const UserAccount = () => {
     const cuenta2 = cuentasUsuario[1];
 
     const totalCuenta1 = todasLasOperaciones
-      .filter(op => op.account_name === cuenta1 && op.type !== 'hucha')
+      .filter(op => op.account_name === cuenta1)
       .reduce((sum, op) => {
-        if (op.type === 'ingreso' || op.type === 'retirada-hucha') return sum + parseFloat(op.amount || 0);
-        if (op.type === 'gasto') return sum - parseFloat(op.amount || 0);
+        // Ingresos y retiradas suman (positivos), gastos restan (negativos)
+        // Operaciones de ahorro (savings): negativas restan, positivas suman
+        if (op.type === 'ingreso' || op.type === 'income' || op.type === 'retirada-hucha' || op.type === 'savings_withdrawal') {
+          return sum + parseFloat(op.amount || 0);
+        }
+        if (op.type === 'gasto' || op.type === 'expense') {
+          return sum - parseFloat(op.amount || 0);
+        }
+        if (op.type === 'hucha' || op.type === 'savings') {
+          return sum + parseFloat(op.amount || 0); // Ya viene negativo del backend
+        }
         return sum;
       }, 0);
 
     const totalCuenta2 = todasLasOperaciones
-      .filter(op => op.account_name === cuenta2 && op.type !== 'hucha')
+      .filter(op => op.account_name === cuenta2)
       .reduce((sum, op) => {
-        if (op.type === 'ingreso' || op.type === 'retirada-hucha') return sum + parseFloat(op.amount || 0);
-        if (op.type === 'gasto') return sum - parseFloat(op.amount || 0);
+        // Ingresos y retiradas suman (positivos), gastos restan (negativos)
+        // Operaciones de ahorro (savings): negativas restan, positivas suman
+        if (op.type === 'ingreso' || op.type === 'income' || op.type === 'retirada-hucha' || op.type === 'savings_withdrawal') {
+          return sum + parseFloat(op.amount || 0);
+        }
+        if (op.type === 'gasto' || op.type === 'expense') {
+          return sum - parseFloat(op.amount || 0);
+        }
+        if (op.type === 'hucha' || op.type === 'savings') {
+          return sum + parseFloat(op.amount || 0); // Ya viene negativo del backend
+        }
         return sum;
       }, 0);
 
@@ -712,11 +729,13 @@ const UserAccount = () => {
               <div className="flex items-center justify-between">
                 <span className="text-xs lg:text-sm font-bold text-slate-700 dark:text-slate-300">Resultado</span>
                 <span className={`text-base lg:text-lg font-extrabold ${
-                  (totales.ingresos - totales.gastos) >= 0 
+                  (totales.ingresos - totales.gastos) > 0 
                     ? 'text-teal-500 dark:text-teal-400' 
+                    : (totales.ingresos - totales.gastos) === 0
+                    ? 'text-amber-500 dark:text-amber-400'
                     : 'text-orange-500 dark:text-orange-400'
                 }`}>
-                  {(totales.ingresos - totales.gastos) >= 0 ? '+' : ''}{formatAmount((totales.ingresos - totales.gastos) || 0)} €
+                  {(totales.ingresos - totales.gastos) > 0 ? '+' : ''}{formatAmount((totales.ingresos - totales.gastos) || 0)} €
                 </span>
               </div>
             </div>
@@ -747,31 +766,37 @@ const UserAccount = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-12 gap-4 lg:gap-8 p-4 lg:p-0">
+      <div className="grid grid-cols-12 gap-4 lg:gap-6 p-4 lg:p-0">
         {/* Columna Principal */}
-        <div className="col-span-12 lg:col-span-8 space-y-4 lg:space-y-8">
+        <div className="col-span-12 lg:col-span-8 space-y-4 lg:space-y-6">
           {/* Gráficos - Colapsables en móvil */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-8">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6">
             {/* Gastos por Categoría */}
-            <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-bold flex items-center gap-2">
-                <span className="text-lg">📊</span>
-                Gastos por Categoría
-              </h3>
-            </div>
-            <div className="h-64 flex items-end justify-around gap-2 px-2 pt-10">
-              {gastosPorCategoria.map((item, idx) => {
-                const Icon = item.icon;
-                const maxGasto = Math.max(...gastosPorCategoria.map(g => g.cantidad), 1);
-                const altura = (item.cantidad / maxGasto) * 100;
-                
-                // Encontrar presupuesto de esta categoría
+            <div className="bg-white dark:bg-stone-900 p-5 rounded-xl border border-slate-200 dark:border-stone-800 shadow-sm hover:shadow-md transition-shadow overflow-visible">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold flex items-center gap-2">
+                  <span className="text-base">📊</span>
+                  Gastos por Categoría
+                </h3>
+                <span className="text-[9px] font-semibold text-slate-400 flex items-center gap-1">
+                  <span className="inline-block w-3 border-t-2 border-dashed border-slate-400"></span>
+                  Presp.
+                </span>
+              </div>
+              {(() => {
+                // Pre-calcular datos filtrados una sola vez
                 const mesIdx = meses.indexOf(mesSeleccionado);
                 const mesClave = `${añoSeleccionado}-${String(mesIdx + 1).padStart(2, '0')}`;
                 const presupuestosDelMes = presupuestos.filter(p => p.mes === mesClave);
-                const presupuestoCategoria = presupuestosDelMes.find(p => p.categoria === item.categoria)?.cantidad || 0;
-                const alturaPresupuesto = presupuestoCategoria > 0 ? (presupuestoCategoria / maxGasto) * 100 : 0;
+                
+                const categoriasConDatos = gastosPorCategoria
+                  .map(item => {
+                    const presupuestoCategoria = presupuestosDelMes.find(p => p.categoria === item.categoria)?.cantidad || 0;
+                    return { ...item, presupuestoCategoria };
+                  })
+                  .filter(item => item.cantidad > 0 || item.presupuestoCategoria > 0);
+                
+                const maxGasto = Math.max(...categoriasConDatos.map(g => g.cantidad), 1);
                 
                 const coloresBarras = {
                   'amber': 'bg-amber-400',
@@ -786,40 +811,60 @@ const UserAccount = () => {
                 };
 
                 return (
-                  <div key={idx} className="flex flex-col items-center gap-2 w-full h-full">
-                    <div className="relative w-full flex-1 flex flex-col justify-end">
-                      {presupuestoCategoria > 0 && alturaPresupuesto <= 100 && (
-                        <div 
-                          className="absolute w-full border-t-2 border-black dark:border-white border-dashed z-[5]"
-                          style={{ bottom: `${Math.min(alturaPresupuesto, 100)}%` }}
-                          title={`Presupuesto: ${presupuestoCategoria}€`}
-                        />
-                      )}
-                      <div 
-                        className={`w-full ${coloresBarras[item.color] || 'bg-slate-400'} rounded-t-lg transition-all hover:opacity-80 relative z-10`}
-                        style={{ height: `${Math.min(altura, 100)}%`, minHeight: item.cantidad > 0 ? '20px' : '0px' }}
-                      >
-                        {item.cantidad > 0 && (
-                          <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 z-20">
-                            <span className="text-[10px] font-bold whitespace-nowrap bg-white dark:bg-stone-900 px-1.5 py-0.5 rounded shadow-sm">
-                              {formatAmount(item.cantidad || 0)}€
-                            </span>
+                  <div className="h-56 flex items-end gap-1 px-1 pt-5 overflow-visible relative">
+                    {categoriasConDatos.map((item, idx) => {
+                      const Icon = item.icon;
+                      const alturaBarraPct = (item.cantidad / maxGasto) * 85;
+                      const alturaPresupuestoPct = item.presupuestoCategoria > 0 
+                        ? Math.min((item.presupuestoCategoria / maxGasto) * 85, 98) 
+                        : 0;
+
+                      return (
+                        <div key={idx} className="flex flex-col items-center gap-1 flex-1 h-full group relative" style={{ minWidth: 0 }}>
+                          <div className="relative w-full flex-1 flex flex-col justify-end overflow-visible">
+                            {/* Línea de presupuesto */}
+                            {item.presupuestoCategoria > 0 && (
+                              <div 
+                                className="absolute w-[calc(100%+6px)] -left-[3px] border-t-[2px] border-dashed border-slate-300 dark:border-slate-600 z-10 pointer-events-none"
+                                style={{ bottom: `${alturaPresupuestoPct}%` }}
+                              />
+                            )}
+                            {/* Cuantía siempre encima de la barra como badge */}
+                            {item.cantidad > 0 && (
+                              <div className="absolute left-1/2 transform -translate-x-1/2 z-40" style={{ bottom: `${Math.max(alturaBarraPct + 2, 5)}%` }}>
+                                <span className="text-[9px] font-bold whitespace-nowrap bg-white dark:bg-stone-800 px-1 py-0.5 rounded border border-slate-200 dark:border-stone-600 shadow-sm">
+                                  {formatAmount(item.cantidad || 0)}€
+                                </span>
+                              </div>
+                            )}
+                            {/* Barra de gasto */}
+                            <div 
+                              className={`w-full ${coloresBarras[item.color] || 'bg-slate-400'} rounded-t-md transition-all hover:opacity-80 relative z-20 cursor-pointer`}
+                              style={{ height: `${Math.max(alturaBarraPct, 0)}%`, minHeight: item.cantidad > 0 ? '6px' : '0px' }}
+                              title={`${item.categoria}: ${formatAmount(item.cantidad || 0)}€${item.presupuestoCategoria > 0 ? ` | Presp: ${item.presupuestoCategoria}€` : ''}`}
+                            />
                           </div>
-                        )}
-                      </div>
-                    </div>
-                    <Icon className="text-slate-400 w-5 h-5" />
+                          {/* Icono con tooltip */}
+                          <div className="relative flex-shrink-0">
+                            <Icon className="text-slate-400 dark:text-slate-500 w-4 h-4" />
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-slate-800 text-white text-[9px] font-semibold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-lg">
+                              {item.categoria}
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-t-[4px] border-transparent border-t-slate-800"></div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 );
-              })}
+              })()}
             </div>
-          </div>
 
           {/* Presupuesto vs Real */}
-          <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm">
-            <div className="flex items-center justify-between mb-6 px-2">
-              <h3 className="font-bold flex items-center gap-2">
-                <span className="text-lg">📋</span>
+          <div className="bg-white dark:bg-stone-900 p-5 rounded-xl border border-slate-200 dark:border-stone-800 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-5 px-2">
+              <h3 className="text-sm font-bold flex items-center gap-2">
+                <span className="text-base">📋</span>
                 Presupuesto vs Real
               </h3>
               <button 
@@ -834,10 +879,10 @@ const UserAccount = () => {
                   setPresupuestosEditables(editables);
                   setModalEditarPresupuesto(true);
                 }}
-                className="text-xs font-bold text-purple-600 hover:text-purple-700 transition-colors flex items-center gap-1"
+                className="p-1.5 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors group"
+                title="Editar presupuestos"
               >
-                <Edit className="w-3 h-3" />
-                Editar
+                <Edit className="w-4 h-4 text-purple-600 group-hover:text-purple-700" />
               </button>
             </div>
             <div className="overflow-x-auto">
@@ -856,8 +901,14 @@ const UserAccount = () => {
                       <td className="py-3 font-semibold">{item.categoria}</td>
                       <td className="py-3">{(parseFloat(item.presupuesto) || 0).toFixed(0)} €</td>
                       <td className="py-3 text-blue-500 font-bold">{(parseFloat(item.gastado) || 0).toFixed(2)} €</td>
-                      <td className={`py-3 font-bold text-right ${item.diferencia >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                        {item.diferencia >= 0 ? '+' : ''}{(parseFloat(item.diferencia) || 0).toFixed(2)} €
+                      <td className={`py-3 font-bold text-right ${
+                        item.diferencia > 0 
+                          ? 'text-emerald-500' 
+                          : item.diferencia === 0
+                          ? 'text-amber-500'
+                          : 'text-red-500'
+                      }`}>
+                        {item.diferencia > 0 ? '+' : ''}{(parseFloat(item.diferencia) || 0).toFixed(2)} €
                       </td>
                     </tr>
                   ))}
@@ -865,8 +916,14 @@ const UserAccount = () => {
                     <td className="py-3">TOTAL</td>
                     <td className="py-3">{presupuestoVsReal.reduce((sum, item) => sum + (parseFloat(item.presupuesto) || 0), 0).toFixed(0)} €</td>
                     <td className="py-3 text-blue-600">{presupuestoVsReal.reduce((sum, item) => sum + (parseFloat(item.gastado) || 0), 0).toFixed(2)} €</td>
-                    <td className={`py-3 text-right ${presupuestoVsReal.reduce((sum, item) => sum + (parseFloat(item.diferencia) || 0), 0) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {presupuestoVsReal.reduce((sum, item) => sum + (parseFloat(item.diferencia) || 0), 0).toFixed(2)} €
+                    <td className={`py-3 text-right ${
+                      presupuestoVsReal.reduce((sum, item) => sum + (parseFloat(item.diferencia) || 0), 0) > 0 
+                        ? 'text-emerald-600' 
+                        : presupuestoVsReal.reduce((sum, item) => sum + (parseFloat(item.diferencia) || 0), 0) === 0
+                        ? 'text-amber-600'
+                        : 'text-red-600'
+                    }`}>
+                      {presupuestoVsReal.reduce((sum, item) => sum + (parseFloat(item.diferencia) || 0), 0) > 0 ? '+' : ''}{presupuestoVsReal.reduce((sum, item) => sum + (parseFloat(item.diferencia) || 0), 0).toFixed(2)} €
                     </td>
                   </tr>
                 </tbody>
@@ -876,8 +933,8 @@ const UserAccount = () => {
         </div>
 
           {/* Tabla de Movimientos */}
-          <div ref={tablaRef} className="bg-white dark:bg-stone-900 rounded-2xl lg:rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm overflow-hidden">
-            <div className="p-4 lg:p-6 border-b border-slate-100 dark:border-stone-800 bg-slate-50/50 dark:bg-stone-900/50">
+          <div ref={tablaRef} className="bg-white dark:bg-stone-900 rounded-xl border border-slate-200 dark:border-stone-800 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+            <div className="p-4 lg:p-5 border-b border-slate-100 dark:border-stone-800 bg-slate-50/50 dark:bg-stone-900/50">
               <div className="flex flex-col gap-3 lg:gap-4">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 lg:gap-4">
                   <h3 className="font-bold text-base lg:text-lg">Movimientos</h3>
@@ -1218,33 +1275,33 @@ const UserAccount = () => {
         </div>
 
         {/* Sidebar con formulario */}
-        <div className="col-span-12 lg:col-span-4 space-y-6">
-          <div className="bg-gradient-to-br from-purple-600 to-purple-700 p-6 rounded-3xl shadow-lg text-white sticky top-8">
-            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-              <span className="text-xl">➕</span>
+        <div className="col-span-12 lg:col-span-4 space-y-5">
+          <div className="bg-gradient-to-br from-purple-600 to-purple-700 p-4 rounded-xl shadow-lg hover:shadow-xl transition-shadow text-white sticky top-8">
+            <h3 className="font-bold text-sm mb-3.5 flex items-center gap-2">
+              <span className="text-base">➕</span>
               Nueva Operación
             </h3>
-            <form onSubmit={handleCrearOperacion} className="space-y-4">
+            <form onSubmit={handleCrearOperacion} className="space-y-3.5">
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Fecha</label>
+                <label className="text-[10px] font-bold uppercase tracking-wider opacity-90 block mb-1.5">Fecha</label>
                 <input
                   type="date"
                   value={formNuevaOperacion.fecha}
                   onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, fecha: e.target.value})}
-                  className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white placeholder-white/60 focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                  className="w-full px-3 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-xs placeholder-white/60 focus:ring-2 focus:ring-white/50 focus:border-white/50"
                   required
                 />
               </div>
 
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Tipo</label>
+                <label className="text-[10px] font-bold uppercase tracking-wider opacity-90 block mb-1.5">Tipo</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setFormNuevaOperacion({...formNuevaOperacion, tipo: 'gasto'})}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                    className={`py-1.5 px-2.5 rounded-lg text-[11px] font-bold transition-all ${
                       formNuevaOperacion.tipo === 'gasto'
-                        ? 'bg-white text-purple-600 shadow-lg'
+                        ? 'bg-white text-purple-600 shadow-md'
                         : 'bg-white/20 border border-white/30 text-white'
                     }`}
                   >
@@ -1253,9 +1310,9 @@ const UserAccount = () => {
                   <button
                     type="button"
                     onClick={() => setFormNuevaOperacion({...formNuevaOperacion, tipo: 'ingreso'})}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                    className={`py-1.5 px-2.5 rounded-lg text-[11px] font-bold transition-all ${
                       formNuevaOperacion.tipo === 'ingreso'
-                        ? 'bg-white text-purple-600 shadow-lg'
+                        ? 'bg-white text-purple-600 shadow-md'
                         : 'bg-white/20 border border-white/30 text-white'
                     }`}
                   >
@@ -1264,9 +1321,9 @@ const UserAccount = () => {
                   <button
                     type="button"
                     onClick={() => setFormNuevaOperacion({...formNuevaOperacion, tipo: 'hucha'})}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                    className={`py-1.5 px-2.5 rounded-lg text-[11px] font-bold transition-all ${
                       formNuevaOperacion.tipo === 'hucha'
-                        ? 'bg-white text-purple-600 shadow-lg'
+                        ? 'bg-white text-purple-600 shadow-md'
                         : 'bg-white/20 border border-white/30 text-white'
                     }`}
                   >
@@ -1275,9 +1332,9 @@ const UserAccount = () => {
                   <button
                     type="button"
                     onClick={() => setFormNuevaOperacion({...formNuevaOperacion, tipo: 'retirada-hucha'})}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                    className={`py-1.5 px-2.5 rounded-lg text-[11px] font-bold transition-all ${
                       formNuevaOperacion.tipo === 'retirada-hucha'
-                        ? 'bg-white text-purple-600 shadow-lg'
+                        ? 'bg-white text-purple-600 shadow-md'
                         : 'bg-white/20 border border-white/30 text-white'
                     }`}
                   >
@@ -1287,36 +1344,36 @@ const UserAccount = () => {
               </div>
 
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cantidad</label>
+                <label className="text-[10px] font-bold uppercase tracking-wider opacity-90 block mb-1.5">Cantidad</label>
                 <input
                   type="number"
                   step="0.01"
                   value={formNuevaOperacion.cantidad}
                   onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, cantidad: e.target.value})}
-                  className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white placeholder-white/60 focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                  className="w-full px-3 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-xs placeholder-white/60 focus:ring-2 focus:ring-white/50 focus:border-white/50"
                   placeholder="0.00"
                   required
                 />
               </div>
 
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Concepto</label>
+                <label className="text-[10px] font-bold uppercase tracking-wider opacity-90 block mb-1.5">Concepto</label>
                 <input
                   type="text"
                   value={formNuevaOperacion.descripcion}
                   onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, descripcion: e.target.value})}
-                  className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white placeholder-white/60 focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                  className="w-full px-3 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-xs placeholder-white/60 focus:ring-2 focus:ring-white/50 focus:border-white/50"
                   placeholder="Descripción..."
                 />
               </div>
 
               {formNuevaOperacion.tipo === 'gasto' && (
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Categoría</label>
+                  <label className="text-[10px] font-bold uppercase tracking-wider opacity-90 block mb-1.5">Categoría</label>
                   <select
                     value={formNuevaOperacion.categoria}
                     onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, categoria: e.target.value})}
-                    className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                    className="w-full px-3 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-xs focus:ring-2 focus:ring-white/50 focus:border-white/50"
                   >
                     {categorias.map(cat => (
                       <option key={cat.nombre} value={cat.nombre} className="text-slate-900">{cat.nombre}</option>
@@ -1328,11 +1385,11 @@ const UserAccount = () => {
               {formNuevaOperacion.tipo === 'retirada-hucha' ? (
                 <>
                   <div>
-                    <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cuenta Origen</label>
+                    <label className="text-[10px] font-bold uppercase tracking-wider opacity-90 block mb-1.5">Cuenta Origen</label>
                     <select
                       value={formNuevaOperacion.cuentaOrigen}
                       onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, cuentaOrigen: e.target.value})}
-                      className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                      className="w-full px-3 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-xs focus:ring-2 focus:ring-white/50 focus:border-white/50"
                     >
                       <option value="Ahorro" className="text-slate-900">Ahorro</option>
                       {cuentasUsuario.map(cuenta => (
@@ -1341,11 +1398,11 @@ const UserAccount = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cuenta Destino</label>
+                    <label className="text-[10px] font-bold uppercase tracking-wider opacity-90 block mb-1.5">Cuenta Destino</label>
                     <select
                       value={formNuevaOperacion.cuentaDestino}
                       onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, cuentaDestino: e.target.value})}
-                      className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                      className="w-full px-3 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-xs focus:ring-2 focus:ring-white/50 focus:border-white/50"
                     >
                       {cuentasUsuario.map(cuenta => (
                         <option key={cuenta} value={cuenta} className="text-slate-900">{cuenta}</option>
@@ -1355,11 +1412,11 @@ const UserAccount = () => {
                 </>
               ) : formNuevaOperacion.tipo === 'hucha' ? (
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cuenta de origen</label>
+                  <label className="text-[10px] font-bold uppercase tracking-wider opacity-90 block mb-1.5">Cuenta de origen</label>
                   <select
                     value={formNuevaOperacion.cuenta}
                     onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, cuenta: e.target.value})}
-                    className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                    className="w-full px-3 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-xs focus:ring-2 focus:ring-white/50 focus:border-white/50"
                   >
                     {cuentasUsuario.map(cuenta => (
                       <option key={cuenta} value={cuenta} className="text-slate-900">{cuenta}</option>
@@ -1368,11 +1425,11 @@ const UserAccount = () => {
                 </div>
               ) : formNuevaOperacion.tipo !== 'retirada-hucha' ? (
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wider opacity-90 block mb-2">Cuenta</label>
+                  <label className="text-[10px] font-bold uppercase tracking-wider opacity-90 block mb-1.5">Cuenta</label>
                   <select
                     value={formNuevaOperacion.cuenta}
                     onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, cuenta: e.target.value})}
-                    className="w-full px-4 py-2 rounded-xl bg-white/20 border border-white/30 text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                    className="w-full px-3 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-xs focus:ring-2 focus:ring-white/50 focus:border-white/50"
                   >
                     {cuentasUsuario.map(cuenta => (
                       <option key={cuenta} value={cuenta} className="text-slate-900">{cuenta}</option>
@@ -1383,7 +1440,7 @@ const UserAccount = () => {
 
               <button
                 type="submit"
-                className="w-full py-3 bg-white text-purple-600 rounded-xl font-bold hover:bg-purple-50 transition-colors shadow-lg"
+                className="w-full py-2.5 bg-white text-purple-600 rounded-lg font-bold text-sm hover:bg-purple-50 active:scale-98 transition-all shadow-md hover:shadow-lg"
               >
                 Guardar Operación
               </button>
@@ -1431,9 +1488,7 @@ const UserAccount = () => {
                             }`}>
                               {tipoLabelText}
                             </span>
-                            <span className={`text-sm font-semibold ${
-                              parseFloat(act.amount) < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
-                            }`}>
+                            <span className="text-sm font-bold text-slate-900 dark:text-white">
                               {parseFloat(act.amount) < 0 ? '-' : '+'}{Math.abs(parseFloat(act.amount) || 0).toFixed(2)}€
                             </span>
                           </div>

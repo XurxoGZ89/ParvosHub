@@ -4,10 +4,7 @@ export const useFormattedAmount = (amount) => {
   const { hiddenNumbers } = usePrivacyStore();
   
   if (hiddenNumbers) {
-    // Contar los dígitos del número para saber cuántos puntos mostrar
-    const numStr = Math.abs(parseFloat(amount)).toString().replace('.', '');
-    const dotCount = numStr.length;
-    return '•'.repeat(Math.max(3, Math.min(dotCount, 10)));
+    return '•••';
   }
   
   return amount;
@@ -15,9 +12,7 @@ export const useFormattedAmount = (amount) => {
 
 export const formatAmount = (amount, hiddenNumbers) => {
   if (hiddenNumbers) {
-    const numStr = Math.abs(parseFloat(amount)).toString().replace('.', '');
-    const dotCount = numStr.length;
-    return '•'.repeat(Math.max(3, Math.min(dotCount, 10)));
+    return '•••';
   }
   
   // Cuando está visible, devolver con 2 decimales

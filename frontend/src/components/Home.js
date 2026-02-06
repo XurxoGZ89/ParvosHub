@@ -252,14 +252,14 @@ const Home = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Primera fila - 3 widgets de situación */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5">
       {/* Personal Situation */}
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-purple-600/10 flex items-center justify-center">
+      <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-purple-600/10 flex items-center justify-center">
               <span className="text-lg">👤</span>
             </div>
             <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Situación Global Personal</h2>
@@ -267,20 +267,20 @@ const Home = () => {
           <Button 
             onClick={() => navigate('/user-account')}
             variant="ghost"
-            className="text-purple-600 font-bold text-xs hover:opacity-80 h-auto p-0"
+            className="text-purple-600 font-semibold text-xs hover:opacity-80 h-auto p-0 hover:underline"
           >
             Ver todo
           </Button>
         </div>
 
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Saldo Total</p>
-            <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+        <div className="flex items-start justify-between mb-5">
+          <div className="flex-1">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Saldo Total</p>
+            <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-1">
               {formatAmount(userStats?.totalBalance || 0)}€
             </h3>
           </div>
-          <Button 
+          <button
             onClick={() => {
               setModalType('personal');
               setFormData({
@@ -295,18 +295,17 @@ const Home = () => {
               });
               setShowModal(true);
             }}
-            className="bg-purple-600 hover:bg-purple-700 text-white font-semibold shadow-md shadow-purple-600/30 px-4 py-2.5 h-auto rounded-lg"
-            size="sm"
+            className="group flex items-center justify-center w-10 h-10 rounded-full bg-purple-600/10 hover:bg-purple-600 text-purple-600 hover:text-white transition-all duration-200 active:scale-95"
+            title="Añadir movimiento"
           >
-            <Plus className="w-5 h-5 mr-2" />
-            Añadir movimiento
-          </Button>
+            <Plus className="w-5 h-5" />
+          </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 mb-4">
+        <div className="grid grid-cols-2 gap-2 mb-3">
           {userStats?.accounts?.filter(acc => acc.account_name !== 'Ahorro').map((account, idx) => (
-            <div key={idx} className="bg-slate-50 dark:bg-slate-800/40 px-3 py-2.5 rounded-lg border border-slate-100 dark:border-slate-800 flex justify-between items-center">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{account.account_name}</span>
+            <div key={idx} className="bg-slate-50 dark:bg-slate-800/40 px-2.5 py-2 rounded-lg border border-slate-100 dark:border-slate-800 flex justify-between items-center">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{account.account_name}</span>
               <span className="text-xs font-bold text-slate-900 dark:text-white">
                 {formatAmount(account.balance || 0)}€
               </span>
@@ -314,15 +313,15 @@ const Home = () => {
           ))}
         </div>
 
-        <div className="flex gap-2">
-          <div className="flex-1 flex items-center justify-between bg-green-50/50 dark:bg-green-900/10 px-3 py-2 rounded-lg border border-green-100/50 dark:border-green-900/20">
-            <span className="text-xs font-bold text-green-600 dark:text-green-500 uppercase">Ingresos</span>
+        <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex-1 flex items-center justify-between bg-green-50/50 dark:bg-green-900/10 px-2.5 py-1.5 rounded-lg border border-green-100/50 dark:border-green-900/20">
+            <span className="text-[10px] font-bold text-green-600 dark:text-green-500 uppercase tracking-wide">Ingresos</span>
             <span className="text-xs font-bold text-green-700 dark:text-green-400">
               +{formatAmount(userStats?.ingresosMes || 0)}€
             </span>
           </div>
-          <div className="flex-1 flex items-center justify-between bg-red-50/50 dark:bg-red-900/10 px-3 py-2 rounded-lg border border-red-100/50 dark:border-red-900/20">
-            <span className="text-xs font-bold text-red-600 dark:text-red-500 uppercase">Gastos</span>
+          <div className="flex-1 flex items-center justify-between bg-red-50/50 dark:bg-red-900/10 px-2.5 py-1.5 rounded-lg border border-red-100/50 dark:border-red-900/20">
+            <span className="text-[10px] font-bold text-red-600 dark:text-red-500 uppercase tracking-wide">Gastos</span>
             <span className="text-xs font-bold text-red-700 dark:text-red-400">
               -{formatAmount(userStats?.gastosMes || 0)}€
             </span>
@@ -331,10 +330,10 @@ const Home = () => {
       </div>
 
       {/* Family Situation */}
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-blue-600/10 flex items-center justify-center">
+      <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-blue-600/10 flex items-center justify-center">
               <span className="text-lg">👥</span>
             </div>
             <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Situación Global Familiar</h2>
@@ -342,20 +341,20 @@ const Home = () => {
           <Button 
             onClick={() => navigate('/gastos')}
             variant="ghost"
-            className="text-purple-600 font-bold text-xs hover:opacity-80 h-auto p-0"
+            className="text-purple-600 font-semibold text-xs hover:opacity-80 h-auto p-0 hover:underline"
           >
             Ver todo
           </Button>
         </div>
 
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Saldo Total</p>
-            <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+        <div className="flex items-start justify-between mb-5">
+          <div className="flex-1">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Saldo Total</p>
+            <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-1">
               {formatAmount(parvosStats?.total || 0)}€
             </h3>
           </div>
-          <Button 
+          <button
             onClick={() => {
               setModalType('parvos');
               setFormData({
@@ -370,42 +369,41 @@ const Home = () => {
               });
               setShowModal(true);
             }}
-            className="bg-purple-600 hover:bg-purple-700 text-white font-semibold shadow-md shadow-purple-600/30 px-4 py-2.5 h-auto rounded-lg"
-            size="sm"
+            className="group flex items-center justify-center w-10 h-10 rounded-full bg-purple-600/10 hover:bg-purple-600 text-purple-600 hover:text-white transition-all duration-200 active:scale-95"
+            title="Añadir movimiento"
           >
-            <Plus className="w-5 h-5 mr-2" />
-            Añadir movimiento
-          </Button>
+            <Plus className="w-5 h-5" />
+          </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <div className="bg-slate-50 dark:bg-slate-800/40 px-3 py-2.5 rounded-lg border border-slate-100 dark:border-slate-800 flex justify-between items-center">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">BBVA</span>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <div className="bg-slate-50 dark:bg-slate-800/40 px-2.5 py-2 rounded-lg border border-slate-100 dark:border-slate-800 flex justify-between items-center">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">BBVA</span>
             <span className="text-xs font-bold text-slate-900 dark:text-white">{formatAmount(parvosStats?.bbva || 0)}€</span>
           </div>
-          <div className="bg-slate-50 dark:bg-slate-800/40 px-3 py-2.5 rounded-lg border border-slate-100 dark:border-slate-800 flex justify-between items-center">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Imagin</span>
+          <div className="bg-slate-50 dark:bg-slate-800/40 px-2.5 py-2 rounded-lg border border-slate-100 dark:border-slate-800 flex justify-between items-center">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Imagin</span>
             <span className="text-xs font-bold text-slate-900 dark:text-white">{formatAmount(parvosStats?.imagin || 0)}€</span>
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <div className="flex-1 flex items-center justify-between bg-green-50/50 dark:bg-green-900/10 px-3 py-2 rounded-lg border border-green-100/50 dark:border-green-900/20">
-            <span className="text-xs font-bold text-green-600 dark:text-green-500 uppercase">Ingresos</span>
+        <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex-1 flex items-center justify-between bg-green-50/50 dark:bg-green-900/10 px-2.5 py-1.5 rounded-lg border border-green-100/50 dark:border-green-900/20">
+            <span className="text-[10px] font-bold text-green-600 dark:text-green-500 uppercase tracking-wide">Ingresos</span>
             <span className="text-xs font-bold text-green-700 dark:text-green-400">+{formatAmount(parvosStats?.ingresosMes || 0)}€</span>
           </div>
-          <div className="flex-1 flex items-center justify-between bg-red-50/50 dark:bg-red-900/10 px-3 py-2 rounded-lg border border-red-100/50 dark:border-red-900/20">
-            <span className="text-xs font-bold text-red-600 dark:text-red-500 uppercase">Gastos</span>
+          <div className="flex-1 flex items-center justify-between bg-red-50/50 dark:bg-red-900/10 px-2.5 py-1.5 rounded-lg border border-red-100/50 dark:border-red-900/20">
+            <span className="text-[10px] font-bold text-red-600 dark:text-red-500 uppercase tracking-wide">Gastos</span>
             <span className="text-xs font-bold text-red-700 dark:text-red-400">-{formatAmount(parvosStats?.gastosMes || 0)}€</span>
           </div>
         </div>
       </div>
 
       {/* Ahorro Total Parvos */}
-      <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 p-6 rounded-2xl border border-emerald-200 dark:border-emerald-800 shadow-sm">
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-emerald-600/20 flex items-center justify-center">
+      <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 p-5 rounded-xl border border-emerald-200 dark:border-emerald-800 shadow-sm hover:shadow-md transition-shadow">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-600/20 flex items-center justify-center">
               <span className="text-lg">💰</span>
             </div>
             <h2 className="text-sm font-bold text-emerald-900 dark:text-emerald-200">Ahorro Total Parvos</h2>
@@ -413,66 +411,74 @@ const Home = () => {
           <Button 
             onClick={() => navigate('/user-account')}
             variant="ghost"
-            className="text-emerald-700 dark:text-emerald-400 font-bold text-xs hover:opacity-80 h-auto p-0"
+            className="text-emerald-700 dark:text-emerald-400 font-semibold text-xs hover:opacity-80 h-auto p-0 hover:underline"
           >
             Ver todo
           </Button>
         </div>
 
         <div className="mb-4">
-          <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-1">Saldo Total</p>
-          <h3 className="text-2xl font-extrabold text-emerald-900 dark:text-emerald-100 tracking-tight">
+          <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-1.5">Saldo Total</p>
+          <h3 className="text-3xl font-extrabold text-emerald-900 dark:text-emerald-100 tracking-tight">
             {formatAmount(totalSavingsStats?.totalSavings || 0)}€
           </h3>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 mb-4">
+        <div className="grid grid-cols-3 gap-2 mb-3">
           <div className="bg-white/60 dark:bg-slate-800/40 px-2 py-2 rounded-lg border border-emerald-100 dark:border-emerald-800/50">
-            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 block mb-1">Parvos</span>
+            <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 block mb-0.5">Parvos</span>
             <span className="text-xs font-bold text-emerald-900 dark:text-emerald-100">
               {formatAmount(totalSavingsStats?.parvos || 0)}€
             </span>
           </div>
           <div className="bg-white/60 dark:bg-slate-800/40 px-2 py-2 rounded-lg border border-emerald-100 dark:border-emerald-800/50">
-            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 block mb-1">Xurxo</span>
+            <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 block mb-0.5">Xurxo</span>
             <span className="text-xs font-bold text-emerald-900 dark:text-emerald-100">
               {formatAmount(totalSavingsStats?.xurxo || 0)}€
             </span>
           </div>
           <div className="bg-white/60 dark:bg-slate-800/40 px-2 py-2 rounded-lg border border-emerald-100 dark:border-emerald-800/50">
-            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 block mb-1">Sonia</span>
+            <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 block mb-0.5">Sonia</span>
             <span className="text-xs font-bold text-emerald-900 dark:text-emerald-100">
               {formatAmount(totalSavingsStats?.sonia || 0)}€
             </span>
           </div>
         </div>
 
-        <div className={`flex items-center justify-between px-3 py-2 rounded-lg border ${
-          totalSavingsStats?.difference >= 0 
+        <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border ${
+          totalSavingsStats?.difference > 0 
             ? 'bg-emerald-100/60 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' 
+            : totalSavingsStats?.difference === 0
+            ? 'bg-amber-100/60 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
             : 'bg-red-50/50 dark:bg-red-900/10 border-red-100/50 dark:border-red-900/20'
         }`}>
-          <span className={`text-xs font-bold uppercase ${
-            totalSavingsStats?.difference >= 0 
+          <span className={`text-[10px] font-bold uppercase tracking-wide ${
+            totalSavingsStats?.difference > 0 
               ? 'text-emerald-700 dark:text-emerald-400' 
+              : totalSavingsStats?.difference === 0
+              ? 'text-amber-700 dark:text-amber-400'
               : 'text-red-600 dark:text-red-500'
           }`}>
             vs. Mes Anterior
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <span className={`text-xs font-bold ${
-              totalSavingsStats?.difference >= 0 
-                ? 'text-emerald-800 dark:text-emerald-300' 
+              totalSavingsStats?.difference > 0 
+                ? 'text-emerald-800 dark:text-emerald-300'
+                : totalSavingsStats?.difference === 0
+                ? 'text-amber-800 dark:text-amber-300' 
                 : 'text-red-700 dark:text-red-400'
             }`}>
-              {totalSavingsStats?.difference >= 0 ? '+' : ''}{formatAmount(totalSavingsStats?.difference || 0)}€
+              {totalSavingsStats?.difference > 0 ? '+' : ''}{formatAmount(totalSavingsStats?.difference || 0)}€
             </span>
-            <span className={`text-xs font-bold ${
-              totalSavingsStats?.difference >= 0 
-                ? 'text-emerald-800 dark:text-emerald-300' 
+            <span className={`text-[11px] font-bold ${
+              totalSavingsStats?.difference > 0 
+                ? 'text-emerald-800 dark:text-emerald-300'
+                : totalSavingsStats?.difference === 0
+                ? 'text-amber-800 dark:text-amber-300' 
                 : 'text-red-700 dark:text-red-400'
             }`}>
-              ({totalSavingsStats?.percentageChange >= 0 ? '+' : ''}{totalSavingsStats?.percentageChange?.toFixed(1) || 0}%)
+              ({totalSavingsStats?.percentageChange > 0 ? '+' : ''}{totalSavingsStats?.percentageChange?.toFixed(1) || 0}%)
             </span>
           </div>
         </div>
@@ -480,20 +486,20 @@ const Home = () => {
       </div>
 
       {/* Segunda fila - Resto de widgets */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
 
       {/* Menú Semanal */}
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center justify-between mb-5">
+      <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-orange-500/10 text-orange-500 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-orange-500/10 text-orange-500 rounded-xl flex items-center justify-center">
               <span className="text-xl">🍽️</span>
             </div>
             <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Menú Semanal</h2>
           </div>
           <button 
             onClick={() => navigate('/calendario-comidas')}
-            className="text-purple-600 font-bold text-xs hover:underline"
+            className="text-purple-600 font-semibold text-xs hover:opacity-80 hover:underline"
           >
             Ver todo
           </button>
@@ -569,10 +575,10 @@ const Home = () => {
       </div>
 
       {/* Gastos Mes */}
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center justify-between mb-5">
+      <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-pink-500/10 text-pink-500 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-pink-500/10 text-pink-500 rounded-xl flex items-center justify-center">
               <span className="text-xl">💳</span>
             </div>
             <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Gastos {currentMonth}</h2>
@@ -580,7 +586,7 @@ const Home = () => {
           <Button 
             onClick={() => navigate('/calendario-gastos')}
             variant="ghost"
-            className="text-purple-600 font-bold text-xs hover:underline h-auto p-0"
+            className="text-purple-600 font-semibold text-xs hover:opacity-80 hover:underline h-auto p-0"
           >
             Ver todo
           </Button>
@@ -625,6 +631,7 @@ const Home = () => {
             );
           })}
         </div>
+      </div>
       </div>
 
       {/* Modal Añadir Movimiento */}
@@ -945,7 +952,6 @@ const Home = () => {
           </div>
         </div>
       )}
-      </div>
     </div>
   );
 };
