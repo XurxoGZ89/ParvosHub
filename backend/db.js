@@ -5,9 +5,14 @@ require('dotenv').config();
 const connectionConfig = {
   connectionString: process.env.DATABASE_URL || `postgresql://${process.env.DB_USER || 'postgres'}:${process.env.DB_PASSWORD || 'password'}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 5432}/${process.env.DB_NAME || 'gastos_db'}`,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  max: 5,                         // Reducir más para Render free tier
+  min: 0,                         // Permitir 0 conexiones mínimas
+  idleTimeoutMillis: 60000,       // 60 segundos antes de cerrar conexión idle
+  connectionTimeoutMillis: 20000, // 20 segundos para conectar (DB puede estar dormida)
+  statement_timeout: 30000,       // 30 segundos para queries
+  query_timeout: 30000,           // 30 segundos timeout general
+  keepAlive: true,                // Mantener conexión viva
+  keepAliveInitialDelayMillis: 10000 // 10 segundos para keepalive
 };
 
 console.log('📦 Inicializando conexión a PostgreSQL...');
