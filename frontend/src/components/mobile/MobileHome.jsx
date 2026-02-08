@@ -291,7 +291,7 @@ const MobileHome = () => {
       {/* FAB */}
       <button
         onClick={() => { setModalType('parvos'); setShowAddSheet(true); }}
-        className="fixed right-4 bottom-20 z-50 w-14 h-14 bg-purple-600 rounded-full shadow-lg shadow-purple-600/30 flex items-center justify-center text-white active:scale-90 transition-transform"
+        className="fixed right-5 bottom-[5.5rem] z-[60] w-14 h-14 bg-purple-600 rounded-full shadow-lg shadow-purple-600/30 flex items-center justify-center text-white active:scale-90 transition-transform"
       >
         <Plus className="w-6 h-6" />
       </button>

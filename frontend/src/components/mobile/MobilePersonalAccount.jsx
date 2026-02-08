@@ -44,7 +44,15 @@ const MobilePersonalAccount = () => {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [showEditBudget, setShowEditBudget] = useState(false);
-  const [newBudget, setNewBudget] = useState('');
+
+  // Presupuestos por categoría (persisted en localStorage)
+  const defaultBudgets = { 'Alimentación': 400, 'Ocio': 200, 'Hogar': 150, 'Alquiler': 600, 'Extra': 100, 'Recibos': 200, 'Movilidad': 100 };
+  const storageKey = `budgets_personal_${user?.username || 'default'}`;
+  const [categoryBudgets, setCategoryBudgets] = useState(() => {
+    try { const saved = localStorage.getItem(storageKey); return saved ? JSON.parse(saved) : defaultBudgets; }
+    catch { return defaultBudgets; }
+  });
+  const [editBudgets, setEditBudgets] = useState({});
 
   const cuentasUsuario = user?.username === 'xurxo' ? ['Santander', 'Prepago'] : ['BBVA', 'Virtual'];
 
@@ -244,97 +252,115 @@ const MobilePersonalAccount = () => {
         </div>
 
         {/* Presupuesto vs Real */}
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-bold text-slate-500 uppercase">Presupuesto vs Real</h3>
-            <div className="flex items-center gap-2">
-              <button onClick={() => { setNewBudget(totales.ingresos.toString()); setShowEditBudget(true); }}
-                className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 active:scale-95">
-                <Edit2 className="w-3.5 h-3.5" />
-              </button>
-              <span className={`text-xs font-bold ${
-                totales.gastos <= totales.ingresos ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {totales.gastos <= totales.ingresos ? '✔️ OK' : '⚠️ Sobre'}
-              </span>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-slate-600 dark:text-slate-400">Presupuesto</span>
-                <span className="text-xs font-bold text-slate-900 dark:text-white">{formatAmount(totales.ingresos)}€</span>
+        {(() => {
+          const totalBudget = Object.values(categoryBudgets).reduce((s, v) => s + v, 0);
+          const gastado = totales.gastos;
+          const disponible = totalBudget - gastado;
+          const porcentaje = totalBudget > 0 ? (gastado / totalBudget) * 100 : 0;
+          const overBudget = gastado > totalBudget;
+          const catColorHex = { amber: '#f59e0b', red: '#ef4444', emerald: '#10b981', indigo: '#6366f1', purple: '#8b5cf6', slate: '#64748b', blue: '#3b82f6' };
+
+          return (
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-bold text-slate-500 uppercase">Presupuesto Mensual</h3>
+                <button onClick={() => { setEditBudgets({...categoryBudgets}); setShowEditBudget(true); }}
+                  className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 active:scale-95">
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
-                <div className="bg-blue-500 h-2 rounded-full" style={{ width: '100%' }} />
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-slate-600 dark:text-slate-400">Gastado</span>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-slate-900 dark:text-white">{formatAmount(totales.gastos)}€</span>
-                  <span className="text-[10px] font-bold text-slate-400">
-                    {totales.ingresos > 0 ? Math.round((totales.gastos / totales.ingresos) * 100) : 0}%
+
+              {/* Barra principal única */}
+              <div className="mb-3">
+                <div className="flex items-end justify-between mb-2">
+                  <div>
+                    <p className={`text-xl font-extrabold ${overBudget ? 'text-red-600' : 'text-slate-900 dark:text-white'}`}>
+                      {formatAmount(gastado)}€
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-medium">gastado de {formatAmount(totalBudget)}€</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-lg font-extrabold ${overBudget ? 'text-red-600' : 'text-green-600'}`}>
+                      {overBudget ? '-' : ''}{formatAmount(Math.abs(disponible))}€
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-medium">{overBudget ? 'sobrepasado' : 'disponible'}</p>
+                  </div>
+                </div>
+                <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden">
+                  <div
+                    className={`h-3 rounded-full transition-all duration-700 ${overBudget ? 'bg-red-500' : 'bg-blue-500'}`}
+                    style={{ width: `${Math.min(porcentaje, 100)}%` }}
+                  />
+                </div>
+                <div className="flex justify-between mt-1">
+                  <span className="text-[10px] font-bold text-slate-400">{Math.round(porcentaje)}%</span>
+                  <span className={`text-[10px] font-bold ${overBudget ? 'text-red-500' : 'text-green-500'}`}>
+                    {overBudget ? '⚠️ Sobre presupuesto' : '✔️ Dentro del presupuesto'}
                   </span>
                 </div>
               </div>
-              <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
-                <div className={`h-2 rounded-full ${
-                  totales.gastos <= totales.ingresos ? 'bg-green-500' : 'bg-red-500'
-                }`} style={{ width: `${Math.min((totales.gastos / (totales.ingresos || 1)) * 100, 100)}%` }} />
-              </div>
-            </div>
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
-              <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Disponible</span>
-              <span className={`text-sm font-extrabold ${
-                (totales.ingresos - totales.gastos) >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {formatAmount(totales.ingresos - totales.gastos)}€
-              </span>
-            </div>
-          </div>
 
-          {/* Desglose por categorías */}
-          <button onClick={() => setShowCategorias(!showCategorias)}
-            className="w-full flex items-center justify-between mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-            <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400">Ver por categorías</span>
-            <ChevronDown className={`w-4 h-4 text-purple-600 dark:text-purple-400 transition-transform duration-200 ${showCategorias ? 'rotate-180' : ''}`} />
-          </button>
-          {showCategorias && (() => {
-            const catColorHex = { amber: '#f59e0b', red: '#ef4444', emerald: '#10b981', indigo: '#6366f1', purple: '#8b5cf6', slate: '#64748b', blue: '#3b82f6' };
-            const gastosPorCat = categorias.map(cat => {
-              const total = operacionesDelMes.filter(op => op.type === 'gasto' && op.category === cat.nombre)
-                .reduce((s, op) => s + parseFloat(op.amount || 0), 0);
-              return { ...cat, total };
-            }).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
-            const maxCat = gastosPorCat.length > 0 ? gastosPorCat[0].total : 1;
-            return (
-              <div className="mt-3 space-y-2.5">
-                {gastosPorCat.length > 0 ? gastosPorCat.map(cat => {
-                  const CatIcon = cat.icon;
-                  return (
-                    <div key={cat.nombre}>
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${colorMap[cat.color] || colorMap.slate}`}>
-                            <CatIcon className="w-3 h-3" />
+              {/* Desglose por categorías */}
+              <button onClick={() => setShowCategorias(!showCategorias)}
+                className="w-full flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+                <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400">Ver por categorías</span>
+                <ChevronDown className={`w-4 h-4 text-purple-600 dark:text-purple-400 transition-transform duration-200 ${showCategorias ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showCategorias && (
+                <div className="mt-3 space-y-3">
+                  {categorias.map(cat => {
+                    const CatIcon = cat.icon;
+                    const budget = categoryBudgets[cat.nombre] || 0;
+                    const spent = operacionesDelMes.filter(op => op.type === 'gasto' && op.category === cat.nombre)
+                      .reduce((s, op) => s + parseFloat(op.amount || 0), 0);
+                    if (budget === 0 && spent === 0) return null;
+                    const remaining = budget - spent;
+                    const pct = budget > 0 ? (spent / budget) * 100 : (spent > 0 ? 100 : 0);
+                    const over = spent > budget;
+                    return (
+                      <div key={cat.nombre}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${colorMap[cat.color] || colorMap.slate}`}>
+                              <CatIcon className="w-3 h-3" />
+                            </div>
+                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{cat.nombre}</span>
                           </div>
-                          <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{cat.nombre}</span>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs font-bold ${over ? 'text-red-600' : 'text-slate-900 dark:text-white'}`}>{formatAmount(spent)}€</span>
+                            <span className="text-[10px] text-slate-400">/ {formatAmount(budget)}€</span>
+                          </div>
                         </div>
-                        <span className="text-xs font-bold text-slate-900 dark:text-white">{formatAmount(cat.total)}€</span>
+                        <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="h-2 rounded-full transition-all duration-500"
+                            style={{
+                              width: `${Math.min(pct, 100)}%`,
+                              backgroundColor: over ? '#ef4444' : (catColorHex[cat.color] || '#8b5cf6')
+                            }}
+                          />
+                        </div>
+                        <div className="flex justify-between mt-0.5">
+                          <span className="text-[10px] text-slate-400">{Math.round(pct)}%</span>
+                          <span className={`text-[10px] font-bold ${over ? 'text-red-500' : 'text-green-600'}`}>
+                            {over ? `-${formatAmount(Math.abs(remaining))}€` : `${formatAmount(remaining)}€ libre`}
+                          </span>
+                        </div>
                       </div>
-                      <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5">
-                        <div className="h-1.5 rounded-full transition-all duration-500"
-                          style={{ width: `${(cat.total / maxCat) * 100}%`, backgroundColor: catColorHex[cat.color] || '#8b5cf6' }} />
-                      </div>
-                    </div>
-                  );
-                }) : <p className="text-xs text-slate-400 text-center py-2">Sin gastos este mes</p>}
-              </div>
-            );
-          })()}
-        </div>
+                    );
+                  }).filter(Boolean)}
+                  {categorias.every(cat => {
+                    const budget = categoryBudgets[cat.nombre] || 0;
+                    const spent = operacionesDelMes.filter(op => op.type === 'gasto' && op.category === cat.nombre)
+                      .reduce((s, op) => s + parseFloat(op.amount || 0), 0);
+                    return budget === 0 && spent === 0;
+                  }) && <p className="text-xs text-slate-400 text-center py-2">Sin gastos este mes</p>}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Filtros */}
         <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
@@ -388,7 +414,7 @@ const MobilePersonalAccount = () => {
       {/* FAB */}
       <button onClick={() => setShowAddSheet(true)}
         aria-label="Añadir movimiento"
-        className="fixed right-4 bottom-24 z-50 w-14 h-14 bg-purple-600 rounded-full shadow-lg shadow-purple-600/30 flex items-center justify-center text-white active:scale-90 transition-transform">
+        className="fixed right-5 bottom-[5.5rem] z-[60] w-14 h-14 bg-purple-600 rounded-full shadow-lg shadow-purple-600/30 flex items-center justify-center text-white active:scale-90 transition-transform">
         <Plus className="w-6 h-6" />
       </button>
 
@@ -463,25 +489,61 @@ const MobilePersonalAccount = () => {
         </form>
       </MobileSheet>
 
-      {/* Edit Budget Sheet */}
-      <MobileSheet isOpen={showEditBudget} onClose={() => setShowEditBudget(false)} title="Editar Presupuesto">
-        <form onSubmit={(e) => { e.preventDefault(); const val = parseFloat(newBudget); if (val > 0) { setToast('✓ Presupuesto: ' + val + '€'); setTimeout(() => setToast(null), 2500); setShowEditBudget(false); } }} className="space-y-4">
-          <div>
-            <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5 block">Nuevo presupuesto mensual</label>
-            <div className="relative">
-              <input type="number" step="0.01" inputMode="decimal" value={newBudget} onChange={(e) => setNewBudget(e.target.value)}
-                className="w-full h-14 px-4 pr-8 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-lg font-bold text-center" 
-                placeholder="0,00" required autoFocus />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">€</span>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-              Este es el límite mensual de ingresos para calcular tu presupuesto
-            </p>
+      {/* Edit Budget Sheet - por categoría */}
+      <MobileSheet isOpen={showEditBudget} onClose={() => setShowEditBudget(false)} title="Presupuesto por Categoría" fullHeight>
+        <div className="space-y-5">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Define cuánto quieres gastar como máximo en cada categoría este mes.
+          </p>
+
+          <div className="space-y-3">
+            {categorias.map(cat => {
+              const CatIcon = cat.icon;
+              return (
+                <div key={cat.nombre} className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${colorMap[cat.color] || colorMap.slate}`}>
+                    <CatIcon className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">{cat.nombre}</label>
+                    <div className="relative">
+                      <input
+                        type="number" step="1" inputMode="numeric"
+                        value={editBudgets[cat.nombre] || ''}
+                        onChange={(e) => setEditBudgets({...editBudgets, [cat.nombre]: parseFloat(e.target.value) || 0})}
+                        className="w-full h-11 px-3 pr-8 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold"
+                        placeholder="0"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">€</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <button type="submit" className="w-full py-3.5 bg-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-[0.98] transition-transform text-sm">
+
+          <div className="bg-purple-50 dark:bg-purple-950/20 rounded-xl p-3 border border-purple-200 dark:border-purple-800">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase">Total presupuesto</span>
+              <span className="text-base font-extrabold text-purple-700 dark:text-purple-300">
+                {formatAmount(Object.values(editBudgets).reduce((s, v) => s + (v || 0), 0))}€
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              setCategoryBudgets(editBudgets);
+              localStorage.setItem(storageKey, JSON.stringify(editBudgets));
+              setShowEditBudget(false);
+              setToast('✓ Presupuesto guardado');
+              setTimeout(() => setToast(null), 2500);
+            }}
+            className="w-full py-3.5 bg-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-[0.98] transition-transform text-sm"
+          >
             Guardar Presupuesto
           </button>
-        </form>
+        </div>
       </MobileSheet>
     </div>
   );

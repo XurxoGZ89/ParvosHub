@@ -131,6 +131,14 @@
   html, body {
     overscroll-behavior: none;
     -webkit-overflow-scrolling: touch;
+    height: 100%;
+    height: -webkit-fill-available;
+  }
+
+  /* Use dvh for dynamic viewport height (Safari address bar) */
+  .min-h-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
   }
 }
 
