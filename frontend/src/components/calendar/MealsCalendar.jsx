@@ -3,7 +3,8 @@ import axios from 'axios';
 import { 
   ChevronLeft, ChevronRight, Plus, X, Search, Sun, Moon, 
   Edit2, Trash2, Check, Calendar, Package, 
-  ShoppingCart, BarChart3, AlertTriangle, ArrowLeft
+  ShoppingCart, BarChart3, AlertTriangle, ArrowLeft,
+  Beef, Fish, Salad, UtensilsCrossed, Utensils
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -12,19 +13,19 @@ import { Input } from '../ui/input';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 const CATEGORIAS = [
-  { value: 'carne', label: 'Carne', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', emoji: '🥩' },
-  { value: 'pescado', label: 'Pescado', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', emoji: '🐟' },
-  { value: 'vegetariano', label: 'Vegetariano', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', emoji: '🥬' },
-  { value: 'otros', label: 'Otros', color: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300', emoji: '🍽️' },
+  { value: 'carne', label: 'Carne', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', icon: Beef },
+  { value: 'pescado', label: 'Pescado', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', icon: Fish },
+  { value: 'vegetariano', label: 'Vegetariano', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', icon: Salad },
+  { value: 'otros', label: 'Otros', color: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300', icon: UtensilsCrossed },
 ];
 
 const CATEGORIAS_WIDGET = [
   ...[
-    { value: 'carne', label: 'Carne', emoji: '🥩', barColor: 'bg-red-400' },
-    { value: 'pescado', label: 'Pescado', emoji: '🐟', barColor: 'bg-blue-400' },
-    { value: 'vegetariano', label: 'Vegetariano', emoji: '🥬', barColor: 'bg-green-400' },
-    { value: 'comer_fuera', label: 'Comer Fuera', emoji: '🍴', barColor: 'bg-amber-400' },
-    { value: 'otros', label: 'Otros', emoji: '🍽️', barColor: 'bg-slate-400' },
+    { value: 'carne', label: 'Carne', icon: Beef, barColor: 'bg-red-400' },
+    { value: 'pescado', label: 'Pescado', icon: Fish, barColor: 'bg-blue-400' },
+    { value: 'vegetariano', label: 'Vegetariano', icon: Salad, barColor: 'bg-green-400' },
+    { value: 'comer_fuera', label: 'Comer Fuera', icon: Utensils, barColor: 'bg-amber-400' },
+    { value: 'otros', label: 'Otros', icon: UtensilsCrossed, barColor: 'bg-slate-400' },
   ]
 ];
 
@@ -892,7 +893,7 @@ function MealsCalendar({ onBack }) {
                       <span className={`text-[10px] leading-none font-semibold ${
                         cadStatus?.urgent ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'
                       }`}>
-                        {cadStatus?.urgent && '⚠ '}
+                        {cadStatus?.urgent && <><AlertTriangle className="w-3 h-3 inline" /> </>}
                         Cad: {formatFechaCaducidad(comida.fecha_caducidad) || 'N/A'}
                       </span>
                     )}
@@ -1205,7 +1206,7 @@ function MealsCalendar({ onBack }) {
                       <div key={cat.value}>
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-xs sm:text-sm flex items-center gap-1.5">
-                            <span>{cat.emoji}</span>
+                            <cat.icon className="w-4 h-4" />
                             <span className="font-medium">{cat.label}</span>
                           </span>
                           <span className="text-xs font-bold text-slate-500">{count} ({pct}%)</span>
@@ -1303,11 +1304,11 @@ function MealsCalendar({ onBack }) {
         <div className="fixed inset-0 bg-black/50 z-[150] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-5 sm:p-6 animate-slide-up">
             <div className="flex items-center gap-2 mb-3 sm:mb-4">
-              <span className="text-2xl">🍴</span>
+              <Utensils className="w-6 h-6 text-amber-500" />
               <h3 className="text-lg sm:text-xl font-bold">Comer Fuera</h3>
             </div>
             <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-              {modoTextoLibre.dia} — {modoTextoLibre.tipoComida === 'comida' ? '☀️ Comida' : '🌙 Cena'}
+              {modoTextoLibre.dia} — {modoTextoLibre.tipoComida === 'comida' ? <span className="inline-flex items-center gap-1"><Sun className="w-4 h-4 text-amber-400" /> Comida</span> : <span className="inline-flex items-center gap-1"><Moon className="w-4 h-4 text-indigo-400" /> Cena</span>}
             </p>
             <Input
               type="text"
@@ -1373,7 +1374,7 @@ function MealsCalendar({ onBack }) {
                           : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
                       }`}
                     >
-                      <span>{cat.emoji}</span>
+                      <cat.icon className="w-3.5 h-3.5" />
                       <span>{cat.label}</span>
                     </button>
                   ))}
@@ -1436,7 +1437,7 @@ function MealsCalendar({ onBack }) {
                           : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
                       }`}
                     >
-                      <span>{cat.emoji}</span>
+                      <cat.icon className="w-3.5 h-3.5" />
                       <span>{cat.label}</span>
                     </button>
                   ))}

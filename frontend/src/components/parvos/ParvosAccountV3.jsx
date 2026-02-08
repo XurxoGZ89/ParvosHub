@@ -25,7 +25,18 @@ import {
   AlertTriangle,
   Calendar,
   XCircle,
-  Repeat
+  Repeat,
+  FileText,
+  RefreshCw,
+  Shield,
+  Landmark,
+  Cake,
+  Heart,
+  GraduationCap,
+  Star,
+  Pin,
+  BarChart3,
+  ClipboardList
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../stores/authStore';
@@ -504,18 +515,18 @@ const ParvosAccount = () => {
 
   // ─── Warnings de gastos programados del calendario ───────────────
   const CATS_MAP = {
-    factura: { emoji: '📄', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400' },
-    suscripcion: { emoji: '🔄', color: 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400' },
-    seguro: { emoji: '🛡️', color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' },
-    impuesto: { emoji: '🏛️', color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' },
-    cumpleanos: { emoji: '🎂', color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400' },
-    viaje: { emoji: '✈️', color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' },
-    medico: { emoji: '🏥', color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400' },
-    educacion: { emoji: '📚', color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400' },
-    hogar: { emoji: '🏠', color: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400' },
-    vehiculo: { emoji: '🚗', color: 'bg-slate-200 dark:bg-slate-700/50 text-slate-700 dark:text-slate-400' },
-    dia_especial: { emoji: '⭐', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' },
-    otro: { emoji: '📌', color: 'bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-400' },
+    factura: { icon: FileText, color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400' },
+    suscripcion: { icon: RefreshCw, color: 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400' },
+    seguro: { icon: Shield, color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' },
+    impuesto: { icon: Landmark, color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' },
+    cumpleanos: { icon: Cake, color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400' },
+    viaje: { icon: Plane, color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' },
+    medico: { icon: Heart, color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400' },
+    educacion: { icon: GraduationCap, color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400' },
+    hogar: { icon: HomeIcon, color: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400' },
+    vehiculo: { icon: Car, color: 'bg-slate-200 dark:bg-slate-700/50 text-slate-700 dark:text-slate-400' },
+    dia_especial: { icon: Star, color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' },
+    otro: { icon: Pin, color: 'bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-400' },
   };
   const LEGACY_MAP = { 'Cumpleaños': 'cumpleanos', 'Seguro': 'seguro', 'Viaje': 'viaje', 'Día Especial': 'dia_especial' };
   const getCatInfo = (cat) => CATS_MAP[LEGACY_MAP[cat] || cat] || CATS_MAP.otro;
@@ -748,7 +759,7 @@ const ParvosAccount = () => {
                         : 'bg-white/70 dark:bg-slate-800/40 border-amber-100 dark:border-amber-800/20'
                     }`}
                   >
-                    <span className="text-lg shrink-0">{cat.emoji}</span>
+                    <cat.icon className="w-5 h-5 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{ev.nombre}</p>
@@ -790,7 +801,7 @@ const ParvosAccount = () => {
             <div className="bg-white dark:bg-stone-900 p-5 rounded-xl border border-slate-200 dark:border-stone-800 shadow-sm hover:shadow-md transition-shadow overflow-visible">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-bold flex items-center gap-2">
-                  <span className="text-base">📊</span>
+                  <BarChart3 className="w-4 h-4 text-slate-500" />
                   Gastos por Categoría
                 </h3>
                 <span className="text-[9px] font-semibold text-slate-400 flex items-center gap-1">
@@ -879,7 +890,7 @@ const ParvosAccount = () => {
             <div className="bg-white dark:bg-stone-900 p-5 rounded-xl border border-slate-200 dark:border-stone-800 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-5 px-2">
                 <h3 className="text-sm font-bold flex items-center gap-2">
-                  <span className="text-base">📋</span>
+                  <ClipboardList className="w-4 h-4" />
                   Presupuesto vs Real
                 </h3>
                 <button 
@@ -1304,7 +1315,7 @@ const ParvosAccount = () => {
         <div className="col-span-12 lg:col-span-4 space-y-5">
           <div className="bg-gradient-to-br from-purple-600 to-purple-700 p-4 rounded-xl shadow-lg hover:shadow-xl transition-shadow text-white sticky top-8">
             <h3 className="font-bold text-sm mb-3.5 flex items-center gap-2">
-              <span className="text-base">➕</span>
+              <Plus className="w-4 h-4" />
               Nueva Operación
             </h3>
             <form onSubmit={handleCrearOperacion} className="space-y-3.5">

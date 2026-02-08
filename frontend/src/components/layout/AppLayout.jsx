@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Home as HomeIcon, User, Users, BarChart3, CalendarDays, UtensilsCrossed, Coins, Sun as SunIcon, Moon as MoonIcon, LogOut, Hand } from 'lucide-react';
 import useAuthStore from '../../stores/authStore';
 import usePrivacyStore from '../../stores/privacyStore';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -24,12 +24,12 @@ const AppLayout = () => {
   };
 
   const menuItems = [
-    { icon: '🏠', label: 'Inicio', path: '/' },
-    { icon: '👤', label: 'Cuenta Personal', path: '/user-account' },
-    { icon: '👥', label: 'Cuenta Familiar', path: '/gastos' },
-    { icon: '📊', label: 'Resumen Anual', path: '/resumen' },
-    { icon: '📅', label: 'Calendario Gastos', path: '/calendario-gastos' },
-    { icon: '🍽️', label: 'Calendario Comidas', path: '/calendario-comidas' },
+    { icon: HomeIcon, label: 'Inicio', path: '/' },
+    { icon: User, label: 'Cuenta Personal', path: '/user-account' },
+    { icon: Users, label: 'Cuenta Familiar', path: '/gastos' },
+    { icon: BarChart3, label: 'Resumen Anual', path: '/resumen' },
+    { icon: CalendarDays, label: 'Calendario Gastos', path: '/calendario-gastos' },
+    { icon: UtensilsCrossed, label: 'Calendario Comidas', path: '/calendario-comidas' },
   ];
 
   const isActive = (path) => location.pathname === path;
@@ -42,7 +42,7 @@ const AppLayout = () => {
           {/* Logo */}
           <div className="p-6 flex items-center gap-3">
             <div className="w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center text-white shrink-0">
-              <span className="text-2xl">💰</span>
+              <Coins className="w-5 h-5 text-white" />
             </div>
             <span className="text-xl font-extrabold tracking-tight hidden lg:block bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent">
               ParvosHub
@@ -63,7 +63,7 @@ const AppLayout = () => {
                       : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'
                   }`}
                 >
-                  <span className="text-2xl shrink-0">{item.icon}</span>
+                  <item.icon className="w-6 h-6 shrink-0" />
                   <span className="hidden lg:block text-sm">{item.label}</span>
                 </button>
               );
@@ -76,14 +76,14 @@ const AppLayout = () => {
               onClick={toggleDarkMode}
               className="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-all mb-2"
             >
-              <span className="text-2xl shrink-0">{darkMode ? '☀️' : '🌙'}</span>
+              {darkMode ? <SunIcon className="w-6 h-6 shrink-0" /> : <MoonIcon className="w-6 h-6 shrink-0" />}
               <span className="hidden lg:block text-sm">Modo Oscuro</span>
             </button>
             <button
               onClick={handleLogout}
               className="w-full flex items-center gap-4 p-3 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
             >
-              <span className="text-2xl shrink-0">🚪</span>
+              <LogOut className="w-6 h-6 shrink-0" />
               <span className="hidden lg:block text-sm">Cerrar Sesión</span>
             </button>
           </div>
@@ -95,7 +95,7 @@ const AppLayout = () => {
           <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
             <div>
               <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-                ¡Hola, {user?.fullName || user?.username}! 👋
+                ¡Hola, {user?.fullName || user?.username}!
               </h1>
               <p className="text-slate-500 dark:text-slate-400 mt-1">
                 {new Date().toLocaleDateString('es-ES', { 

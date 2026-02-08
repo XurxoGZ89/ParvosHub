@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../stores/authStore';
+import { Coins, Sun, Moon, User, Lock, Eye, EyeOff, Globe } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 const Login = () => {
@@ -33,7 +34,7 @@ const Login = () => {
         <header className="w-full p-8 flex justify-between items-center">
           <div className="flex items-center gap-2 group cursor-default">
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-600/20">
-              <span className="text-2xl">💰</span>
+              <Coins className="w-5 h-5 text-white" />
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
               ParvosHub <span className="text-blue-600">V2</span>
@@ -44,7 +45,7 @@ const Login = () => {
               onClick={toggleDarkMode}
               className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-colors"
             >
-              {darkMode ? '☀️' : '🌙'}
+              {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
           </div>
         </header>
@@ -65,8 +66,8 @@ const Login = () => {
                     Usuario
                   </label>
                   <div className="relative group">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl transition-colors group-focus-within:text-blue-600">
-                      👤
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-blue-600">
+                      <User className="w-5 h-5" />
                     </span>
                     <input
                       id="username"
@@ -91,8 +92,8 @@ const Login = () => {
                     </label>
                   </div>
                   <div className="relative group">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl transition-colors group-focus-within:text-blue-600">
-                      🔒
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-blue-600">
+                      <Lock className="w-5 h-5" />
                     </span>
                     <input
                       id="password"
@@ -111,7 +112,7 @@ const Login = () => {
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors text-xl"
                     >
-                      {showPassword ? '🙈' : '👁️'}
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
                 </div>
@@ -160,7 +161,7 @@ const Login = () => {
         {/* Footer */}
         <footer className="p-8 flex justify-center items-center gap-6">
           <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 px-4 py-2 rounded-full shadow-sm">
-            <span className="text-lg">🌐</span>
+            <Globe className="w-5 h-5 text-slate-500" />
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value)}

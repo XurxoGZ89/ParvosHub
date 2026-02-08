@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import api from '../../lib/api';
 
@@ -205,8 +205,8 @@ const ResumenAnual = ({ onBack }) => {
 
         {/* Gráfico de Resumen Anual */}
         <div className="bg-white dark:bg-stone-900 rounded-2xl lg:rounded-3xl p-6 lg:p-10 shadow-sm border border-slate-200 dark:border-stone-800 mb-8">
-          <h2 className="text-xl lg:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-8 text-center">
-            📈 {t('resumenDelAno')}
+          <h2 className="text-xl lg:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-8 text-center flex items-center justify-center gap-2">
+            <TrendingUp className="w-6 h-6 text-emerald-500" /> {t('resumenDelAno')}
           </h2>
 
           {datosMensuales.length > 0 ? (

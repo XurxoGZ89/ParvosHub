@@ -22,7 +22,9 @@ import {
   ArrowDown,
   CreditCard,
   DollarSign,
-  FileText
+  FileText,
+  BarChart3,
+  ClipboardList
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../stores/authStore';
@@ -775,7 +777,7 @@ const UserAccount = () => {
             <div className="bg-white dark:bg-stone-900 p-5 rounded-xl border border-slate-200 dark:border-stone-800 shadow-sm hover:shadow-md transition-shadow overflow-visible">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-bold flex items-center gap-2">
-                  <span className="text-base">📊</span>
+                  <BarChart3 className="w-4 h-4 text-slate-500" />
                   Gastos por Categoría
                 </h3>
                 <span className="text-[9px] font-semibold text-slate-400 flex items-center gap-1">
@@ -864,7 +866,7 @@ const UserAccount = () => {
           <div className="bg-white dark:bg-stone-900 p-5 rounded-xl border border-slate-200 dark:border-stone-800 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-5 px-2">
               <h3 className="text-sm font-bold flex items-center gap-2">
-                <span className="text-base">📋</span>
+                <ClipboardList className="w-4 h-4" />
                 Presupuesto vs Real
               </h3>
               <button 
@@ -1278,7 +1280,7 @@ const UserAccount = () => {
         <div className="col-span-12 lg:col-span-4 space-y-5">
           <div className="bg-gradient-to-br from-purple-600 to-purple-700 p-4 rounded-xl shadow-lg hover:shadow-xl transition-shadow text-white sticky top-8">
             <h3 className="font-bold text-sm mb-3.5 flex items-center gap-2">
-              <span className="text-base">➕</span>
+              <Plus className="w-4 h-4" />
               Nueva Operación
             </h3>
             <form onSubmit={handleCrearOperacion} className="space-y-3.5">

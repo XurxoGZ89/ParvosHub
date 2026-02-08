@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Calendar, Euro, FileText, Tag, CreditCard, X, Sun, Moon } from 'lucide-react';
+import { Plus, Calendar, Euro, FileText, Tag, CreditCard, X, Sun, Moon, User, Users, PiggyBank, UtensilsCrossed, RefreshCw, Shield, Landmark, Cake, Plane, Heart, GraduationCap, Home as HomeIcon, Car, Star, Pin, Beef, Fish, Salad, BarChart3 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -181,12 +181,12 @@ const Home = () => {
 
   // Categorías con colores para el widget (subset del ExpensesCalendar)
   const WIDGET_CATS = {
-    factura: { emoji: '📄', dot: 'bg-orange-500' }, suscripcion: { emoji: '🔄', dot: 'bg-violet-500' },
-    seguro: { emoji: '🛡️', dot: 'bg-emerald-500' }, impuesto: { emoji: '🏛️', dot: 'bg-red-500' },
-    cumpleanos: { emoji: '🎂', dot: 'bg-rose-500' }, viaje: { emoji: '✈️', dot: 'bg-amber-500' },
-    medico: { emoji: '🏥', dot: 'bg-teal-500' }, educacion: { emoji: '📚', dot: 'bg-indigo-500' },
-    hogar: { emoji: '🏠', dot: 'bg-cyan-500' }, vehiculo: { emoji: '🚗', dot: 'bg-slate-500' },
-    dia_especial: { emoji: '⭐', dot: 'bg-blue-500' }, otro: { emoji: '📌', dot: 'bg-gray-500' },
+    factura: { icon: FileText, dot: 'bg-orange-500' }, suscripcion: { icon: RefreshCw, dot: 'bg-violet-500' },
+    seguro: { icon: Shield, dot: 'bg-emerald-500' }, impuesto: { icon: Landmark, dot: 'bg-red-500' },
+    cumpleanos: { icon: Cake, dot: 'bg-rose-500' }, viaje: { icon: Plane, dot: 'bg-amber-500' },
+    medico: { icon: Heart, dot: 'bg-teal-500' }, educacion: { icon: GraduationCap, dot: 'bg-indigo-500' },
+    hogar: { icon: HomeIcon, dot: 'bg-cyan-500' }, vehiculo: { icon: Car, dot: 'bg-slate-500' },
+    dia_especial: { icon: Star, dot: 'bg-blue-500' }, otro: { icon: Pin, dot: 'bg-gray-500' },
   };
   const LEGACY_CAT_MAP = { 'Cumpleaños': 'cumpleanos', 'Seguro': 'seguro', 'Viaje': 'viaje', 'Día Especial': 'dia_especial' };
   const getCatWidget = (cat) => WIDGET_CATS[LEGACY_CAT_MAP[cat] || cat] || WIDGET_CATS.otro;
@@ -294,7 +294,7 @@ const Home = () => {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-purple-600/10 flex items-center justify-center">
-              <span className="text-lg">👤</span>
+              <User className="w-4 h-4 text-purple-600" />
             </div>
             <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Situación Global Personal</h2>
           </div>
@@ -368,7 +368,7 @@ const Home = () => {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-blue-600/10 flex items-center justify-center">
-              <span className="text-lg">👥</span>
+              <Users className="w-5 h-5 text-blue-600" />
             </div>
             <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Situación Global Familiar</h2>
           </div>
@@ -437,7 +437,7 @@ const Home = () => {
       <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 p-5 rounded-xl border border-emerald-200 dark:border-emerald-800 shadow-sm hover:shadow-md transition-shadow">
         <div className="flex items-center gap-2.5 mb-4">
           <div className="w-8 h-8 rounded-xl bg-emerald-600/20 flex items-center justify-center">
-            <span className="text-lg">💰</span>
+            <PiggyBank className="w-4 h-4 text-emerald-600" />
           </div>
           <h2 className="text-sm font-bold text-emerald-900 dark:text-emerald-200">Ahorro Total Parvos</h2>
         </div>
@@ -518,7 +518,7 @@ const Home = () => {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-amber-500 rounded-xl flex items-center justify-center shadow-sm">
-              <span className="text-lg">🍽️</span>
+              <UtensilsCrossed className="w-4 h-4 text-amber-500" />
             </div>
             <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Menú Semanal</h2>
           </div>
@@ -556,15 +556,15 @@ const Home = () => {
                 </div>
               </div>
               <div className="bg-red-50 dark:bg-red-900/20 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
-                <span className="text-[10px]">🥩</span>
+                <Beef className="w-3 h-3 text-red-500" />
                 <span className="text-[10px] font-bold text-red-600">{mealData.filter(m => m.categoria === 'carne').length}</span>
               </div>
               <div className="bg-blue-50 dark:bg-blue-900/20 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
-                <span className="text-[10px]">🐟</span>
+                <Fish className="w-3 h-3 text-blue-500" />
                 <span className="text-[10px] font-bold text-blue-600">{mealData.filter(m => m.categoria === 'pescado').length}</span>
               </div>
               <div className="bg-green-50 dark:bg-green-900/20 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
-                <span className="text-[10px]">🥬</span>
+                <Salad className="w-3 h-3 text-green-500" />
                 <span className="text-[10px] font-bold text-green-600">{mealData.filter(m => m.categoria === 'vegetariano').length}</span>
               </div>
             </div>
@@ -686,7 +686,7 @@ const Home = () => {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 bg-pink-500/10 text-pink-500 rounded-xl flex items-center justify-center">
-              <span className="text-xl">💳</span>
+              <CreditCard className="w-4 h-4" />
             </div>
             <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Gastos extraordinarios {currentMonth}</h2>
           </div>
@@ -729,7 +729,7 @@ const Home = () => {
                 const info = WIDGET_CATS[cat] || WIDGET_CATS.otro;
                 return (
                   <div key={cat} className="bg-slate-50 dark:bg-slate-800/60 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
-                    <span className="text-[10px]">{info.emoji}</span>
+                    <info.icon className="w-3 h-3 text-slate-500" />
                     <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">{count}</span>
                   </div>
                 );
@@ -769,7 +769,7 @@ const Home = () => {
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                         esHoy ? 'bg-purple-100 dark:bg-purple-900/40' : 'bg-white dark:bg-slate-700'
                       } border border-slate-200 dark:border-slate-600`}>
-                        <span className="text-lg">{cat.emoji}</span>
+                        <cat.icon className="w-4 h-4" />
                       </div>
                       
                       {/* Info del gasto */}
@@ -1146,7 +1146,7 @@ const Home = () => {
                         <div key={ev.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 space-y-2">
                           <div className="flex items-start justify-between">
                             <div className="flex items-center gap-2">
-                              <span className="text-lg">{cat.emoji}</span>
+                              <cat.icon className="w-5 h-5" />
                               <div>
                                 <p className="text-sm font-bold text-slate-900 dark:text-white">{ev.nombre}</p>
                                 <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 capitalize">{catLabel}</span>
