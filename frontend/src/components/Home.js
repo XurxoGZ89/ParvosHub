@@ -1,23 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Plus, Calendar, Euro, FileText, Tag, CreditCard, X, Sun, Moon, AlertTriangle } from 'lucide-react';
+import { Plus, Calendar, Euro, FileText, Tag, CreditCard, X, Sun, Moon } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import api from '../lib/api';
 import useAuthStore from '../stores/authStore';
 import { usePrivacyFormatter } from '../utils/privacyFormatter';
+import { useCalendarEvents } from '../contexts/CalendarEventsContext';
 
 const Home = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const formatAmount = usePrivacyFormatter();
+  const { getEventosPorMes } = useCalendarEvents();
   const [userStats, setUserStats] = useState(null);
   const [parvosStats, setParvosStats] = useState(null);
   const [totalSavingsStats, setTotalSavingsStats] = useState(null);
   const [mealData, setMealData] = useState([]);
   const [mealPage, setMealPage] = useState(0);
-  const [calendarEvents, setCalendarEvents] = useState([]);
+  const [expensePage, setExpensePage] = useState(0);
   const [selectedDay, setSelectedDay] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('personal'); // 'personal' or 'parvos'
@@ -48,10 +50,8 @@ const Home = () => {
 
         const operationsResponse = await api.get('/operaciones');
         const mealsResponse = await api.get('/comidas-planificadas');
-        const eventsResponse = await api.get('/calendar-events');
 
         const meals = Array.isArray(mealsResponse.data) ? mealsResponse.data : [];
-        const events = Array.isArray(eventsResponse.data) ? eventsResponse.data : [];
         const operations = Array.isArray(operationsResponse.data) ? operationsResponse.data : [];
         
         // Process meals - Filtrar por próximos 8 días (hoy + 7 días)
@@ -92,8 +92,6 @@ const Home = () => {
             .slice(0, 2);
         }
         setMealData(displayMeals);
-        setCalendarEvents(events);
-        console.log('Eventos del calendario cargados:', events);
 
         // Calculate stats
         const currentMonth = new Date().getMonth();
@@ -181,11 +179,39 @@ const Home = () => {
                       'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   const currentMonth = monthNames[new Date().getMonth()];
 
-  const getEventForDay = (day) => {
-    if (!day) return null;
-    const event = calendarEvents.find(e => e.dia_mes === day);
-    console.log(`Buscando evento para día ${day}:`, event);
-    return event;
+  // Categorías con colores para el widget (subset del ExpensesCalendar)
+  const WIDGET_CATS = {
+    factura: { emoji: '📄', dot: 'bg-orange-500' }, suscripcion: { emoji: '🔄', dot: 'bg-violet-500' },
+    seguro: { emoji: '🛡️', dot: 'bg-emerald-500' }, impuesto: { emoji: '🏛️', dot: 'bg-red-500' },
+    cumpleanos: { emoji: '🎂', dot: 'bg-rose-500' }, viaje: { emoji: '✈️', dot: 'bg-amber-500' },
+    medico: { emoji: '🏥', dot: 'bg-teal-500' }, educacion: { emoji: '📚', dot: 'bg-indigo-500' },
+    hogar: { emoji: '🏠', dot: 'bg-cyan-500' }, vehiculo: { emoji: '🚗', dot: 'bg-slate-500' },
+    dia_especial: { emoji: '⭐', dot: 'bg-blue-500' }, otro: { emoji: '📌', dot: 'bg-gray-500' },
+  };
+  const LEGACY_CAT_MAP = { 'Cumpleaños': 'cumpleanos', 'Seguro': 'seguro', 'Viaje': 'viaje', 'Día Especial': 'dia_especial' };
+  const getCatWidget = (cat) => WIDGET_CATS[LEGACY_CAT_MAP[cat] || cat] || WIDGET_CATS.otro;
+
+  const currentMonthIdx = new Date().getMonth();
+  const currentYearIdx = new Date().getFullYear();
+  const eventosMesActual = getEventosPorMes(currentYearIdx, currentMonthIdx);
+
+  const getEventsForDay = (day) => {
+    if (!day) return [];
+    return eventosMesActual.filter(e => e.dia_mes === day);
+  };
+
+  const formatRecurrenciaWidget = (rec) => {
+    if (!rec) return 'Anual';
+    const r = typeof rec === 'string' ? JSON.parse(rec) : rec;
+    switch (r.tipo) {
+      case 'unica': return 'Una vez';
+      case 'mensual': return 'Mensual';
+      case 'trimestral': return 'Trimestral';
+      case 'semestral': return 'Semestral';
+      case 'anual': return 'Anual';
+      case 'cadaX': return `Cada ${r.cadaX || '?'} meses`;
+      default: return r.tipo || 'Anual';
+    }
   };
 
   const handleSubmitMovement = async (e) => {
@@ -409,20 +435,11 @@ const Home = () => {
 
       {/* Ahorro Total Parvos */}
       <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 p-5 rounded-xl border border-emerald-200 dark:border-emerald-800 shadow-sm hover:shadow-md transition-shadow">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-600/20 flex items-center justify-center">
-              <span className="text-lg">💰</span>
-            </div>
-            <h2 className="text-sm font-bold text-emerald-900 dark:text-emerald-200">Ahorro Total Parvos</h2>
+        <div className="flex items-center gap-2.5 mb-4">
+          <div className="w-8 h-8 rounded-xl bg-emerald-600/20 flex items-center justify-center">
+            <span className="text-lg">💰</span>
           </div>
-          <Button 
-            onClick={() => navigate('/user-account')}
-            variant="ghost"
-            className="text-emerald-700 dark:text-emerald-400 font-semibold text-xs hover:opacity-80 h-auto p-0 hover:underline"
-          >
-            Ver todo
-          </Button>
+          <h2 className="text-sm font-bold text-emerald-900 dark:text-emerald-200">Ahorro Total Parvos</h2>
         </div>
 
         <div className="mb-4">
@@ -558,14 +575,23 @@ const Home = () => {
         <div className="space-y-1.5">
           {mealData.length > 0 ? (
             <>
-              {[...mealData].sort((a, b) => {
-                // Ordenar: fecha ASC, luego comida antes que cena
-                const dateCompare = a.fecha.localeCompare(b.fecha);
-                if (dateCompare !== 0) return dateCompare;
-                if (a.tipo_comida === 'comida' && b.tipo_comida === 'cena') return -1;
-                if (a.tipo_comida === 'cena' && b.tipo_comida === 'comida') return 1;
-                return 0;
-              }).slice(mealPage * 8, (mealPage + 1) * 8).map((meal, idx) => {
+              {[...mealData]
+                .filter(meal => {
+                  // Filtrar comidas pasadas antes de mostrar
+                  const mealDate = new Date(meal.fecha + 'T12:00:00');
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  return mealDate >= today;
+                })
+                .sort((a, b) => {
+                  // Ordenar: fecha ASC, luego comida antes que cena
+                  const dateCompare = a.fecha.localeCompare(b.fecha);
+                  if (dateCompare !== 0) return dateCompare;
+                  if (a.tipo_comida === 'comida' && b.tipo_comida === 'cena') return -1;
+                  if (a.tipo_comida === 'cena' && b.tipo_comida === 'comida') return 1;
+                  return 0;
+                })
+                .slice(mealPage * 8, (mealPage + 1) * 8).map((meal, idx) => {
                 const mealDate = new Date(meal.fecha + 'T12:00:00');
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
@@ -654,63 +680,163 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Gastos Mes */}
+      {/* Gastos Extraordinarios */}
       <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+        {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 bg-pink-500/10 text-pink-500 rounded-xl flex items-center justify-center">
               <span className="text-xl">💳</span>
             </div>
-            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Gastos {currentMonth}</h2>
+            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Gastos extraordinarios {currentMonth}</h2>
           </div>
-          <Button 
+          <button 
             onClick={() => navigate('/calendario-gastos')}
-            variant="ghost"
-            className="text-purple-600 font-semibold text-xs hover:opacity-80 hover:underline h-auto p-0"
+            className="text-purple-600 font-semibold text-xs hover:opacity-80 hover:underline"
           >
             Ver todo
-          </Button>
+          </button>
         </div>
 
-        {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-1">
-          {/* Day headers */}
-          {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(day => (
-            <div key={day} className="aspect-square flex items-center justify-center text-xs font-bold text-slate-400">
-              {day}
-            </div>
-          ))}
-          
-          {/* Calendar days */}
-          {calendarDays.map((day, idx) => {
-            const event = day ? getEventForDay(day) : null;
-            const isToday = day === today;
-            
-            return (
-              <div 
-                key={idx}
-                onClick={() => day && setSelectedDay(day)}
-                className={`
-                  aspect-square rounded-md flex flex-col items-center justify-center
-                  cursor-pointer transition-all
-                  ${!day ? 'bg-transparent' : 'bg-slate-50 dark:bg-slate-800/40'}
-                  ${isToday ? 'bg-purple-700 shadow-lg shadow-purple-600/30' : ''}
-                  ${event && !isToday ? 'bg-pink-200/50 border border-pink-300 dark:bg-pink-900/20 dark:border-pink-900/50' : ''}
-                  ${day && !event && !isToday ? 'hover:bg-slate-100 dark:hover:bg-slate-700' : ''}
-                `}
-              >
-                {day && (
-                  <span className={`text-base font-bold block drop-shadow-md ${isToday ? 'text-white' : event ? 'text-pink-700 dark:text-pink-400' : 'text-slate-700 dark:text-slate-300'}`}>
-                    {day}
-                  </span>
-                )}
-                {event && (
-                  <div className={`w-1.5 h-1.5 rounded-full mt-0.5 ${isToday ? 'bg-white' : 'bg-pink-600'}`} />
-                )}
-              </div>
-            );
-          })}
+        {/* Mini Stats Row */}
+        <div className="flex gap-2 mb-3">
+          <div className="flex-1 bg-slate-50 dark:bg-slate-800/50 px-2.5 py-1.5 rounded-lg flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-slate-500">Total mes</span>
+            <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">
+              {eventosMesActual.reduce((sum, e) => sum + parseFloat(e.cantidad_min || 0), 0).toFixed(0)}€
+            </span>
+          </div>
+          <div className="flex-1 bg-pink-50 dark:bg-pink-900/20 px-2.5 py-1.5 rounded-lg flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-pink-600">Media gasto</span>
+            <span className="text-[10px] font-bold text-pink-600">
+              {eventosMesActual.length > 0 ? (eventosMesActual.reduce((sum, e) => sum + parseFloat(e.cantidad_min || 0), 0) / eventosMesActual.length).toFixed(0) : 0}€
+            </span>
+          </div>
         </div>
+
+        {/* Badges de categorías activas */}
+        {(() => {
+          const catCounts = {};
+          eventosMesActual.forEach(e => {
+            const key = LEGACY_CAT_MAP[e.categoria] || e.categoria;
+            catCounts[key] = (catCounts[key] || 0) + 1;
+          });
+          const activeCats = Object.entries(catCounts).sort((a, b) => b[1] - a[1]);
+          if (activeCats.length === 0) return null;
+          return (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {activeCats.map(([cat, count]) => {
+                const info = WIDGET_CATS[cat] || WIDGET_CATS.otro;
+                return (
+                  <div key={cat} className="bg-slate-50 dark:bg-slate-800/60 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
+                    <span className="text-[10px]">{info.emoji}</span>
+                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">{count}</span>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+
+        {/* Lista de gastos del mes */}
+        <div className="space-y-2">
+          {eventosMesActual.length > 0 ? (
+            <>
+              {[...eventosMesActual]
+                .sort((a, b) => a.dia_mes - b.dia_mes)
+                .slice(expensePage * 5, (expensePage + 1) * 5)
+                .map((ev, idx) => {
+                  const cat = getCatWidget(ev.categoria);
+                  const diaEvento = ev.dia_mes;
+                  const esHoy = diaEvento === today;
+                  const esPasado = diaEvento < today;
+                  const esManana = diaEvento === today + 1;
+                  const fechaLabel = esHoy ? 'Hoy' : esManana ? 'Mañana' : `${diaEvento} ${currentMonth.substring(0, 3)}`;
+                  
+                  return (
+                    <div
+                      key={ev.id || idx}
+                      onClick={() => setSelectedDay(diaEvento)}
+                      className={`flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all group ${
+                        esHoy
+                          ? 'bg-purple-50 dark:bg-purple-900/20 border-2 border-purple-300 dark:border-purple-700'
+                          : esPasado
+                          ? 'bg-slate-50/60 dark:bg-slate-800/20 opacity-50 border border-slate-200 dark:border-slate-700'
+                          : 'bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-700/50 border border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      {/* Icono de categoría */}
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                        esHoy ? 'bg-purple-100 dark:bg-purple-900/40' : 'bg-white dark:bg-slate-700'
+                      } border border-slate-200 dark:border-slate-600`}>
+                        <span className="text-lg">{cat.emoji}</span>
+                      </div>
+                      
+                      {/* Info del gasto */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold truncate text-slate-800 dark:text-white mb-0.5">{ev.nombre}</p>
+                        <div className="flex items-center gap-1.5">
+                          <div className={`w-1.5 h-1.5 rounded-full ${cat.dot}`} />
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 capitalize">
+                            {(LEGACY_CAT_MAP[ev.categoria] || ev.categoria).replace('_', ' ')}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Cantidad y fecha */}
+                      <div className="text-right shrink-0">
+                        <p className={`text-base font-bold mb-0.5 ${
+                          esHoy ? 'text-purple-700 dark:text-purple-400' : 'text-slate-800 dark:text-white'
+                        }`}>
+                          {ev.cantidad_max ? `${ev.cantidad_min}–${ev.cantidad_max}€` : `${ev.cantidad_min}€`}
+                        </p>
+                        <p className={`text-xs font-semibold ${
+                          esHoy ? 'text-purple-600 dark:text-purple-400' : 
+                          esPasado ? 'text-slate-400 line-through' : 
+                          'text-slate-500 dark:text-slate-400'
+                        }`}>
+                          {fechaLabel}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+
+              {/* Paginación */}
+              {eventosMesActual.length > 5 && (
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setExpensePage(Math.max(0, expensePage - 1)); }}
+                    disabled={expensePage === 0}
+                    className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-600 disabled:opacity-30 text-base"
+                  >
+                    ‹
+                  </button>
+                  <span className="text-xs text-slate-400 font-medium">
+                    {expensePage + 1}/{Math.ceil(eventosMesActual.length / 5)}
+                  </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setExpensePage(Math.min(Math.ceil(eventosMesActual.length / 5) - 1, expensePage + 1)); }}
+                    disabled={expensePage >= Math.ceil(eventosMesActual.length / 5) - 1}
+                    className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-600 disabled:opacity-30 text-base"
+                  >
+                    ›
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div
+              onClick={() => navigate('/calendario-gastos')}
+              className="flex items-center justify-center gap-2 p-6 text-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-colors border-2 border-dashed border-slate-200 dark:border-slate-700"
+            >
+              <Plus className="w-5 h-5 text-slate-400" />
+              <p className="text-sm font-medium text-slate-500">Planificar gastos extraordinarios</p>
+            </div>
+          )}
+        </div>
+
+
       </div>
       </div>
 
@@ -993,45 +1119,78 @@ const Home = () => {
         </div>
       )}
 
-      {/* Event Popup */}
-      {selectedDay && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]" onClick={() => setSelectedDay(null)}>
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-xl max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                Día {selectedDay}
-              </h3>
-              <button 
-                onClick={() => setSelectedDay(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            {getEventForDay(selectedDay) ? (
-              <div className="bg-pink-50 dark:bg-pink-900/20 p-4 rounded-xl border border-pink-100 dark:border-pink-900/50 space-y-2">
-                <p className="text-sm font-bold text-slate-900 dark:text-white">
-                  {getEventForDay(selectedDay).nombre}
-                </p>
-                <p className="text-xs text-slate-600 dark:text-slate-400">
-                  Categoría: {getEventForDay(selectedDay).categoria}
-                </p>
-                <p className="text-xs text-slate-600 dark:text-slate-400">
-                  Rango: ${getEventForDay(selectedDay).cantidad_min?.toFixed(2) || '0.00'} - ${getEventForDay(selectedDay).cantidad_max?.toFixed(2) || getEventForDay(selectedDay).cantidad_min?.toFixed(2) || '0.00'}
-                </p>
-                {getEventForDay(selectedDay).recurrencia && (
-                  <p className="text-xs text-slate-600 dark:text-slate-400">
-                    Recurrencia: {typeof getEventForDay(selectedDay).recurrencia === 'string' ? getEventForDay(selectedDay).recurrencia : 'Mensual'}
-                  </p>
+      {/* Event Popup — Multi-evento con categorías */}
+      {selectedDay && (() => {
+        const dayEvents = getEventsForDay(selectedDay);
+        const dayTotal = dayEvents.reduce((s, e) => s + (e.cantidad_max || e.cantidad_min || 0), 0);
+        return (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60]" onClick={() => setSelectedDay(null)}>
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl max-w-sm w-full mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-800">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Día {selectedDay} de {currentMonth}</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">{dayEvents.length} gasto{dayEvents.length !== 1 ? 's' : ''} programado{dayEvents.length !== 1 ? 's' : ''}</p>
+                </div>
+                <button onClick={() => setSelectedDay(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-5 max-h-[50vh] overflow-y-auto">
+                {dayEvents.length > 0 ? (
+                  <div className="space-y-3">
+                    {dayEvents.map((ev) => {
+                      const cat = getCatWidget(ev.categoria);
+                      const catLabel = LEGACY_CAT_MAP[ev.categoria] || ev.categoria;
+                      return (
+                        <div key={ev.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 space-y-2">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">{cat.emoji}</span>
+                              <div>
+                                <p className="text-sm font-bold text-slate-900 dark:text-white">{ev.nombre}</p>
+                                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 capitalize">{catLabel}</span>
+                              </div>
+                            </div>
+                            <span className="text-sm font-bold text-slate-800 dark:text-white whitespace-nowrap">
+                              {ev.cantidad_max ? `${ev.cantidad_min}–${ev.cantidad_max}€` : `${ev.cantidad_min}€`}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                            <span className={`w-1.5 h-1.5 rounded-full ${cat.dot}`} />
+                            <span>{formatRecurrenciaWidget(ev.recurrencia)}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <Calendar className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Sin gastos planificados</p>
+                  </div>
                 )}
               </div>
-            ) : (
-              <p className="text-slate-500 dark:text-slate-400 text-sm">No hay gastos planificados este día</p>
-            )}
+
+              {dayEvents.length > 0 && (
+                <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider">Total</span>
+                    <p className="text-base font-bold text-slate-800 dark:text-white">{dayTotal.toFixed(2)}€</p>
+                  </div>
+                  <Button
+                    onClick={() => { setSelectedDay(null); navigate('/calendario-gastos', { state: { mes: currentMonthIdx, anio: currentYearIdx } }); }}
+                    variant="ghost"
+                    className="text-purple-600 dark:text-purple-400 text-xs font-semibold hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                  >
+                    Ver en calendario →
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

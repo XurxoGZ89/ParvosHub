@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import ReactPaginate from 'react-paginate';
 import { 
   ShoppingCart, 
@@ -21,17 +21,23 @@ import {
   Search,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  AlertTriangle,
+  Calendar,
+  XCircle,
+  Repeat
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../stores/authStore';
 import bbvaLogo from '../../assets/BBVA_2019.svg.png';
 import imaginLogo from '../../assets/imagin.webp';
 import { usePrivacyFormatter } from '../../utils/privacyFormatter';
+import { useCalendarEvents } from '../../contexts/CalendarEventsContext';
 
 const ParvosAccount = () => {
   const { user } = useAuthStore();
   const formatAmount = usePrivacyFormatter();
+  const { getEventosPorMes, dismissedWarnings, descartarWarning, cargarWarningsDescartados } = useCalendarEvents();
   const [operaciones, setOperaciones] = useState([]);
   const [presupuestos, setPresupuestos] = useState([]);
   const [metas, setMetas] = useState([]);
@@ -496,6 +502,70 @@ const ParvosAccount = () => {
     }
   };
 
+  // ─── Warnings de gastos programados del calendario ───────────────
+  const CATS_MAP = {
+    factura: { emoji: '📄', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400' },
+    suscripcion: { emoji: '🔄', color: 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400' },
+    seguro: { emoji: '🛡️', color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' },
+    impuesto: { emoji: '🏛️', color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' },
+    cumpleanos: { emoji: '🎂', color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400' },
+    viaje: { emoji: '✈️', color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' },
+    medico: { emoji: '🏥', color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400' },
+    educacion: { emoji: '📚', color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400' },
+    hogar: { emoji: '🏠', color: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400' },
+    vehiculo: { emoji: '🚗', color: 'bg-slate-200 dark:bg-slate-700/50 text-slate-700 dark:text-slate-400' },
+    dia_especial: { emoji: '⭐', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' },
+    otro: { emoji: '📌', color: 'bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-400' },
+  };
+  const LEGACY_MAP = { 'Cumpleaños': 'cumpleanos', 'Seguro': 'seguro', 'Viaje': 'viaje', 'Día Especial': 'dia_especial' };
+  const getCatInfo = (cat) => CATS_MAP[LEGACY_MAP[cat] || cat] || CATS_MAP.otro;
+
+  const mesIdx = meses.indexOf(mesSeleccionado);
+  const mesAnoKey = `${añoSeleccionado}-${String(mesIdx + 1).padStart(2, '0')}`;
+
+  // Cargar warnings descartados cuando cambia el mes
+  useEffect(() => {
+    cargarWarningsDescartados(mesAnoKey);
+  }, [mesAnoKey, cargarWarningsDescartados]);
+
+  const eventosMesSeleccionado = useMemo(() => {
+    return getEventosPorMes(añoSeleccionado, mesIdx);
+  }, [getEventosPorMes, añoSeleccionado, mesIdx]);
+
+  const warningsActivos = useMemo(() => {
+    const descartados = dismissedWarnings[mesAnoKey];
+    return eventosMesSeleccionado.filter(ev => {
+      if (descartados && descartados.has(ev.id)) return false;
+      return true;
+    });
+  }, [eventosMesSeleccionado, dismissedWarnings, mesAnoKey]);
+
+  const totalGastosProgramados = useMemo(() => {
+    return eventosMesSeleccionado.reduce((s, e) => s + (e.cantidad_max || e.cantidad_min || 0), 0);
+  }, [eventosMesSeleccionado]);
+
+  const handleDescartarWarning = async (eventoId) => {
+    try {
+      await descartarWarning(eventoId, mesAnoKey);
+    } catch (err) {
+      console.error('Error descartando warning:', err);
+    }
+  };
+
+  const formatRecurrencia = (rec) => {
+    if (!rec) return 'Anual';
+    const r = typeof rec === 'string' ? JSON.parse(rec) : rec;
+    switch (r.tipo) {
+      case 'unica': return 'Una vez';
+      case 'mensual': return 'Mensual';
+      case 'trimestral': return 'Trimestral';
+      case 'semestral': return 'Semestral';
+      case 'anual': return 'Anual';
+      case 'cadaX': return `Cada ${r.cadaX || '?'} meses`;
+      default: return r.tipo || 'Anual';
+    }
+  };
+
   const cambiarMes = (direccion) => {
     const mesIdx = meses.indexOf(mesSeleccionado);
     let nuevoMesIdx = mesIdx + direccion;
@@ -631,6 +701,85 @@ const ParvosAccount = () => {
           </div>
         </div>
       </div>
+
+      {/* ─── Panel de Gastos Programados del Calendario ─────────────── */}
+      {warningsActivos.length > 0 && (
+        <div className="p-4 lg:p-0">
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/10 rounded-xl border border-amber-200 dark:border-amber-800/40 p-4 sm:p-5">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 bg-amber-500/15 rounded-xl flex items-center justify-center">
+                  <AlertTriangle className="w-4.5 h-4.5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-amber-800 dark:text-amber-300">Gastos Programados — {mesSeleccionado.charAt(0).toUpperCase() + mesSeleccionado.slice(1)}</h3>
+                  <p className="text-[11px] text-amber-600/80 dark:text-amber-400/70">
+                    {warningsActivos.length} aviso{warningsActivos.length !== 1 ? 's' : ''} · Total previsto: <span className="font-bold">{formatAmount(totalGastosProgramados)}€</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => window.location.href = '/calendario-gastos'}
+                className="text-xs font-semibold text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-300 hover:underline transition-colors flex items-center gap-1"
+              >
+                <Calendar className="w-3.5 h-3.5" /> Ver calendario
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+              {warningsActivos.map((ev) => {
+                const cat = getCatInfo(ev.categoria);
+                const hoy = new Date();
+                const esMesActual = mesIdx === hoy.getMonth() && añoSeleccionado === hoy.getFullYear();
+                const esPasado = esMesActual && ev.dia_mes < hoy.getDate();
+                const esHoy = esMesActual && ev.dia_mes === hoy.getDate();
+                const esProximo = esMesActual && ev.dia_mes > hoy.getDate() && ev.dia_mes <= hoy.getDate() + 3;
+
+                return (
+                  <div
+                    key={ev.id}
+                    className={`relative group flex items-center gap-2.5 p-2.5 rounded-lg border transition-all ${
+                      esPasado
+                        ? 'bg-white/40 dark:bg-slate-800/20 border-slate-200/50 dark:border-slate-700/30 opacity-50'
+                        : esHoy
+                        ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800/40 ring-1 ring-red-300 dark:ring-red-700'
+                        : esProximo
+                        ? 'bg-amber-50/80 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/40'
+                        : 'bg-white/70 dark:bg-slate-800/40 border-amber-100 dark:border-amber-800/20'
+                    }`}
+                  >
+                    <span className="text-lg shrink-0">{cat.emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{ev.nombre}</p>
+                        {esHoy && <span className="text-[9px] font-bold text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 px-1 py-0.5 rounded shrink-0">HOY</span>}
+                        {esProximo && !esHoy && <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1 py-0.5 rounded shrink-0">PRONTO</span>}
+                        {esPasado && <span className="text-[9px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-700 px-1 py-0.5 rounded shrink-0">PASADO</span>}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">Día {ev.dia_mes}</span>
+                        <span className="text-[10px] text-slate-400">·</span>
+                        <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">
+                          {ev.cantidad_max ? `${ev.cantidad_min}–${ev.cantidad_max}€` : `${ev.cantidad_min}€`}
+                        </span>
+                        <span className="text-[10px] text-slate-400">·</span>
+                        <span className="text-[10px] text-slate-400 flex items-center gap-0.5"><Repeat className="w-2.5 h-2.5" />{formatRecurrencia(ev.recurrencia)}</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDescartarWarning(ev.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-slate-200/60 dark:hover:bg-slate-600/40 transition-all text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 shrink-0"
+                      title="Descartar este aviso"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-12 gap-4 lg:gap-6 p-4 lg:p-0">
         {/* Columna Principal */}
