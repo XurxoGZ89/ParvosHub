@@ -320,7 +320,7 @@ const ResumenAnual = () => {
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-slate-200 dark:text-stone-800" />
                   <XAxis
-                    dataKey="mes"
+                    dataKey="mesNum"
                     tick={{ fontSize: 11, fontWeight: 600 }}
                     className="text-slate-500 dark:text-slate-400"
                     axisLine={false}

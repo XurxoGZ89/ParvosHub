@@ -126,7 +126,7 @@ const MobileExpensesCalendar = () => {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <MobileHeader title="Calendario Gastos" />
 
-      <div className="px-4 py-3 space-y-3">
+      <div className="px-4 py-3 pb-28 space-y-3">
         {/* Mes + nav */}
         <div className="flex items-center justify-between">
           <button onClick={() => cambiarMes(-1)} className="p-2 text-slate-400 active:scale-90"><ChevronLeft className="w-5 h-5" /></button>

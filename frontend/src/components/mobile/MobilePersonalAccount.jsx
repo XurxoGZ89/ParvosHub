@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ShoppingCart, Home as HomeIcon, Car, Plus, PiggyBank, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, ChevronDown, Trash2, DollarSign, FileText, CreditCard, Utensils } from 'lucide-react';
+import { ShoppingCart, Home as HomeIcon, Car, Plus, PiggyBank, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, ChevronDown, Trash2, DollarSign, FileText, CreditCard, Utensils, Edit2 } from 'lucide-react';
 import MobileHeader from './MobileHeader';
 import MobileSheet from './MobileSheet';
 import api from '../../lib/api';
@@ -43,6 +43,8 @@ const MobilePersonalAccount = () => {
   const [showCategorias, setShowCategorias] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+  const [showEditBudget, setShowEditBudget] = useState(false);
+  const [newBudget, setNewBudget] = useState('');
 
   const cuentasUsuario = user?.username === 'xurxo' ? ['Santander', 'Prepago'] : ['BBVA', 'Virtual'];
 
@@ -166,7 +168,7 @@ const MobilePersonalAccount = () => {
           <div className="w-8 h-8 border-3 border-purple-600 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-      <div className="px-4 py-4 space-y-4">
+      <div className="px-4 py-4 pb-28 space-y-4">
         {/* Selector de mes */}
         <div className="flex items-center justify-between bg-white dark:bg-slate-900 rounded-xl px-2 py-1.5 border border-slate-200 dark:border-slate-800">
           <button onClick={() => cambiarMes(-1)} className="p-2 text-slate-400 active:scale-90"><ChevronLeft className="w-5 h-5" /></button>
@@ -176,7 +178,33 @@ const MobilePersonalAccount = () => {
 
         {/* Saldo total */}
         <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Saldo Total</p>
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Saldo Total</p>
+            {(() => {
+              const mesIdx = meses.indexOf(mesSeleccionado);
+              const mesAnteriorIdx = mesIdx === 0 ? 11 : mesIdx - 1;
+              const añoAnterior = mesIdx === 0 ? añoSeleccionado - 1 : añoSeleccionado;
+              const opsAnterior = todasLasOperaciones.filter(op => {
+                const f = new Date(op.date);
+                return f.getMonth() === mesAnteriorIdx && f.getFullYear() === añoAnterior;
+              });
+              const totalAnterior = opsAnterior.reduce((sum, op) => {
+                if (op.type === 'ingreso' || op.type === 'retirada-hucha') return sum + parseFloat(op.amount || 0);
+                if (op.type === 'gasto') return sum - parseFloat(op.amount || 0);
+                return sum;
+              }, 0);
+              const diff = totales.total - totalAnterior;
+              const pct = totalAnterior !== 0 ? ((diff / Math.abs(totalAnterior)) * 100) : 0;
+              return diff !== 0 ? (
+                <div className={`flex items-center gap-1 text-xs font-bold ${
+                  diff > 0 ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {diff > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                  <span>{diff > 0 ? '+' : ''}{formatAmount(Math.abs(diff))}€ ({pct.toFixed(1)}%)</span>
+                </div>
+              ) : null;
+            })()}
+          </div>
           <p className="text-2xl font-extrabold text-slate-900 dark:text-white">{formatAmount(totales.total)}€</p>
           <div className="grid grid-cols-2 gap-2 mt-3">
             {cuentasUsuario.map((c, i) => (
@@ -219,11 +247,17 @@ const MobilePersonalAccount = () => {
         <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-bold text-slate-500 uppercase">Presupuesto vs Real</h3>
-            <span className={`text-xs font-bold ${
-              totales.gastos <= totales.ingresos ? 'text-green-600' : 'text-red-600'
-            }`}>
-              {totales.gastos <= totales.ingresos ? '✔️ Bajo presupuesto' : '⚠️ Sobre presupuesto'}
-            </span>
+            <div className="flex items-center gap-2">
+              <button onClick={() => { setNewBudget(totales.ingresos.toString()); setShowEditBudget(true); }}
+                className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 active:scale-95">
+                <Edit2 className="w-3.5 h-3.5" />
+              </button>
+              <span className={`text-xs font-bold ${
+                totales.gastos <= totales.ingresos ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {totales.gastos <= totales.ingresos ? '✔️ OK' : '⚠️ Sobre'}
+              </span>
+            </div>
           </div>
           <div className="space-y-2">
             <div>
@@ -238,7 +272,12 @@ const MobilePersonalAccount = () => {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-slate-600 dark:text-slate-400">Gastado</span>
-                <span className="text-xs font-bold text-slate-900 dark:text-white">{formatAmount(totales.gastos)}€</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">{formatAmount(totales.gastos)}€</span>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    {totales.ingresos > 0 ? Math.round((totales.gastos / totales.ingresos) * 100) : 0}%
+                  </span>
+                </div>
               </div>
               <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                 <div className={`h-2 rounded-full ${
@@ -420,6 +459,27 @@ const MobilePersonalAccount = () => {
           </div>
           <button type="submit" className="w-full py-3.5 bg-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-[0.98] transition-transform text-sm">
             Añadir Movimiento
+          </button>
+        </form>
+      </MobileSheet>
+
+      {/* Edit Budget Sheet */}
+      <MobileSheet isOpen={showEditBudget} onClose={() => setShowEditBudget(false)} title="Editar Presupuesto">
+        <form onSubmit={(e) => { e.preventDefault(); const val = parseFloat(newBudget); if (val > 0) { setToast('✓ Presupuesto: ' + val + '€'); setTimeout(() => setToast(null), 2500); setShowEditBudget(false); } }} className="space-y-4">
+          <div>
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5 block">Nuevo presupuesto mensual</label>
+            <div className="relative">
+              <input type="number" step="0.01" inputMode="decimal" value={newBudget} onChange={(e) => setNewBudget(e.target.value)}
+                className="w-full h-14 px-4 pr-8 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-lg font-bold text-center" 
+                placeholder="0,00" required autoFocus />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">€</span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+              Este es el límite mensual de ingresos para calcular tu presupuesto
+            </p>
+          </div>
+          <button type="submit" className="w-full py-3.5 bg-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-[0.98] transition-transform text-sm">
+            Guardar Presupuesto
           </button>
         </form>
       </MobileSheet>

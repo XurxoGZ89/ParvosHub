@@ -113,7 +113,7 @@ const MobileHome = () => {
         }`}>{toast}</div>
       )}
       
-      <div className="px-4 py-4 space-y-4">
+      <div className="px-4 py-4 pb-28 space-y-4">
         {/* Saludo */}
         <div className="mb-1">
           <h2 className="text-xl font-bold text-slate-900 dark:text-white">
@@ -162,28 +162,37 @@ const MobileHome = () => {
         </div>
 
         {/* Ahorro Total Compacto */}
-        <div className="bg-gradient-to-r from-emerald-500 to-green-600 p-3.5 rounded-xl text-white">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-1.5 mb-1">
-                <PiggyBank className="w-3.5 h-3.5 text-white/80" />
-                <span className="text-[10px] font-bold text-white/80 uppercase">Ahorro Total</span>
-              </div>
-              <p className="text-xl font-extrabold">
-                {formatAmount(totalSavingsStats?.totalSavings || 0)}€
-              </p>
+        <div className="bg-gradient-to-r from-emerald-500 to-green-600 p-4 rounded-xl text-white">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <PiggyBank className="w-4 h-4 text-white/90" />
+              <span className="text-xs font-bold text-white/90 uppercase">Ahorro Total</span>
             </div>
-            <div className="text-right">
-              <div className="flex items-center gap-1 mb-1">
-                {totalSavingsStats?.difference > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                <span className="text-[10px] font-bold">
-                  {totalSavingsStats?.difference > 0 ? '+' : ''}{formatAmount(totalSavingsStats?.difference || 0)}€
-                </span>
-              </div>
-              <div className="flex gap-1.5">
-                <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded">P {formatAmount(totalSavingsStats?.parvos || 0)}€</span>
-                <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded">{user?.username === 'xurxo' ? 'X' : 'S'} {formatAmount(user?.username === 'xurxo' ? totalSavingsStats?.xurxo : totalSavingsStats?.sonia || 0)}€</span>
-              </div>
+            <div className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg">
+              {totalSavingsStats?.difference > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              <span className="text-xs font-bold">
+                {totalSavingsStats?.difference > 0 ? '+' : ''}{formatAmount(totalSavingsStats?.difference || 0)}€
+              </span>
+              <span className="text-[10px] text-white/80">
+                ({totalSavingsStats?.differencePercentage > 0 ? '+' : ''}{totalSavingsStats?.differencePercentage?.toFixed(1) || 0}%)
+              </span>
+            </div>
+          </div>
+          <p className="text-2xl font-extrabold mb-3">
+            {formatAmount(totalSavingsStats?.totalSavings || 0)}€
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-white/20 px-2 py-1.5 rounded-lg">
+              <p className="text-[9px] text-white/70 uppercase">Parvos</p>
+              <p className="text-xs font-bold">{formatAmount(totalSavingsStats?.parvos || 0)}€</p>
+            </div>
+            <div className="bg-white/20 px-2 py-1.5 rounded-lg">
+              <p className="text-[9px] text-white/70 uppercase">Xurxo</p>
+              <p className="text-xs font-bold">{formatAmount(totalSavingsStats?.xurxo || 0)}€</p>
+            </div>
+            <div className="bg-white/20 px-2 py-1.5 rounded-lg">
+              <p className="text-[9px] text-white/70 uppercase">Sonia</p>
+              <p className="text-xs font-bold">{formatAmount(totalSavingsStats?.sonia || 0)}€</p>
             </div>
           </div>
         </div>

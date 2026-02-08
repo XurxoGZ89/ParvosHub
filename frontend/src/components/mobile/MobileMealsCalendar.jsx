@@ -51,7 +51,9 @@ const MobileMealsCalendar = () => {
   const fechasSemana = useMemo(() => {
     const hoy = new Date();
     const primerDia = new Date(hoy);
-    primerDia.setDate(hoy.getDate() - hoy.getDay() + 1 + (semanaActual * 7));
+    const diaSemana = hoy.getDay();
+    const diffALunes = diaSemana === 0 ? -6 : 1 - diaSemana;
+    primerDia.setDate(hoy.getDate() + diffALunes + (semanaActual * 7));
     return Array.from({ length: 7 }, (_, i) => {
       const f = new Date(primerDia); f.setDate(primerDia.getDate() + i);
       return `${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,'0')}-${String(f.getDate()).padStart(2,'0')}`;
@@ -74,7 +76,11 @@ const MobileMealsCalendar = () => {
   }, [comidasPlanificadas, comidasCongeladas, fechasSemana]);
 
   useEffect(() => {
-    if (selectedDay === null) { const h = new Date(); setSelectedDay((h.getDay() + 6) % 7); }
+    if (selectedDay === null) {
+      const h = new Date();
+      const diaSemana = h.getDay();
+      setSelectedDay(diaSemana === 0 ? 6 : diaSemana - 1);
+    }
   }, [selectedDay]);
 
   const handleAddFromDespensa = async (comida, fecha, tipoComida) => {
@@ -132,7 +138,7 @@ const MobileMealsCalendar = () => {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <MobileHeader title="Calendario Comidas" />
 
-      <div className="px-4 py-3 space-y-3">
+      <div className="px-4 py-3 pb-28 space-y-3">
         {/* Semana nav */}
         <div className="flex items-center justify-between">
           <button onClick={() => setSemanaActual(semanaActual - 1)} className="p-2 text-slate-400 active:scale-90"><ChevronLeft className="w-5 h-5" /></button>
@@ -254,6 +260,50 @@ const MobileMealsCalendar = () => {
               </div>
               <span className="text-xs text-slate-400">{comidasCongeladas.filter(c => !c.tachada).length} productos →</span>
             </button>
+            <div className="px-4 py-3 space-y-1.5">
+              {comidasCongeladas.filter(c => !c.tachada).slice(0, 3).map(c => {
+                const cat = getCatInfo(c.categoria);
+                const CatIcon = cat.icon;
+                return (
+                  <div key={c.id} className="flex items-center gap-2 text-xs">
+                    <div className={`w-1.5 h-1.5 rounded-full ${cat.dot}`} />
+                    <CatIcon className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="text-slate-600 dark:text-slate-300 flex-1 truncate">{c.nombre}</span>
+                  </div>
+                );
+              })}
+              {comidasCongeladas.filter(c => !c.tachada).length > 3 && (
+                <p className="text-[10px] text-slate-400 text-center pt-1">
+                  +{comidasCongeladas.filter(c => !c.tachada).length - 3} más
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Lista de compra inline preview */}
+        {!showLista && listaCompra.filter(l => !l.tachada).length > 0 && (
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <button onClick={() => setShowLista(true)} className="w-full flex items-center justify-between px-4 py-2.5 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="w-4 h-4 text-slate-500" />
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Lista de compra</span>
+              </div>
+              <span className="text-xs text-slate-400">{listaCompra.filter(l => !l.tachada).length} productos →</span>
+            </button>
+            <div className="px-4 py-3 space-y-1.5">
+              {listaCompra.filter(l => !l.tachada).slice(0, 3).map(l => (
+                <div key={l.id} className="flex items-center gap-2 text-xs">
+                  <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                  <span className="text-slate-600 dark:text-slate-300 flex-1 truncate">{l.nombre}</span>
+                </div>
+              ))}
+              {listaCompra.filter(l => !l.tachada).length > 3 && (
+                <p className="text-[10px] text-slate-400 text-center pt-1">
+                  +{listaCompra.filter(l => !l.tachada).length - 3} más
+                </p>
+              )}
+            </div>
           </div>
         )}
       </div>
