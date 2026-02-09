@@ -234,7 +234,7 @@ const Home = () => {
         // Parvos usa /operaciones con campos en español
         endpoint = '/operaciones';
         if (formData.tipo === 'retirada-hucha') {
-          const descripcionTraspaso = `Traspaso desde ${formData.cuentaOrigen} a ${formData.cuentaDestino}${formData.descripcion ? ' - ' + formData.descripcion : ''}`;
+          const descripcionTraspaso = `Traspaso ${formData.cuentaOrigen} a ${formData.cuentaDestino}${formData.descripcion ? ' - ' + formData.descripcion : ''}`;
           payload = {
             tipo: formData.tipo,
             fecha: formData.fecha,

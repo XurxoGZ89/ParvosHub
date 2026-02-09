@@ -83,7 +83,7 @@ const MobileHome = () => {
           date: formData.fecha,
           amount: parseFloat(formData.cantidad),
           description: formData.tipo === 'retirada-hucha' 
-            ? `Traspaso desde ${formData.cuentaOrigen} a ${formData.cuentaDestino}${formData.descripcion ? ' - ' + formData.descripcion : ''}`
+            ? `Traspaso ${formData.cuentaOrigen} a ${formData.cuentaDestino}${formData.descripcion ? ' - ' + formData.descripcion : ''}`
             : formData.descripcion,
           category: formData.tipo === 'gasto' ? formData.categoria : '',
           account_name: formData.tipo === 'retirada-hucha' ? formData.cuentaDestino : formData.cuenta
@@ -92,7 +92,7 @@ const MobileHome = () => {
         // Parvos: endpoint /operaciones con campos en español
         endpoint = '/operaciones';
         if (formData.tipo === 'retirada-hucha') {
-          payload = { tipo: formData.tipo, fecha: formData.fecha, cantidad: parseFloat(formData.cantidad), descripcion: `Traspaso desde ${formData.cuentaOrigen} a ${formData.cuentaDestino}${formData.descripcion ? ' - ' + formData.descripcion : ''}`, categoria: '', cuenta: formData.cuentaDestino, usuario: user?.username || 'Sonia' };
+          payload = { tipo: formData.tipo, fecha: formData.fecha, cantidad: parseFloat(formData.cantidad), descripcion: `Traspaso ${formData.cuentaOrigen} a ${formData.cuentaDestino}${formData.descripcion ? ' - ' + formData.descripcion : ''}`, categoria: '', cuenta: formData.cuentaDestino, usuario: user?.username || 'Sonia' };
         } else if (formData.tipo === 'ahorro') {
           payload = { tipo: formData.tipo, fecha: formData.fecha, cantidad: parseFloat(formData.cantidad), descripcion: formData.descripcion, categoria: '', cuenta: formData.cuenta, usuario: user?.username || 'Sonia' };
         } else {

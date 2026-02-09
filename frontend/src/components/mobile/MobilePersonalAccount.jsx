@@ -140,6 +140,48 @@ const MobilePersonalAccount = () => {
   const opsFiltradas = operacionesDelMes.filter(op => filtroTipo === 'todos' || op.type === filtroTipo)
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
+  // Calcular saldos acumulados para cada operación
+  const calcularSaldosAcumulados = () => {
+    // Ordenar por fecha y luego por ID (orden de inserción)
+    const opsOrdenadas = [...operaciones].sort((a, b) => {
+      const fechaA = new Date(a.date);
+      const fechaB = new Date(b.date);
+      if (fechaA.getTime() !== fechaB.getTime()) return fechaA - fechaB;
+      return a.id - b.id;
+    });
+    
+    const saldos = {};
+    let saldoCuenta1 = 0;
+    let saldoCuenta2 = 0;
+    
+    opsOrdenadas.forEach(op => {
+      if (op.account_name === cuentasUsuario[0] && op.type !== 'savings') {
+        if (op.type === 'expense' || op.type === 'gasto') {
+          saldoCuenta1 -= parseFloat(op.amount || 0);
+        } else {
+          saldoCuenta1 += parseFloat(op.amount || 0);
+        }
+      } else if (op.account_name === cuentasUsuario[1] && op.type !== 'savings') {
+        if (op.type === 'expense' || op.type === 'gasto') {
+          saldoCuenta2 -= parseFloat(op.amount || 0);
+        } else {
+          saldoCuenta2 += parseFloat(op.amount || 0);
+        }
+      }
+      
+      saldos[op.id] = {
+        cuenta1: saldoCuenta1,
+        cuenta2: saldoCuenta2,
+        total: saldoCuenta1 + saldoCuenta2,
+        cuenta: op.account_name === cuentasUsuario[0] ? saldoCuenta1 : op.account_name === cuentasUsuario[1] ? saldoCuenta2 : 0
+      };
+    });
+    
+    return saldos;
+  };
+
+  const saldosAcumulados = calcularSaldosAcumulados();
+
   const handleEliminar = async (id) => {
     try { await api.delete(`/api/user/operations/${id}`); cargarDatos(); setDeleteConfirm(null); setToast('✓ Eliminado'); setTimeout(() => setToast(null), 2500); }
     catch (e) { setToast('Error al eliminar'); setTimeout(() => setToast(null), 3000); }
@@ -417,6 +459,7 @@ const MobilePersonalAccount = () => {
           {opsFiltradas.length > 0 ? opsFiltradas.map((op) => {
             const cat = getCatInfo(op.category);
             const CatIcon = cat.icon;
+            const saldoInfo = saldosAcumulados[op.id] || {};
             return (
               <div key={op.id} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center gap-3 active:bg-slate-50 dark:active:bg-slate-800 transition-colors">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${colorMap[cat.color] || colorMap.slate}`}>
@@ -424,14 +467,29 @@ const MobilePersonalAccount = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-slate-800 dark:text-white truncate">{op.description || op.category || op.type}</p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    {new Date(op.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} · {op.account_name}
-                  </p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <p className="text-[11px] text-slate-400">
+                      {new Date(op.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} · {op.account_name}
+                    </p>
+                    {(op.account_name === cuentasUsuario[0] || op.account_name === cuentasUsuario[1]) && op.type !== 'savings' && (
+                      <>
+                        <span className="text-[11px] text-slate-300 dark:text-slate-600">•</span>
+                        <span className="text-[11px] font-semibold text-slate-400">
+                          Saldo: {formatAmount(saldoInfo.cuenta || 0)}€
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div className="text-right shrink-0 flex items-center gap-2">
-                  <span className={`text-sm font-bold ${tipoColor(op.type)}`}>
-                    {tipoSign(op.type)}{formatAmount(op.amount)}€
-                  </span>
+                  <div className="flex flex-col items-end">
+                    <span className={`text-sm font-bold ${tipoColor(op.type)}`}>
+                      {tipoSign(op.type)}{formatAmount(op.amount)}€
+                    </span>
+                    <span className="text-[10px] font-semibold text-slate-400 mt-0.5">
+                      {formatAmount(saldoInfo.total || 0)}€
+                    </span>
+                  </div>
                   <button onClick={() => setDeleteConfirm(op.id)} className="p-1.5 text-slate-300 hover:text-red-500">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>

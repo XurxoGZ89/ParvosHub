@@ -110,6 +110,41 @@ const MobileFamilyAccount = () => {
     else setMesSeleccionado(meses[idx]);
   };
 
+  // Calcular saldos acumulados para cada operación
+  const calcularSaldosAcumulados = () => {
+    // Ordenar todas las operaciones cronológicamente (fecha + ID para orden de inserción)
+    const opsOrdenadas = [...operaciones].sort((a, b) => {
+      const fechaA = new Date(a.fecha);
+      const fechaB = new Date(b.fecha);
+      if (fechaA.getTime() !== fechaB.getTime()) return fechaA - fechaB;
+      return a.id - b.id; // Mismo día: ordenar por ID (orden de inserción)
+    });
+    
+    const saldos = {};
+    let saldoBBVA = 0;
+    let saldoImagin = 0;
+    
+    opsOrdenadas.forEach(op => {
+      // Calcular cambio para cada cuenta
+      if (op.cuenta === 'BBVA') {
+        saldoBBVA += op.tipo === 'gasto' ? -parseFloat(op.cantidad || 0) : parseFloat(op.cantidad || 0);
+      } else if (op.cuenta === 'Imagin') {
+        saldoImagin += op.tipo === 'gasto' ? -parseFloat(op.cantidad || 0) : parseFloat(op.cantidad || 0);
+      }
+      
+      // Guardar saldos para esta operación
+      saldos[op.id] = {
+        bbva: saldoBBVA,
+        imagin: saldoImagin,
+        total: saldoBBVA + saldoImagin,
+        cuenta: op.cuenta === 'BBVA' ? saldoBBVA : op.cuenta === 'Imagin' ? saldoImagin : 0
+      };
+    });
+    
+    return saldos;
+  };
+
+  const saldosAcumulados = calcularSaldosAcumulados();
   const opsFiltradas = operacionesDelMes.filter(op => filtroTipo === 'todos' || op.tipo === filtroTipo).sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
   const handleEliminar = async (id) => {
@@ -122,7 +157,7 @@ const MobileFamilyAccount = () => {
     try {
       let payload;
       if (formData.tipo === 'retirada-hucha') {
-        payload = { tipo: formData.tipo, fecha: formData.fecha, cantidad: parseFloat(formData.cantidad), descripcion: `Traspaso desde ${formData.cuentaOrigen} a ${formData.cuentaDestino}${formData.descripcion ? ' - ' + formData.descripcion : ''}`, categoria: '', cuenta: formData.cuentaDestino, usuario: user?.username || 'Sonia' };
+        payload = { tipo: formData.tipo, fecha: formData.fecha, cantidad: parseFloat(formData.cantidad), descripcion: `Traspaso ${formData.cuentaOrigen} a ${formData.cuentaDestino}${formData.descripcion ? ' - ' + formData.descripcion : ''}`, categoria: '', cuenta: formData.cuentaDestino, usuario: user?.username || 'Sonia' };
       } else if (formData.tipo === 'ahorro') {
         payload = { tipo: formData.tipo, fecha: formData.fecha, cantidad: parseFloat(formData.cantidad), descripcion: formData.descripcion, categoria: '', cuenta: formData.cuenta, usuario: user?.username || 'Sonia' };
       } else {
@@ -372,6 +407,7 @@ const MobileFamilyAccount = () => {
           {opsFiltradas.length > 0 ? opsFiltradas.map(op => {
             const cat = getCatInfo(op.categoria);
             const CatIcon = cat.icon;
+            const saldoInfo = saldosAcumulados[op.id] || {};
             return (
               <div key={op.id} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${colorMap[cat.color] || colorMap.slate}`}>
@@ -379,14 +415,29 @@ const MobileFamilyAccount = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-slate-800 dark:text-white truncate">{op.descripcion || op.categoria || op.tipo}</p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    {new Date(op.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} · {op.cuenta} · {op.usuario}
-                  </p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <p className="text-[11px] text-slate-400">
+                      {new Date(op.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} · {op.cuenta} · {op.usuario}
+                    </p>
+                    {(op.cuenta === 'BBVA' || op.cuenta === 'Imagin') && (
+                      <>
+                        <span className="text-[11px] text-slate-300 dark:text-slate-600">•</span>
+                        <span className="text-[11px] font-semibold text-slate-400">
+                          Saldo: {formatAmount(saldoInfo.cuenta || 0)}€
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div className="text-right shrink-0 flex items-center gap-2">
-                  <span className={`text-sm font-bold ${tipoColor(op.tipo)}`}>
-                    {tipoSign(op.tipo)}{formatAmount(op.cantidad)}€
-                  </span>
+                  <div className="flex flex-col items-end">
+                    <span className={`text-sm font-bold ${tipoColor(op.tipo)}`}>
+                      {tipoSign(op.tipo)}{formatAmount(op.cantidad)}€
+                    </span>
+                    <span className="text-[10px] font-semibold text-slate-400 mt-0.5">
+                      {formatAmount(saldoInfo.total || 0)}€
+                    </span>
+                  </div>
                   <button onClick={() => setDeleteConfirm(op.id)} className="p-1.5 text-slate-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               </div>

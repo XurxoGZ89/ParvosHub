@@ -75,7 +75,7 @@ app.post('/operaciones', async (req, res) => {
     } else if (tipo === 'retirada-hucha') {
       // Si es un traspaso (retirada-hucha), crear dos operaciones: salida y entrada
       // Extraer la cuenta origen de la descripción: "Traspaso desde X a Y"
-      const origenMatch = descripcion.match(/Traspaso desde (.+?) a/);
+      const origenMatch = descripcion.match(/Traspaso (?:desde )?(.+?) a/);
       const cuentaOrigen = origenMatch ? origenMatch[1] : null;
       
       if (cuentaOrigen && cuentaOrigen !== cuenta) {
