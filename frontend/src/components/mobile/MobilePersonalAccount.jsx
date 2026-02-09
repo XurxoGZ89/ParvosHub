@@ -45,13 +45,8 @@ const MobilePersonalAccount = () => {
   const [toast, setToast] = useState(null);
   const [showEditBudget, setShowEditBudget] = useState(false);
 
-  // Presupuestos por categoría (persisted en localStorage)
-  const defaultBudgets = { 'Alimentación': 400, 'Ocio': 200, 'Hogar': 150, 'Alquiler': 600, 'Extra': 100, 'Recibos': 200, 'Movilidad': 100 };
-  const storageKey = `budgets_personal_${user?.username || 'default'}`;
-  const [categoryBudgets, setCategoryBudgets] = useState(() => {
-    try { const saved = localStorage.getItem(storageKey); return saved ? JSON.parse(saved) : defaultBudgets; }
-    catch { return defaultBudgets; }
-  });
+  // Presupuestos por categoría - cargar del API
+  const [categoryBudgets, setCategoryBudgets] = useState({});
   const [editBudgets, setEditBudgets] = useState({});
 
   const cuentasUsuario = user?.username === 'xurxo' ? ['Santander', 'Prepago'] : ['BBVA', 'Virtual'];
@@ -67,32 +62,42 @@ const MobilePersonalAccount = () => {
       setLoading(true);
       const mesIdx = meses.indexOf(mesSeleccionado);
       const mesFormato = `${añoSeleccionado}-${String(mesIdx + 1).padStart(2, '0')}`;
-      const [opsRes, allOpsRes] = await Promise.all([
+      const [opsRes, allOpsRes, budgetsRes] = await Promise.all([
         api.get('/api/user/operations', { params: { mes: mesFormato } }),
-        api.get('/api/user/operations')
+        api.get('/api/user/operations'),
+        api.get(`/api/user/budgets/${añoSeleccionado}/${mesIdx}`)
       ]);
       setOperaciones((opsRes.data || []).map(op => ({ ...op, type: tipoEnToEs(op.type) })));
       setTodasLasOperaciones((allOpsRes.data || []).map(op => ({ ...op, type: tipoEnToEs(op.type) })));
+      // Cargar presupuestos del API
+      if (budgetsRes.data?.presupuestos) {
+        setCategoryBudgets(budgetsRes.data.presupuestos);
+      }
     } catch (error) { console.error('Error:', error); }
     finally { setLoading(false); }
   }, [mesSeleccionado, añoSeleccionado]);
 
   useEffect(() => { cargarDatos(); }, [cargarDatos]);
 
+  // Las operaciones ya vienen filtradas por mes desde el backend
   const operacionesDelMes = operaciones;
 
   // Totales
   const calcularTotales = () => {
     const calcCuenta = (nombre) => todasLasOperaciones.filter(op => op.account_name === nombre)
       .reduce((sum, op) => {
-        if (op.type === 'ingreso' || op.type === 'retirada-hucha') return sum + parseFloat(op.amount || 0);
-        if (op.type === 'gasto') return sum - parseFloat(op.amount || 0);
-        if (op.type === 'hucha') return sum + parseFloat(op.amount || 0);
+        if (op.type === 'ingreso' || op.type === 'income' || op.type === 'retirada-hucha' || op.type === 'savings_withdrawal') return sum + parseFloat(op.amount || 0);
+        if (op.type === 'gasto' || op.type === 'expense') return sum - parseFloat(op.amount || 0);
+        if (op.type === 'hucha' || op.type === 'savings') return sum + parseFloat(op.amount || 0);
         return sum;
       }, 0);
     const c1 = calcCuenta(cuentasUsuario[0]);
     const c2 = calcCuenta(cuentasUsuario[1]);
-    const ingresos = operacionesDelMes.filter(op => op.type === 'ingreso' || op.type === 'retirada-hucha').reduce((s, op) => s + parseFloat(op.amount || 0), 0);
+    // Ingresos del mes incluyen ingresos y retiradas a cuentas principales (igual que web)
+    const ingresos = operacionesDelMes
+      .filter(op => op.type === 'ingreso' || 
+        (op.type === 'retirada-hucha' && (op.account_name === cuentasUsuario[0] || op.account_name === cuentasUsuario[1])))
+      .reduce((s, op) => s + parseFloat(op.amount || 0), 0);
     const gastos = operacionesDelMes.filter(op => op.type === 'gasto').reduce((s, op) => s + parseFloat(op.amount || 0), 0);
     return { cuenta1: c1, cuenta2: c2, total: c1 + c2, ingresos, gastos };
   };
@@ -100,9 +105,23 @@ const MobilePersonalAccount = () => {
   // Ahorro
   const calcularAhorro = () => {
     const mesIdx = meses.indexOf(mesSeleccionado);
-    const filtrar = (hasta) => todasLasOperaciones.filter(op => { const f = new Date(op.date); return f.getFullYear() < hasta.y || (f.getFullYear() === hasta.y && f.getMonth() <= hasta.m); })
-      .filter(op => { const esH = (op.type === 'hucha') && (op.account_name === 'Ahorro' || !op.account_name); const esR = op.type === 'retirada-hucha' && op.account_name === 'Ahorro'; return esH || esR; })
-      .reduce((s, op) => op.type === 'hucha' ? s + parseFloat(op.amount || 0) : s - parseFloat(op.amount || 0), 0);
+    const filtrar = (hasta) => todasLasOperaciones.filter(op => {
+      const f = new Date(op.date);
+      return f.getFullYear() < hasta.y || (f.getFullYear() === hasta.y && f.getMonth() <= hasta.m);
+    })
+    .filter(op => {
+      const esHucha = (op.type === 'hucha' || op.type === 'savings') && (op.account_name === 'Ahorro' || op.account_name === null);
+      const esRetirada = (op.type === 'retirada-hucha' || op.type === 'savings_withdrawal') && op.account_name === 'Ahorro';
+      return esHucha || esRetirada;
+    })
+    .reduce((s, op) => {
+      if (op.type === 'hucha' || op.type === 'savings') {
+        return s + parseFloat(op.amount || 0);
+      } else if (op.type === 'retirada-hucha' || op.type === 'savings_withdrawal') {
+        return s - parseFloat(op.amount || 0);
+      }
+      return s;
+    }, 0);
     const actual = filtrar({ y: añoSeleccionado, m: mesIdx });
     const anterior = filtrar({ y: mesIdx === 0 ? añoSeleccionado - 1 : añoSeleccionado, m: mesIdx === 0 ? 11 : mesIdx - 1 });
     return { actual, diferencia: actual - anterior };
@@ -186,34 +205,42 @@ const MobilePersonalAccount = () => {
 
         {/* Saldo total */}
         <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Saldo Total</p>
-            {(() => {
-              const mesIdx = meses.indexOf(mesSeleccionado);
-              const mesAnteriorIdx = mesIdx === 0 ? 11 : mesIdx - 1;
-              const añoAnterior = mesIdx === 0 ? añoSeleccionado - 1 : añoSeleccionado;
-              const opsAnterior = todasLasOperaciones.filter(op => {
-                const f = new Date(op.date);
-                return f.getMonth() === mesAnteriorIdx && f.getFullYear() === añoAnterior;
-              });
-              const totalAnterior = opsAnterior.reduce((sum, op) => {
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Saldo Total</p>
+          <p className="text-2xl font-extrabold text-slate-900 dark:text-white">{formatAmount(totales.total)}€</p>
+          {(() => {
+            const mesIdx = meses.indexOf(mesSeleccionado);
+            const mesAnteriorIdx = mesIdx === 0 ? 11 : mesIdx - 1;
+            const añoAnterior = mesIdx === 0 ? añoSeleccionado - 1 : añoSeleccionado;
+            const operacionesHastaMesAnterior = todasLasOperaciones.filter(op => {
+              const fecha = new Date(op.date);
+              const mesOp = fecha.getMonth();
+              const añoOp = fecha.getFullYear();
+              if (añoOp < añoAnterior) return true;
+              if (añoOp === añoAnterior && mesOp <= mesAnteriorIdx) return true;
+              return false;
+            });
+            const totalCuenta1Anterior = operacionesHastaMesAnterior
+              .filter(op => op.account_name === cuentasUsuario[0] && op.type !== 'hucha')
+              .reduce((sum, op) => {
                 if (op.type === 'ingreso' || op.type === 'retirada-hucha') return sum + parseFloat(op.amount || 0);
                 if (op.type === 'gasto') return sum - parseFloat(op.amount || 0);
                 return sum;
               }, 0);
-              const diff = totales.total - totalAnterior;
-              const pct = totalAnterior !== 0 ? ((diff / Math.abs(totalAnterior)) * 100) : 0;
-              return diff !== 0 ? (
-                <div className={`flex items-center gap-1 text-xs font-bold ${
-                  diff > 0 ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {diff > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                  <span>{diff > 0 ? '+' : ''}{formatAmount(Math.abs(diff))}€ ({pct.toFixed(1)}%)</span>
-                </div>
-              ) : null;
-            })()}
-          </div>
-          <p className="text-2xl font-extrabold text-slate-900 dark:text-white">{formatAmount(totales.total)}€</p>
+            const totalCuenta2Anterior = operacionesHastaMesAnterior
+              .filter(op => op.account_name === cuentasUsuario[1] && op.type !== 'hucha')
+              .reduce((sum, op) => {
+                if (op.type === 'ingreso' || op.type === 'retirada-hucha') return sum + parseFloat(op.amount || 0);
+                if (op.type === 'gasto') return sum - parseFloat(op.amount || 0);
+                return sum;
+              }, 0);
+            const saldoAnterior = totalCuenta1Anterior + totalCuenta2Anterior;
+            const nombreMesAnterior = meses[mesAnteriorIdx].charAt(0).toUpperCase() + meses[mesAnteriorIdx].slice(1);
+            return (
+              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+                {formatAmount(saldoAnterior)}€ de {nombreMesAnterior}
+              </p>
+            );
+          })()}
           <div className="grid grid-cols-2 gap-2 mt-3">
             {cuentasUsuario.map((c, i) => (
               <div key={c} className="bg-slate-50 dark:bg-slate-800 px-3 py-2 rounded-lg flex justify-between">
@@ -253,8 +280,15 @@ const MobilePersonalAccount = () => {
 
         {/* Presupuesto vs Real */}
         {(() => {
-          const totalBudget = Object.values(categoryBudgets).reduce((s, v) => s + v, 0);
-          const gastado = totales.gastos;
+          // Calcular totalBudget solo de categorías definidas (igual que la web)
+          const totalBudget = categorias.reduce((s, cat) => s + (parseFloat(categoryBudgets[cat.nombre]) || 0), 0);
+          // Calcular gastado de todas las categorías (igual que la web: suma diferencia por categoría)
+          const gastado = categorias.reduce((sum, cat) => {
+            const budget = parseFloat(categoryBudgets[cat.nombre]) || 0;
+            const spent = operacionesDelMes.filter(op => op.type === 'gasto' && op.category === cat.nombre)
+              .reduce((s, op) => s + parseFloat(op.amount || 0), 0);
+            return sum + (budget > 0 || spent > 0 ? spent : 0);
+          }, 0);
           const disponible = totalBudget - gastado;
           const porcentaje = totalBudget > 0 ? (gastado / totalBudget) * 100 : 0;
           const overBudget = gastado > totalBudget;
@@ -272,18 +306,20 @@ const MobilePersonalAccount = () => {
 
               {/* Barra principal única */}
               <div className="mb-3">
-                <div className="flex items-end justify-between mb-2">
+                <div className="flex items-start justify-between mb-2">
                   <div>
-                    <p className={`text-xl font-extrabold ${overBudget ? 'text-red-600' : 'text-slate-900 dark:text-white'}`}>
-                      {formatAmount(gastado)}€
+                    <p className="text-2xl font-extrabold text-slate-900 dark:text-white">
+                      {formatAmount(totalBudget)}€
                     </p>
-                    <p className="text-[10px] text-slate-400 font-medium">gastado de {formatAmount(totalBudget)}€</p>
+                    <p className={`text-sm font-bold ${overBudget ? 'text-red-600' : 'text-slate-500 dark:text-slate-400'}`}>
+                      {formatAmount(gastado)}€ <span className="text-[10px] font-medium text-slate-400">gastado</span>
+                    </p>
                   </div>
                   <div className="text-right">
-                    <p className={`text-lg font-extrabold ${overBudget ? 'text-red-600' : 'text-green-600'}`}>
+                    <p className={`text-lg font-extrabold ${overBudget ? 'text-red-600' : (disponible === 0 ? 'text-amber-600' : 'text-green-600')}`}>
                       {overBudget ? '-' : ''}{formatAmount(Math.abs(disponible))}€
                     </p>
-                    <p className="text-[10px] text-slate-400 font-medium">{overBudget ? 'sobrepasado' : 'disponible'}</p>
+                    <p className="text-[10px] text-slate-400 font-medium">{overBudget ? 'sobrepasado' : (disponible === 0 ? 'exacto' : 'disponible')}</p>
                   </div>
                 </div>
                 <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden">
@@ -311,7 +347,7 @@ const MobilePersonalAccount = () => {
                 <div className="mt-3 space-y-3">
                   {categorias.map(cat => {
                     const CatIcon = cat.icon;
-                    const budget = categoryBudgets[cat.nombre] || 0;
+                    const budget = parseFloat(categoryBudgets[cat.nombre]) || 0;
                     const spent = operacionesDelMes.filter(op => op.type === 'gasto' && op.category === cat.nombre)
                       .reduce((s, op) => s + parseFloat(op.amount || 0), 0);
                     if (budget === 0 && spent === 0) return null;
@@ -337,21 +373,21 @@ const MobilePersonalAccount = () => {
                             className="h-2 rounded-full transition-all duration-500"
                             style={{
                               width: `${Math.min(pct, 100)}%`,
-                              backgroundColor: over ? '#ef4444' : (catColorHex[cat.color] || '#8b5cf6')
+                              backgroundColor: catColorHex[cat.color] || '#8b5cf6'
                             }}
                           />
                         </div>
                         <div className="flex justify-between mt-0.5">
                           <span className="text-[10px] text-slate-400">{Math.round(pct)}%</span>
-                          <span className={`text-[10px] font-bold ${over ? 'text-red-500' : 'text-green-600'}`}>
-                            {over ? `-${formatAmount(Math.abs(remaining))}€` : `${formatAmount(remaining)}€ libre`}
+                          <span className={`text-[10px] font-bold ${over ? 'text-red-500' : (remaining === 0 ? 'text-amber-600' : 'text-green-600')}`}>
+                            {over ? `-${formatAmount(Math.abs(remaining))}€` : (remaining === 0 ? 'exacto' : `${formatAmount(remaining)}€ libre`)}
                           </span>
                         </div>
                       </div>
                     );
                   }).filter(Boolean)}
                   {categorias.every(cat => {
-                    const budget = categoryBudgets[cat.nombre] || 0;
+                    const budget = parseFloat(categoryBudgets[cat.nombre]) || 0;
                     const spent = operacionesDelMes.filter(op => op.type === 'gasto' && op.category === cat.nombre)
                       .reduce((s, op) => s + parseFloat(op.amount || 0), 0);
                     return budget === 0 && spent === 0;
@@ -532,12 +568,18 @@ const MobilePersonalAccount = () => {
           </div>
 
           <button
-            onClick={() => {
-              setCategoryBudgets(editBudgets);
-              localStorage.setItem(storageKey, JSON.stringify(editBudgets));
-              setShowEditBudget(false);
-              setToast('✓ Presupuesto guardado');
-              setTimeout(() => setToast(null), 2500);
+            onClick={async () => {
+              try {
+                const mesIdx = meses.indexOf(mesSeleccionado);
+                await api.post(`/api/user/budgets/${añoSeleccionado}/${mesIdx}`, { presupuestos: editBudgets });
+                setCategoryBudgets(editBudgets);
+                setShowEditBudget(false);
+                setToast('✓ Presupuesto guardado');
+                setTimeout(() => setToast(null), 2500);
+              } catch (error) {
+                setToast('Error al guardar presupuesto');
+                setTimeout(() => setToast(null), 3000);
+              }
             }}
             className="w-full py-3.5 bg-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-[0.98] transition-transform text-sm"
           >

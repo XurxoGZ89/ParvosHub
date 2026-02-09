@@ -103,7 +103,8 @@ const Home = () => {
         });
 
         const ingresos = monthOperations
-          .filter(op => op.tipo === 'ingreso' || op.tipo === 'retirada-hucha')
+          .filter(op => op.tipo === 'ingreso' || 
+            (op.tipo === 'retirada-hucha' && (op.cuenta === 'BBVA' || op.cuenta === 'Imagin')))
           .reduce((sum, op) => sum + parseFloat(op.cantidad || 0), 0);
 
         const gastos = monthOperations
@@ -114,15 +115,13 @@ const Home = () => {
         const imaginOps = operations.filter(op => op.cuenta === 'Imagin');
 
         const bbvaTotal = bbvaOps.reduce((sum, op) => {
-          if (op.tipo === 'ingreso' || op.tipo === 'retirada-hucha') return sum + parseFloat(op.cantidad || 0);
           if (op.tipo === 'gasto') return sum - parseFloat(op.cantidad || 0);
-          return sum;
+          return sum + parseFloat(op.cantidad || 0);
         }, 0);
 
         const imaginTotal = imaginOps.reduce((sum, op) => {
-          if (op.tipo === 'ingreso' || op.tipo === 'retirada-hucha') return sum + parseFloat(op.cantidad || 0);
           if (op.tipo === 'gasto') return sum - parseFloat(op.cantidad || 0);
-          return sum;
+          return sum + parseFloat(op.cantidad || 0);
         }, 0);
 
         setParvosStats({
@@ -217,44 +216,55 @@ const Home = () => {
   const handleSubmitMovement = async (e) => {
     e.preventDefault();
     try {
-      const endpoint = modalType === 'parvos' ? '/operaciones' : '/operaciones'; // Mismo endpoint, diferentes cuentas
+      let endpoint, payload;
       
-      let payload;
-      
-      if (formData.tipo === 'retirada-hucha') {
-        // Para traspasos, construir la descripción con el formato correcto
-        const descripcionTraspaso = `Traspaso desde ${formData.cuentaOrigen} a ${formData.cuentaDestino}${formData.descripcion ? ' - ' + formData.descripcion : ''}`;
-        
+      if (modalType === 'personal') {
+        // Personal usa /api/user/operations con campos en inglés
+        endpoint = '/api/user/operations';
+        const tipoMap = { 'gasto': 'expense', 'ingreso': 'income', 'hucha': 'savings', 'retirada-hucha': 'savings_withdrawal' };
         payload = {
-          tipo: formData.tipo,
-          fecha: formData.fecha,
-          cantidad: parseFloat(formData.cantidad),
-          descripcion: descripcionTraspaso,
-          categoria: '',
-          cuenta: formData.cuentaDestino,
-          usuario: user?.username || 'Sonia'
-        };
-      } else if (formData.tipo === 'ahorro') {
-        // Para ahorro, la cuenta seleccionada es el origen
-        payload = {
-          tipo: formData.tipo,
-          fecha: formData.fecha,
-          cantidad: parseFloat(formData.cantidad),
-          descripcion: formData.descripcion,
-          categoria: '',
-          cuenta: formData.cuenta, // Cuenta de origen del dinero que va a ahorro
-          usuario: user?.username || 'Sonia'
+          type: tipoMap[formData.tipo] || formData.tipo,
+          date: formData.fecha,
+          amount: parseFloat(formData.cantidad),
+          description: formData.descripcion,
+          category: formData.tipo === 'gasto' ? formData.categoria : '',
+          account_name: formData.cuenta
         };
       } else {
-        payload = {
-          tipo: formData.tipo,
-          fecha: formData.fecha,
-          cantidad: parseFloat(formData.cantidad),
-          descripcion: formData.descripcion,
-          categoria: formData.tipo === 'gasto' ? formData.categoria : '',
-          cuenta: formData.cuenta,
-          usuario: user?.username || 'Sonia'
-        };
+        // Parvos usa /operaciones con campos en español
+        endpoint = '/operaciones';
+        if (formData.tipo === 'retirada-hucha') {
+          const descripcionTraspaso = `Traspaso desde ${formData.cuentaOrigen} a ${formData.cuentaDestino}${formData.descripcion ? ' - ' + formData.descripcion : ''}`;
+          payload = {
+            tipo: formData.tipo,
+            fecha: formData.fecha,
+            cantidad: parseFloat(formData.cantidad),
+            descripcion: descripcionTraspaso,
+            categoria: '',
+            cuenta: formData.cuentaDestino,
+            usuario: user?.username || 'Sonia'
+          };
+        } else if (formData.tipo === 'ahorro') {
+          payload = {
+            tipo: formData.tipo,
+            fecha: formData.fecha,
+            cantidad: parseFloat(formData.cantidad),
+            descripcion: formData.descripcion,
+            categoria: '',
+            cuenta: formData.cuenta,
+            usuario: user?.username || 'Sonia'
+          };
+        } else {
+          payload = {
+            tipo: formData.tipo,
+            fecha: formData.fecha,
+            cantidad: parseFloat(formData.cantidad),
+            descripcion: formData.descripcion,
+            categoria: formData.tipo === 'gasto' ? formData.categoria : '',
+            cuenta: formData.cuenta,
+            usuario: user?.username || 'Sonia'
+          };
+        }
       }
 
       console.log('Enviando movimiento:', payload);
@@ -349,13 +359,13 @@ const Home = () => {
 
         <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
           <div className="flex-1 flex items-center justify-between bg-green-50/50 dark:bg-green-900/10 px-2.5 py-1.5 rounded-lg border border-green-100/50 dark:border-green-900/20">
-            <span className="text-[10px] font-bold text-green-600 dark:text-green-500 uppercase tracking-wide">Ingresos</span>
+            <span className="text-[10px] font-bold text-green-600 dark:text-green-500 uppercase tracking-wide">Ingresos {currentMonth.charAt(0).toUpperCase() + currentMonth.slice(1)}</span>
             <span className="text-xs font-bold text-green-700 dark:text-green-400">
               +{formatAmount(userStats?.ingresosMes || 0)}€
             </span>
           </div>
           <div className="flex-1 flex items-center justify-between bg-red-50/50 dark:bg-red-900/10 px-2.5 py-1.5 rounded-lg border border-red-100/50 dark:border-red-900/20">
-            <span className="text-[10px] font-bold text-red-600 dark:text-red-500 uppercase tracking-wide">Gastos</span>
+            <span className="text-[10px] font-bold text-red-600 dark:text-red-500 uppercase tracking-wide">Gastos {currentMonth.charAt(0).toUpperCase() + currentMonth.slice(1)}</span>
             <span className="text-xs font-bold text-red-700 dark:text-red-400">
               -{formatAmount(userStats?.gastosMes || 0)}€
             </span>
@@ -423,11 +433,11 @@ const Home = () => {
 
         <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
           <div className="flex-1 flex items-center justify-between bg-green-50/50 dark:bg-green-900/10 px-2.5 py-1.5 rounded-lg border border-green-100/50 dark:border-green-900/20">
-            <span className="text-[10px] font-bold text-green-600 dark:text-green-500 uppercase tracking-wide">Ingresos</span>
+            <span className="text-[10px] font-bold text-green-600 dark:text-green-500 uppercase tracking-wide">Ingresos {currentMonth.charAt(0).toUpperCase() + currentMonth.slice(1)}</span>
             <span className="text-xs font-bold text-green-700 dark:text-green-400">+{formatAmount(parvosStats?.ingresosMes || 0)}€</span>
           </div>
           <div className="flex-1 flex items-center justify-between bg-red-50/50 dark:bg-red-900/10 px-2.5 py-1.5 rounded-lg border border-red-100/50 dark:border-red-900/20">
-            <span className="text-[10px] font-bold text-red-600 dark:text-red-500 uppercase tracking-wide">Gastos</span>
+            <span className="text-[10px] font-bold text-red-600 dark:text-red-500 uppercase tracking-wide">Gastos {currentMonth.charAt(0).toUpperCase() + currentMonth.slice(1)}</span>
             <span className="text-xs font-bold text-red-700 dark:text-red-400">-{formatAmount(parvosStats?.gastosMes || 0)}€</span>
           </div>
         </div>

@@ -53,7 +53,7 @@ const MobileHome = () => {
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
       const monthOps = operations.filter(op => { const d = new Date(op.fecha); return d.getMonth() === currentMonth && d.getFullYear() === currentYear; });
-      const ingresos = monthOps.filter(op => op.tipo === 'ingreso' || op.tipo === 'retirada-hucha').reduce((s, op) => s + parseFloat(op.cantidad || 0), 0);
+      const ingresos = monthOps.filter(op => op.tipo === 'ingreso' || (op.tipo === 'retirada-hucha' && (op.cuenta === 'BBVA' || op.cuenta === 'Imagin'))).reduce((s, op) => s + parseFloat(op.cantidad || 0), 0);
       const gastos = monthOps.filter(op => op.tipo === 'gasto').reduce((s, op) => s + parseFloat(op.cantidad || 0), 0);
       const bbvaTotal = operations.filter(op => op.cuenta === 'BBVA').reduce((s, op) => op.tipo === 'gasto' ? s - parseFloat(op.cantidad || 0) : s + parseFloat(op.cantidad || 0), 0);
       const imaginTotal = operations.filter(op => op.cuenta === 'Imagin').reduce((s, op) => op.tipo === 'gasto' ? s - parseFloat(op.cantidad || 0) : s + parseFloat(op.cantidad || 0), 0);
@@ -72,14 +72,34 @@ const MobileHome = () => {
     e.preventDefault();
     try {
       let payload;
-      if (formData.tipo === 'retirada-hucha') {
-        payload = { tipo: formData.tipo, fecha: formData.fecha, cantidad: parseFloat(formData.cantidad), descripcion: `Traspaso desde ${formData.cuentaOrigen} a ${formData.cuentaDestino}${formData.descripcion ? ' - ' + formData.descripcion : ''}`, categoria: '', cuenta: formData.cuentaDestino, usuario: user?.username || 'Sonia' };
-      } else if (formData.tipo === 'ahorro') {
-        payload = { tipo: formData.tipo, fecha: formData.fecha, cantidad: parseFloat(formData.cantidad), descripcion: formData.descripcion, categoria: '', cuenta: formData.cuenta, usuario: user?.username || 'Sonia' };
+      let endpoint;
+      
+      if (modalType === 'personal') {
+        // Personal: endpoint /api/user/operations con campos en inglés
+        endpoint = '/api/user/operations';
+        const typeMap = { gasto: 'expense', ingreso: 'income', ahorro: 'savings', 'retirada-hucha': 'savings_withdrawal' };
+        payload = {
+          type: typeMap[formData.tipo] || 'expense',
+          date: formData.fecha,
+          amount: parseFloat(formData.cantidad),
+          description: formData.tipo === 'retirada-hucha' 
+            ? `Traspaso desde ${formData.cuentaOrigen} a ${formData.cuentaDestino}${formData.descripcion ? ' - ' + formData.descripcion : ''}`
+            : formData.descripcion,
+          category: formData.tipo === 'gasto' ? formData.categoria : '',
+          account_name: formData.tipo === 'retirada-hucha' ? formData.cuentaDestino : formData.cuenta
+        };
       } else {
-        payload = { tipo: formData.tipo, fecha: formData.fecha, cantidad: parseFloat(formData.cantidad), descripcion: formData.descripcion, categoria: formData.tipo === 'gasto' ? formData.categoria : '', cuenta: formData.cuenta, usuario: user?.username || 'Sonia' };
+        // Parvos: endpoint /operaciones con campos en español
+        endpoint = '/operaciones';
+        if (formData.tipo === 'retirada-hucha') {
+          payload = { tipo: formData.tipo, fecha: formData.fecha, cantidad: parseFloat(formData.cantidad), descripcion: `Traspaso desde ${formData.cuentaOrigen} a ${formData.cuentaDestino}${formData.descripcion ? ' - ' + formData.descripcion : ''}`, categoria: '', cuenta: formData.cuentaDestino, usuario: user?.username || 'Sonia' };
+        } else if (formData.tipo === 'ahorro') {
+          payload = { tipo: formData.tipo, fecha: formData.fecha, cantidad: parseFloat(formData.cantidad), descripcion: formData.descripcion, categoria: '', cuenta: formData.cuenta, usuario: user?.username || 'Sonia' };
+        } else {
+          payload = { tipo: formData.tipo, fecha: formData.fecha, cantidad: parseFloat(formData.cantidad), descripcion: formData.descripcion, categoria: formData.tipo === 'gasto' ? formData.categoria : '', cuenta: formData.cuenta, usuario: user?.username || 'Sonia' };
+        }
       }
-      await api.post('/operaciones', payload);
+      await api.post(endpoint, payload);
       setShowAddSheet(false);
       setToast('✓ Movimiento creado');
       setTimeout(() => setToast(null), 2500);

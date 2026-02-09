@@ -797,164 +797,211 @@ const ParvosAccount = () => {
         <div className="col-span-12 lg:col-span-8 space-y-4 lg:space-y-6">
           {/* Gráficos - Colapsables en móvil */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6">
-            {/* Gastos por Categoría */}
-            <div className="bg-white dark:bg-stone-900 p-5 rounded-xl border border-slate-200 dark:border-stone-800 shadow-sm hover:shadow-md transition-shadow overflow-visible">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-slate-500" />
-                  Gastos por Categoría
-                </h3>
-                <span className="text-[9px] font-semibold text-slate-400 flex items-center gap-1">
-                  <span className="inline-block w-3 border-t-2 border-dashed border-slate-400"></span>
-                  Presp.
-                </span>
-              </div>
+            {/* Presupuesto — Barras de Progreso */}
+            <div className="bg-white dark:bg-stone-900 p-5 rounded-xl border border-slate-200 dark:border-stone-800 shadow-sm hover:shadow-md transition-shadow">
               {(() => {
-                // Pre-calcular datos filtrados una sola vez
                 const mesIdx = meses.indexOf(mesSeleccionado);
                 const mesClave = `${añoSeleccionado}-${String(mesIdx + 1).padStart(2, '0')}`;
                 const presupuestosDelMes = presupuestos.filter(p => p.mes === mesClave);
-                
-                const categoriasConDatos = gastosPorCategoria
-                  .map(item => {
-                    const presupuestoCategoria = presupuestosDelMes.find(p => p.categoria === item.categoria)?.cantidad || 0;
-                    return { ...item, presupuestoCategoria };
-                  })
-                  .filter(item => item.cantidad > 0 || item.presupuestoCategoria > 0);
-                
-                // La escala se basa en el mayor gasto, con un tope del 85% de la altura
-                // Si algún presupuesto excede el max gasto, se limita al 100%
-                const maxGasto = Math.max(...categoriasConDatos.map(g => g.cantidad), 1);
-                
-                const coloresBarras = {
-                  'amber': 'bg-amber-400',
-                  'cyan': 'bg-cyan-400',
-                  'red': 'bg-red-400',
-                  'emerald': 'bg-emerald-400',
-                  'blue': 'bg-blue-400',
-                  'purple': 'bg-purple-400',
-                  'orange': 'bg-orange-400'
-                };
+                const catColorHex = { amber: '#f59e0b', cyan: '#06b6d4', red: '#ef4444', emerald: '#10b981', blue: '#3b82f6', purple: '#8b5cf6', orange: '#f97316' };
+
+                const totalBudget = categorias.reduce((s, cat) => s + (parseFloat(presupuestosDelMes.find(p => p.categoria === cat.nombre)?.cantidad) || 0), 0);
+                const totalGastado = categorias.reduce((sum, cat) => {
+                  const budget = parseFloat(presupuestosDelMes.find(p => p.categoria === cat.nombre)?.cantidad) || 0;
+                  const spent = operacionesDelMes.filter(op => op.tipo === 'gasto' && op.categoria === cat.nombre)
+                    .reduce((s, op) => s + parseFloat(op.cantidad || 0), 0);
+                  return sum + (budget > 0 || spent > 0 ? spent : 0);
+                }, 0);
+                const disponible = totalBudget - totalGastado;
+                const porcentajeTotal = totalBudget > 0 ? (totalGastado / totalBudget) * 100 : 0;
+                const overBudgetTotal = totalGastado > totalBudget;
 
                 return (
-                  <div className="h-56 flex items-end gap-1 px-1 pt-5 overflow-visible relative">
-                    {categoriasConDatos.map((item, idx) => {
-                      const Icon = item.icon;
-                      const alturaBarraPct = (item.cantidad / maxGasto) * 85; // máx 85% para dejar hueco arriba
-                      const alturaPresupuestoPct = item.presupuestoCategoria > 0 
-                        ? Math.min((item.presupuestoCategoria / maxGasto) * 85, 98) 
-                        : 0;
+                  <>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-bold flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4 text-slate-500" />
+                        Presupuesto Mensual
+                      </h3>
+                      <button 
+                        onClick={() => {
+                          const editables = {};
+                          categorias.forEach(cat => {
+                            editables[cat.nombre] = presupuestosDelMes.find(p => p.categoria === cat.nombre)?.cantidad || 0;
+                          });
+                          setPresupuestosEditables(editables);
+                          setModalEditarPresupuesto(true);
+                        }}
+                        className="p-1.5 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors group"
+                        title="Editar presupuestos"
+                      >
+                        <Edit className="w-4 h-4 text-purple-600 group-hover:text-purple-700" />
+                      </button>
+                    </div>
 
-                      return (
-                        <div key={idx} className="flex flex-col items-center gap-1 flex-1 h-full group relative" style={{ minWidth: 0 }}>
-                          <div className="relative w-full flex-1 flex flex-col justify-end overflow-visible">
-                            {/* Línea de presupuesto */}
-                            {item.presupuestoCategoria > 0 && (
-                              <div 
-                                className="absolute w-[calc(100%+6px)] -left-[3px] border-t-[2px] border-dashed border-slate-300 dark:border-slate-600 z-10 pointer-events-none"
-                                style={{ bottom: `${alturaPresupuestoPct}%` }}
-                              />
-                            )}
-                            {/* Cuantía siempre encima de la barra como badge */}
-                            {item.cantidad > 0 && (
-                              <div className="absolute left-1/2 transform -translate-x-1/2 z-40" style={{ bottom: `${Math.max(alturaBarraPct + 2, 5)}%` }}>
-                                <span className="text-[9px] font-bold whitespace-nowrap bg-white dark:bg-stone-800 px-1 py-0.5 rounded border border-slate-200 dark:border-stone-600 shadow-sm">
-                                  {formatAmount(item.cantidad || 0)}€
-                                </span>
+                    {/* Barra principal */}
+                    <div className="mb-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="text-2xl font-extrabold text-slate-900 dark:text-white">
+                            {formatAmount(totalBudget)}€
+                          </p>
+                          <p className={`text-sm font-bold ${overBudgetTotal ? 'text-red-600' : 'text-slate-500 dark:text-slate-400'}`}>
+                            {formatAmount(totalGastado)}€ <span className="text-[10px] font-medium text-slate-400">gastado</span>
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-lg font-extrabold ${overBudgetTotal ? 'text-red-600' : (disponible === 0 ? 'text-amber-600' : 'text-green-600')}`}>
+                            {overBudgetTotal ? '-' : ''}{formatAmount(Math.abs(disponible))}€
+                          </p>
+                          <p className="text-[10px] text-slate-400 font-medium">{overBudgetTotal ? 'sobrepasado' : (disponible === 0 ? 'exacto' : 'disponible')}</p>
+                        </div>
+                      </div>
+                      <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden">
+                        <div
+                          className={`h-3 rounded-full transition-all duration-700 ${overBudgetTotal ? 'bg-red-500' : 'bg-blue-500'}`}
+                          style={{ width: `${Math.min(porcentajeTotal, 100)}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between mt-1">
+                        <span className="text-[10px] font-bold text-slate-400">{Math.round(porcentajeTotal)}%</span>
+                        <span className={`text-[10px] font-bold ${overBudgetTotal ? 'text-red-500' : 'text-green-500'}`}>
+                          {overBudgetTotal ? '⚠️ Sobre presupuesto' : '✔️ Dentro del presupuesto'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Barras por categoría */}
+                    <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-stone-800">
+                      {categorias.map(cat => {
+                        const CatIcon = cat.icon;
+                        const budget = parseFloat(presupuestosDelMes.find(p => p.categoria === cat.nombre)?.cantidad) || 0;
+                        const spent = operacionesDelMes
+                          .filter(op => op.tipo === 'gasto' && op.categoria === cat.nombre)
+                          .reduce((s, op) => s + parseFloat(op.cantidad || 0), 0);
+                        if (budget === 0 && spent === 0) return null;
+                        const remaining = budget - spent;
+                        const pct = budget > 0 ? (spent / budget) * 100 : (spent > 0 ? 100 : 0);
+                        const over = spent > budget;
+                        return (
+                          <div key={cat.nombre}>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <div className="flex items-center gap-2">
+                                <CatIcon className="w-4 h-4 text-slate-400" />
+                                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{cat.nombre}</span>
                               </div>
-                            )}
-                            {/* Barra de gasto */}
-                            <div 
-                              className={`w-full ${coloresBarras[item.color] || 'bg-slate-400'} rounded-t-md transition-all hover:opacity-80 relative z-20 cursor-pointer`}
-                              style={{ height: `${Math.max(alturaBarraPct, 0)}%`, minHeight: item.cantidad > 0 ? '6px' : '0px' }}
-                              title={`${item.categoria}: ${formatAmount(item.cantidad || 0)}€${item.presupuestoCategoria > 0 ? ` | Presp: ${item.presupuestoCategoria}€` : ''}`}
-                            />
-                          </div>
-                          {/* Icono con tooltip */}
-                          <div className="relative flex-shrink-0">
-                            <Icon className="text-slate-400 dark:text-slate-500 w-4 h-4" />
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-slate-800 text-white text-[9px] font-semibold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-lg">
-                              {item.categoria}
-                              <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-t-[4px] border-transparent border-t-slate-800"></div>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs font-bold ${over ? 'text-red-600' : 'text-slate-900 dark:text-white'}`}>{formatAmount(spent)}€</span>
+                                <span className="text-[10px] text-slate-400">/ {formatAmount(budget)}€</span>
+                              </div>
+                            </div>
+                            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                              <div
+                                className="h-2 rounded-full transition-all duration-500"
+                                style={{
+                                  width: `${Math.min(pct, 100)}%`,
+                                  backgroundColor: catColorHex[cat.color] || '#8b5cf6'
+                                }}
+                              />
+                            </div>
+                            <div className="flex justify-between mt-0.5">
+                              <span className="text-[10px] text-slate-400">{Math.round(pct)}%</span>
+                              <span className={`text-[10px] font-bold ${over ? 'text-red-500' : (remaining === 0 ? 'text-amber-600' : 'text-green-600')}`}>
+                                {over ? `-${formatAmount(Math.abs(remaining))}€` : (remaining === 0 ? 'exacto' : `${formatAmount(remaining)}€ libre`)}
+                              </span>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      }).filter(Boolean)}
+                    </div>
+                  </>
                 );
               })()}
             </div>
 
-            {/* Presupuesto vs Real */}
+            {/* Distribución del Gasto */}
             <div className="bg-white dark:bg-stone-900 p-5 rounded-xl border border-slate-200 dark:border-stone-800 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-5 px-2">
+              <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-bold flex items-center gap-2">
-                  <ClipboardList className="w-4 h-4" />
-                  Presupuesto vs Real
+                  <ClipboardList className="w-4 h-4 text-slate-500" />
+                  Distribución del Gasto
                 </h3>
-                <button 
-                  onClick={() => {
-                    const mesIdx = meses.indexOf(mesSeleccionado);
-                    const mesClave = `${añoSeleccionado}-${String(mesIdx + 1).padStart(2, '0')}`;
-                    const presupuestosDelMes = presupuestos.filter(p => p.mes === mesClave);
-                    const editables = {};
-                    categorias.forEach(cat => {
-                      editables[cat.nombre] = presupuestosDelMes.find(p => p.categoria === cat.nombre)?.cantidad || 0;
-                    });
-                    setPresupuestosEditables(editables);
-                    setModalEditarPresupuesto(true);
-                  }}
-                  className="p-1.5 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors group"
-                  title="Editar presupuestos"
-                >
-                  <Edit className="w-4 h-4 text-purple-600 group-hover:text-purple-700" />
-                </button>
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                  {mesSeleccionado.charAt(0).toUpperCase() + mesSeleccionado.slice(1)}
+                </span>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead className="sticky top-0 bg-white dark:bg-stone-900">
-                    <tr className="text-slate-400 font-bold uppercase tracking-wider text-left border-b border-slate-100 dark:border-stone-800">
-                      <th className="pb-3">Categoría</th>
-                      <th className="pb-3">Presp.</th>
-                      <th className="pb-3">Real</th>
-                      <th className="pb-3 text-right">Dif.</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50 dark:divide-stone-800">
-                    {presupuestoVsReal.filter(item => item.presupuesto > 0 || item.gastado > 0).map((item, idx) => (
-                      <tr key={idx}>
-                        <td className="py-3 font-semibold">{item.categoria}</td>
-                        <td className="py-3">{item.presupuesto.toFixed(0)} €</td>
-                        <td className="py-3 text-blue-500 font-bold">{item.gastado.toFixed(2)} €</td>
-                        <td className={`py-3 font-bold text-right ${
-                          item.diferencia > 0 
-                            ? 'text-emerald-500' 
-                            : item.diferencia === 0
-                            ? 'text-amber-500'
-                            : 'text-red-500'
-                        }`}>
-                          {item.diferencia > 0 ? '+' : ''}{item.diferencia.toFixed(2)} €
-                        </td>
-                      </tr>
-                    ))}
-                    <tr className="bg-slate-50/50 dark:bg-stone-800/30 font-bold">
-                      <td className="py-3">TOTAL</td>
-                      <td className="py-3">{presupuestoVsReal.reduce((sum, item) => sum + item.presupuesto, 0).toFixed(0)} €</td>
-                      <td className="py-3 text-blue-600">{presupuestoVsReal.reduce((sum, item) => sum + item.gastado, 0).toFixed(2)} €</td>
-                      <td className={`py-3 text-right ${
-                        presupuestoVsReal.reduce((sum, item) => sum + item.diferencia, 0) > 0 
-                          ? 'text-emerald-600' 
-                          : presupuestoVsReal.reduce((sum, item) => sum + item.diferencia, 0) === 0
-                          ? 'text-amber-600'
-                          : 'text-red-600'
-                      }`}>
-                        {presupuestoVsReal.reduce((sum, item) => sum + item.diferencia, 0) > 0 ? '+' : ''}{presupuestoVsReal.reduce((sum, item) => sum + item.diferencia, 0).toFixed(2)} €
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              {(() => {
+                const catColorHex = { amber: '#f59e0b', cyan: '#06b6d4', red: '#ef4444', emerald: '#10b981', blue: '#3b82f6', purple: '#8b5cf6', orange: '#f97316' };
+                const totalGastos = gastosPorCategoria.reduce((sum, g) => sum + g.cantidad, 0);
+                const categoriasConGasto = gastosPorCategoria.filter(g => g.cantidad > 0).sort((a, b) => b.cantidad - a.cantidad);
+
+                if (totalGastos === 0) return (
+                  <div className="text-center py-8 text-slate-400">
+                    <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-xs font-medium">Sin gastos este mes</p>
+                  </div>
+                );
+
+                return (
+                  <>
+                    {/* Total del mes */}
+                    <div className="text-center mb-4">
+                      <p className="text-3xl font-extrabold text-slate-900 dark:text-white">{formatAmount(totalGastos)}€</p>
+                      <p className="text-[10px] text-slate-400 font-medium">total gastado este mes</p>
+                    </div>
+
+                    {/* Barra apilada horizontal */}
+                    <div className="w-full h-7 rounded-xl overflow-visible flex mb-5 relative bg-slate-100 dark:bg-slate-800">
+                      {categoriasConGasto.map((g, idx) => {
+                        const pct = ((g.cantidad / totalGastos) * 100).toFixed(1);
+                        const isFirst = idx === 0;
+                        const isLast = idx === categoriasConGasto.length - 1;
+                        return (
+                          <div
+                            key={idx}
+                            className={`h-full transition-all duration-500 relative group/seg cursor-pointer hover:brightness-110 ${isFirst ? 'rounded-l-xl' : ''} ${isLast ? 'rounded-r-xl' : ''}`}
+                            style={{
+                              width: `${(g.cantidad / totalGastos) * 100}%`,
+                              backgroundColor: catColorHex[g.color] || '#8b5cf6'
+                            }}
+                          >
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-800 text-white text-[10px] font-semibold px-2.5 py-1.5 rounded-lg opacity-0 group-hover/seg:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-lg">
+                              {g.categoria}: {formatAmount(g.cantidad)}€ ({pct}%)
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-transparent border-t-slate-800"></div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Cards por categoría */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {categoriasConGasto.map((g, idx) => {
+                        const Icon = g.icon;
+                        const pct = ((g.cantidad / totalGastos) * 100).toFixed(1);
+                        return (
+                          <div
+                            key={idx}
+                            className="bg-slate-50 dark:bg-stone-800 rounded-lg p-2.5 border-l-[3px] hover:bg-slate-100 dark:hover:bg-stone-700 transition-all"
+                            style={{ borderLeftColor: catColorHex[g.color] || '#8b5cf6' }}
+                          >
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <Icon className="w-3.5 h-3.5 text-slate-400" />
+                              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide truncate">{g.categoria}</span>
+                            </div>
+                            <div className="flex items-baseline justify-between">
+                              <span className="text-sm font-extrabold" style={{ color: catColorHex[g.color] || '#8b5cf6' }}>
+                                {formatAmount(g.cantidad)}€
+                              </span>
+                              <span className="text-[10px] font-bold text-slate-400">{pct}%</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
 
