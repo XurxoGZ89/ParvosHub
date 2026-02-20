@@ -184,11 +184,21 @@ const MobilePersonalAccount = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const payload = {
-        type: formData.tipo === 'gasto' ? 'expense' : formData.tipo === 'ingreso' ? 'income' : formData.tipo === 'hucha' ? 'savings' : 'savings_withdrawal',
-        date: formData.fecha, amount: parseFloat(formData.cantidad), description: formData.descripcion,
-        category: formData.tipo === 'gasto' ? formData.categoria : '', account_name: formData.cuenta
-      };
+      let payload;
+      if (formData.tipo === 'retirada-hucha') {
+        payload = {
+          type: 'savings_withdrawal',
+          date: formData.fecha, amount: parseFloat(formData.cantidad),
+          description: `Traspaso ${formData.cuentaOrigen} a ${formData.cuentaDestino}${formData.descripcion ? ' - ' + formData.descripcion : ''}`,
+          category: '', account_name: formData.cuentaDestino
+        };
+      } else {
+        payload = {
+          type: formData.tipo === 'gasto' ? 'expense' : formData.tipo === 'ingreso' ? 'income' : 'savings',
+          date: formData.fecha, amount: parseFloat(formData.cantidad), description: formData.descripcion,
+          category: formData.tipo === 'gasto' ? formData.categoria : '', account_name: formData.cuenta
+        };
+      }
       await api.post('/api/user/operations', payload);
       setShowAddSheet(false);
       setFormData({ fecha: new Date().toISOString().split('T')[0], tipo: 'gasto', cantidad: '', descripcion: '', categoria: 'Alimentación', cuenta: cuentasUsuario[0], cuentaOrigen: 'Ahorro', cuentaDestino: cuentasUsuario[0] });
@@ -285,18 +295,18 @@ const MobilePersonalAccount = () => {
               </div>
             ))}
           </div>
-          <div className="flex gap-2 mt-3">
-            <div className="flex-1 bg-green-50 dark:bg-green-900/10 px-3 py-2 rounded-lg flex justify-between">
-              <span className="text-[10px] font-bold text-green-600 uppercase">Ingresos</span>
+          <div className={`grid gap-2 mt-3 ${totales.ahorroMes > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <div className="bg-green-50 dark:bg-green-900/10 px-3 py-2 rounded-lg text-center">
+              <span className="text-[10px] font-bold text-green-600 uppercase block">Ingresos</span>
               <span className="text-xs font-bold text-green-700">+{formatAmount(totales.ingresos)}€</span>
             </div>
-            <div className="flex-1 bg-red-50 dark:bg-red-900/10 px-3 py-2 rounded-lg flex justify-between">
-              <span className="text-[10px] font-bold text-red-600 uppercase">Gastos</span>
+            <div className="bg-red-50 dark:bg-red-900/10 px-3 py-2 rounded-lg text-center">
+              <span className="text-[10px] font-bold text-red-600 uppercase block">Gastos</span>
               <span className="text-xs font-bold text-red-700">-{formatAmount(totales.gastos)}€</span>
             </div>
             {totales.ahorroMes > 0 && (
-              <div className="flex-1 bg-teal-50 dark:bg-teal-900/10 px-3 py-2 rounded-lg flex justify-between">
-                <span className="text-[10px] font-bold text-emerald-500 uppercase">Ahorro</span>
+              <div className="bg-teal-50 dark:bg-teal-900/10 px-3 py-2 rounded-lg text-center">
+                <span className="text-[10px] font-bold text-emerald-500 uppercase block">Ahorro</span>
                 <span className="text-xs font-bold text-emerald-500 dark:text-emerald-400">-{formatAmount(totales.ahorroMes)}€</span>
               </div>
             )}
@@ -496,8 +506,8 @@ const MobilePersonalAccount = () => {
                       {formatAmount(saldoInfo.total || 0)}€
                     </span>
                   </div>
-                  <button onClick={() => setDeleteConfirm(op.id)} className="p-1.5 text-slate-300 hover:text-red-500">
-                    <Trash2 className="w-3.5 h-3.5" />
+                  <button onClick={() => setDeleteConfirm(op.id)} className="p-2.5 -mr-1 text-slate-300 active:text-red-500">
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -532,12 +542,15 @@ const MobilePersonalAccount = () => {
       )}
 
       {/* Add Sheet */}
-      <MobileSheet isOpen={showAddSheet} onClose={() => setShowAddSheet(false)} title="Nuevo Movimiento Personal" fullHeight>
+      <MobileSheet isOpen={showAddSheet} onClose={() => {
+        setShowAddSheet(false);
+        setFormData({ fecha: new Date().toISOString().split('T')[0], tipo: 'gasto', cantidad: '', descripcion: '', categoria: 'Alimentación', cuenta: cuentasUsuario[0], cuentaOrigen: 'Ahorro', cuentaDestino: cuentasUsuario[0] });
+      }} title="Nuevo Movimiento Personal" fullHeight>
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="flex bg-slate-100 dark:bg-slate-800 rounded-xl p-1">
+          <div className="grid grid-cols-4 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 gap-1">
             {['ingreso','gasto','hucha','retirada-hucha'].map(t => (
               <button key={t} type="button" onClick={() => setFormData({...formData, tipo: t})}
-                className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-all ${formData.tipo === t ? 'bg-white dark:bg-slate-700 text-purple-600 shadow-sm' : 'text-slate-500'}`}>
+                className={`py-2.5 rounded-lg text-[11px] font-semibold transition-all text-center ${formData.tipo === t ? 'bg-white dark:bg-slate-700 text-purple-600 shadow-sm' : 'text-slate-500'}`}>
                 {t === 'retirada-hucha' ? 'Retirada' : t === 'hucha' ? 'Ahorro' : t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
             ))}
@@ -562,27 +575,57 @@ const MobilePersonalAccount = () => {
           {formData.tipo === 'gasto' && (
             <div>
               <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2 block">Categoría</label>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {categorias.map(cat => (
                   <button key={cat.nombre} type="button" onClick={() => setFormData({...formData, categoria: cat.nombre})}
-                    className={`py-2.5 rounded-xl text-[11px] font-semibold ${formData.categoria === cat.nombre ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600'}`}>
+                    className={`py-2.5 rounded-xl text-[11px] font-semibold ${formData.categoria === cat.nombre ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
                     {cat.nombre}
                   </button>
                 ))}
               </div>
             </div>
           )}
+          {formData.tipo !== 'retirada-hucha' && (
           <div>
-            <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5 block">Cuenta</label>
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5 block">
+              {formData.tipo === 'hucha' ? 'Cuenta de origen' : 'Cuenta'}
+            </label>
             <div className="flex gap-2">
               {cuentasUsuario.map(c => (
                 <button key={c} type="button" onClick={() => setFormData({...formData, cuenta: c})}
-                  className={`flex-1 py-3 rounded-xl text-sm font-semibold ${formData.cuenta === c ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600'}`}>
+                  className={`flex-1 py-3 rounded-xl text-sm font-semibold ${formData.cuenta === c ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
                   {c}
                 </button>
               ))}
             </div>
           </div>
+          )}
+          {formData.tipo === 'retirada-hucha' && (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5 block">Origen</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {['Ahorro', ...cuentasUsuario].map(c => (
+                    <button key={c} type="button" onClick={() => setFormData({...formData, cuentaOrigen: c})}
+                      className={`py-3 rounded-xl text-sm font-semibold transition-all ${
+                        formData.cuentaOrigen === c ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      }`}>{c}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5 block">Destino</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {cuentasUsuario.map(c => (
+                    <button key={c} type="button" onClick={() => setFormData({...formData, cuentaDestino: c})}
+                      className={`py-3 rounded-xl text-sm font-semibold transition-all ${
+                        formData.cuentaDestino === c ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      }`}>{c}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
           <button type="submit" className="w-full py-3.5 bg-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-[0.98] transition-transform text-sm">
             Añadir Movimiento
           </button>

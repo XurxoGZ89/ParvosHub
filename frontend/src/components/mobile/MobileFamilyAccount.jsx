@@ -244,18 +244,18 @@ const MobileFamilyAccount = () => {
               <span className="text-xs font-bold text-slate-900 dark:text-white">{formatAmount(calcImagin)}€</span>
             </div>
           </div>
-          <div className="flex gap-2 mt-3">
-            <div className="flex-1 bg-green-50 dark:bg-green-900/10 px-3 py-2 rounded-lg flex justify-between">
-              <span className="text-[10px] font-bold text-green-600 uppercase">Ingresos</span>
+          <div className={`grid gap-2 mt-3 ${ahorroMes > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <div className="bg-green-50 dark:bg-green-900/10 px-3 py-2 rounded-lg text-center">
+              <span className="text-[10px] font-bold text-green-600 uppercase block">Ingresos</span>
               <span className="text-xs font-bold text-green-700">+{formatAmount(ingresosMes)}€</span>
             </div>
-            <div className="flex-1 bg-red-50 dark:bg-red-900/10 px-3 py-2 rounded-lg flex justify-between">
-              <span className="text-[10px] font-bold text-red-600 uppercase">Gastos</span>
+            <div className="bg-red-50 dark:bg-red-900/10 px-3 py-2 rounded-lg text-center">
+              <span className="text-[10px] font-bold text-red-600 uppercase block">Gastos</span>
               <span className="text-xs font-bold text-red-700">-{formatAmount(gastosMes)}€</span>
             </div>
             {ahorroMes > 0 && (
-              <div className="flex-1 bg-teal-50 dark:bg-teal-900/10 px-3 py-2 rounded-lg flex justify-between">
-                <span className="text-[10px] font-bold text-emerald-500 uppercase">Ahorro</span>
+              <div className="bg-teal-50 dark:bg-teal-900/10 px-3 py-2 rounded-lg text-center">
+                <span className="text-[10px] font-bold text-emerald-500 uppercase block">Ahorro</span>
                 <span className="text-xs font-bold text-emerald-500 dark:text-emerald-400">-{formatAmount(ahorroMes)}€</span>
               </div>
             )}
@@ -430,7 +430,7 @@ const MobileFamilyAccount = () => {
                   <p className="text-sm font-semibold text-slate-800 dark:text-white truncate">{op.info || op.concepto || op.categoria || op.tipo}</p>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <p className="text-[11px] text-slate-400">
-                      {new Date(op.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} · {op.cuenta} · {op.usuario}
+                      {new Date(op.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} · {op.cuenta}
                     </p>
                     {(op.cuenta === 'BBVA' || op.cuenta === 'Imagin') && (
                       <>
@@ -451,7 +451,7 @@ const MobileFamilyAccount = () => {
                       {formatAmount(saldoInfo.total || 0)}€
                     </span>
                   </div>
-                  <button onClick={() => setDeleteConfirm(op.id)} className="p-1.5 text-slate-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => setDeleteConfirm(op.id)} className="p-2.5 -mr-1 text-slate-300 active:text-red-500"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
             );
@@ -483,12 +483,15 @@ const MobileFamilyAccount = () => {
       )}
 
       {/* Add Sheet */}
-      <MobileSheet isOpen={showAddSheet} onClose={() => setShowAddSheet(false)} title="Nuevo Movimiento Familiar" fullHeight>
+      <MobileSheet isOpen={showAddSheet} onClose={() => {
+        setShowAddSheet(false);
+        setFormData({ fecha: new Date().toISOString().split('T')[0], tipo: 'gasto', cantidad: '', descripcion: '', categoria: 'Alimentación', cuenta: 'Imagin', cuentaOrigen: 'Ahorro', cuentaDestino: 'Imagin' });
+      }} title="Nuevo Movimiento Familiar" fullHeight>
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="flex bg-slate-100 dark:bg-slate-800 rounded-xl p-1">
+          <div className="grid grid-cols-4 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 gap-1">
             {['ingreso','gasto','ahorro','retirada-hucha'].map(t => (
               <button key={t} type="button" onClick={() => setFormData({...formData, tipo: t})}
-                className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-all ${formData.tipo === t ? 'bg-white dark:bg-slate-700 text-purple-600 shadow-sm' : 'text-slate-500'}`}>
+                className={`py-2.5 rounded-lg text-[11px] font-semibold transition-all text-center ${formData.tipo === t ? 'bg-white dark:bg-slate-700 text-purple-600 shadow-sm' : 'text-slate-500'}`}>
                 {t === 'retirada-hucha' ? 'Retirada' : t === 'ahorro' ? 'Ahorro' : t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
             ))}
@@ -513,10 +516,10 @@ const MobileFamilyAccount = () => {
           {formData.tipo === 'gasto' && (
             <div>
               <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2 block">Categoría</label>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {categorias.map(cat => (
                   <button key={cat.nombre} type="button" onClick={() => setFormData({...formData, categoria: cat.nombre})}
-                    className={`py-2.5 rounded-xl text-[11px] font-semibold ${formData.categoria === cat.nombre ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600'}`}>
+                    className={`py-2.5 rounded-xl text-[11px] font-semibold ${formData.categoria === cat.nombre ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
                     {cat.nombre}
                   </button>
                 ))}
@@ -535,20 +538,28 @@ const MobileFamilyAccount = () => {
             </div>
           )}
           {formData.tipo === 'retirada-hucha' && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-3">
               <div>
                 <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5 block">Origen</label>
-                <select value={formData.cuentaOrigen} onChange={(e) => setFormData({...formData, cuentaOrigen: e.target.value})}
-                  className="w-full h-12 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm">
-                  <option value="Imagin">Imagin</option><option value="BBVA">BBVA</option>
-                </select>
+                <div className="grid grid-cols-3 gap-2">
+                  {['Ahorro','Imagin','BBVA'].map(c => (
+                    <button key={c} type="button" onClick={() => setFormData({...formData, cuentaOrigen: c})}
+                      className={`py-3 rounded-xl text-sm font-semibold transition-all ${
+                        formData.cuentaOrigen === c ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      }`}>{c}</button>
+                  ))}
+                </div>
               </div>
               <div>
                 <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5 block">Destino</label>
-                <select value={formData.cuentaDestino} onChange={(e) => setFormData({...formData, cuentaDestino: e.target.value})}
-                  className="w-full h-12 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm">
-                  <option value="Imagin">Imagin</option><option value="BBVA">BBVA</option>
-                </select>
+                <div className="grid grid-cols-2 gap-2">
+                  {['Imagin','BBVA'].map(c => (
+                    <button key={c} type="button" onClick={() => setFormData({...formData, cuentaDestino: c})}
+                      className={`py-3 rounded-xl text-sm font-semibold transition-all ${
+                        formData.cuentaDestino === c ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      }`}>{c}</button>
+                  ))}
+                </div>
               </div>
             </div>
           )}

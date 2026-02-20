@@ -271,7 +271,7 @@ const MobileExpensesCalendar = () => {
           {/* Categoría grid */}
           <div>
             <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2 block">Categoría</label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {CATEGORIAS.map(cat => {
                 const CatIcon = cat.icon;
                 return (
@@ -280,7 +280,7 @@ const MobileExpensesCalendar = () => {
                       formData.categoria === cat.value ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
                     }`}>
                     <CatIcon className="w-4 h-4" />
-                    {cat.label}
+                    <span className="truncate w-full text-center px-1">{cat.label}</span>
                   </button>
                 );
               })}

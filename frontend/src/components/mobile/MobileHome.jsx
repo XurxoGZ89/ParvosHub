@@ -26,6 +26,9 @@ const MobileHome = () => {
   });
   const [toast, setToast] = useState(null);
 
+  const cuentasPersonal = user?.username === 'xurxo' ? ['Santander', 'Prepago'] : ['BBVA', 'Virtual'];
+  const cuentasFamiliar = ['BBVA', 'Imagin'];
+
   const fetchData = async () => {
     try {
       const profileResponse = await api.get('/api/auth/profile');
@@ -183,17 +186,17 @@ const MobileHome = () => {
 
         {/* Ahorro Total Compacto */}
         <div className="bg-gradient-to-r from-emerald-500 to-green-600 p-4 rounded-xl text-white">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2 shrink-0">
               <PiggyBank className="w-4 h-4 text-white/90" />
               <span className="text-xs font-bold text-white/90 uppercase">Ahorro Total</span>
             </div>
-            <div className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg">
-              {totalSavingsStats?.difference > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-              <span className="text-xs font-bold">
+            <div className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg min-w-0">
+              {totalSavingsStats?.difference > 0 ? <TrendingUp className="w-3 h-3 shrink-0" /> : <TrendingDown className="w-3 h-3 shrink-0" />}
+              <span className="text-xs font-bold truncate">
                 {totalSavingsStats?.difference > 0 ? '+' : ''}{formatAmount(totalSavingsStats?.difference || 0)}€
               </span>
-              <span className="text-[10px] text-white/80">
+              <span className="text-[10px] text-white/80 shrink-0">
                 ({totalSavingsStats?.differencePercentage > 0 ? '+' : ''}{totalSavingsStats?.differencePercentage?.toFixed(1) || 0}%)
               </span>
             </div>
@@ -320,11 +323,11 @@ const MobileHome = () => {
       <MobileSheet isOpen={showAddSheet} onClose={() => setShowAddSheet(false)} title={`Nuevo Movimiento ${modalType === 'parvos' ? 'Familiar' : 'Personal'}`} fullHeight>
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Tipo selector */}
-          <div className="flex bg-slate-100 dark:bg-slate-800 rounded-xl p-1">
+          <div className="grid grid-cols-4 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 gap-1">
             {['ingreso', 'gasto', 'ahorro', 'retirada-hucha'].map(tipo => (
               <button key={tipo} type="button"
                 onClick={() => setFormData({...formData, tipo})}
-                className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-all ${
+                className={`py-2.5 rounded-lg text-[11px] font-semibold transition-all text-center ${
                   formData.tipo === tipo ? 'bg-white dark:bg-slate-700 text-purple-600 shadow-sm' : 'text-slate-500'
                 }`}
               >
@@ -334,14 +337,14 @@ const MobileHome = () => {
           </div>
 
           {/* Tipo cuenta */}
-          <div className="flex bg-slate-100 dark:bg-slate-800 rounded-xl p-1">
+          <div className="grid grid-cols-2 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 gap-1">
             {['parvos', 'personal'].map(t => (
               <button key={t} type="button"
                 onClick={() => {
                   setModalType(t);
-                  setFormData({...formData, cuenta: t === 'personal' ? 'Santander' : 'BBVA'});
+                  setFormData({...formData, cuenta: t === 'personal' ? cuentasPersonal[0] : cuentasFamiliar[0]});
                 }}
-                className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
+                className={`py-2 rounded-lg text-xs font-semibold transition-all text-center ${
                   modalType === t ? 'bg-white dark:bg-slate-700 text-purple-600 shadow-sm' : 'text-slate-500'
                 }`}
               >
@@ -383,7 +386,7 @@ const MobileHome = () => {
           {formData.tipo === 'gasto' && (
             <div>
               <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2 block">Categoría</label>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {['Alimentación','Hogar','Ocio','Movilidad','Deporte','Extra','Vacaciones'].map(cat => (
                   <button key={cat} type="button"
                     onClick={() => setFormData({...formData, categoria: cat})}
@@ -405,7 +408,7 @@ const MobileHome = () => {
                 {formData.tipo === 'ahorro' ? 'Cuenta de origen' : 'Cuenta'}
               </label>
               <div className="flex gap-2">
-                {(modalType === 'personal' ? ['Santander', 'Prepago'] : ['BBVA', 'Imagin']).map(c => (
+                {(modalType === 'personal' ? cuentasPersonal : cuentasFamiliar).map(c => (
                   <button key={c} type="button"
                     onClick={() => setFormData({...formData, cuenta: c})}
                     className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all ${
@@ -421,21 +424,36 @@ const MobileHome = () => {
 
           {/* Cuentas origen/destino para retirada */}
           {formData.tipo === 'retirada-hucha' && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-3">
               <div>
                 <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5 block">Origen</label>
-                <select value={formData.cuentaOrigen} onChange={(e) => setFormData({...formData, cuentaOrigen: e.target.value})}
-                  className="w-full h-12 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm">
-                  <option value="Ahorro">Ahorro</option>
-                  {(modalType === 'personal' ? ['Santander', 'Prepago'] : ['BBVA', 'Imagin']).map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <div className="grid grid-cols-3 gap-2">
+                  {['Ahorro', ...(modalType === 'personal' ? cuentasPersonal : cuentasFamiliar)].map(c => (
+                    <button key={c} type="button"
+                      onClick={() => setFormData({...formData, cuentaOrigen: c})}
+                      className={`py-3 rounded-xl text-sm font-semibold transition-all ${
+                        formData.cuentaOrigen === c ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div>
                 <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5 block">Destino</label>
-                <select value={formData.cuentaDestino} onChange={(e) => setFormData({...formData, cuentaDestino: e.target.value})}
-                  className="w-full h-12 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm">
-                  {(modalType === 'personal' ? ['Santander', 'Prepago'] : ['BBVA', 'Imagin']).map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <div className="grid grid-cols-2 gap-2">
+                  {(modalType === 'personal' ? cuentasPersonal : cuentasFamiliar).map(c => (
+                    <button key={c} type="button"
+                      onClick={() => setFormData({...formData, cuentaDestino: c})}
+                      className={`py-3 rounded-xl text-sm font-semibold transition-all ${
+                        formData.cuentaDestino === c ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}

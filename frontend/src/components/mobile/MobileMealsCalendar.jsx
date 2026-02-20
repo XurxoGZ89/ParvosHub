@@ -426,14 +426,14 @@ const MobileMealsCalendar = () => {
               placeholder="Buscar..." />
           </div>
           <div className="space-y-1.5">
-            {comidasCongeladas.filter(c => !busqueda || c.nombre.toLowerCase().includes(busqueda.toLowerCase())).map(c => {
+            {comidasCongeladas.filter(c => !c.tachada).filter(c => !busqueda || c.nombre.toLowerCase().includes(busqueda.toLowerCase())).map(c => {
               const cat = getCatInfo(c.categoria);
               const CatIcon = cat.icon;
               return (
-                <div key={c.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl ${c.tachada ? 'opacity-40 bg-slate-50 dark:bg-slate-800/50' : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800'}`}>
+                <div key={c.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
                   <div className={`w-2 h-2 rounded-full ${cat.dot}`} />
                   <CatIcon className="w-4 h-4 text-slate-500" />
-                  <span className={`flex-1 text-sm ${c.tachada ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}>{c.nombre}</span>
+                  <span className="flex-1 text-sm text-slate-700 dark:text-slate-200">{c.nombre}</span>
                   <button onClick={() => handleEliminarProducto(c.id)} className="p-1 text-slate-300"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               );

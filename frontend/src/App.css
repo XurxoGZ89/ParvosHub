@@ -14,8 +14,10 @@
 
 /* Mobile First - Base Styles */
 @media (max-width: 480px) {
-  select, input, button {
-    font-size: 16px !important; /* Previene zoom en iOS */
+  /* Solo inputs y selects necesitan 16px para prevenir zoom en iOS */
+  /* Los buttons NO necesitan esto y rompe tabs, pills y categorías */
+  select, input, textarea {
+    font-size: 16px !important;
   }
   
   table {
@@ -25,14 +27,14 @@
 
 /* Tablets */
 @media (min-width: 481px) and (max-width: 768px) {
-  select, input, button {
+  select, input, textarea {
     font-size: 14px !important;
   }
 }
 
 /* Desktop */
 @media (min-width: 769px) {
-  select, input, button {
+  select, input, textarea {
     font-size: 16px !important;
   }
 }

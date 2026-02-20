@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart3,
@@ -20,15 +20,14 @@ const MobileMoreMenu = () => {
   const { user, logout } = useAuthStore();
   const { language, setLanguage, t } = useLanguage();
 
-  const isDark = document.documentElement.classList.contains('dark');
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
 
-  const toggleDark = () => {
+  const toggleDark = useCallback(() => {
     document.documentElement.classList.toggle('dark');
-    localStorage.setItem(
-      'theme',
-      document.documentElement.classList.contains('dark') ? 'dark' : 'light'
-    );
-  };
+    const nowDark = document.documentElement.classList.contains('dark');
+    localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+    setIsDark(nowDark);
+  }, []);
 
   const handleLogout = () => {
     logout();
