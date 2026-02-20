@@ -99,7 +99,8 @@ const MobilePersonalAccount = () => {
         (op.type === 'retirada-hucha' && (op.account_name === cuentasUsuario[0] || op.account_name === cuentasUsuario[1])))
       .reduce((s, op) => s + parseFloat(op.amount || 0), 0);
     const gastos = operacionesDelMes.filter(op => op.type === 'gasto').reduce((s, op) => s + parseFloat(op.amount || 0), 0);
-    return { cuenta1: c1, cuenta2: c2, total: c1 + c2, ingresos, gastos };
+    const ahorroMes = operacionesDelMes.filter(op => (op.type === 'hucha' || op.type === 'savings') && (op.account_name === 'Ahorro' || op.account_name === null)).reduce((s, op) => s + parseFloat(op.amount || 0), 0);
+    return { cuenta1: c1, cuenta2: c2, total: c1 + c2, ingresos, gastos, ahorroMes };
   };
 
   // Ahorro
@@ -114,14 +115,7 @@ const MobilePersonalAccount = () => {
       const esRetirada = (op.type === 'retirada-hucha' || op.type === 'savings_withdrawal') && op.account_name === 'Ahorro';
       return esHucha || esRetirada;
     })
-    .reduce((s, op) => {
-      if (op.type === 'hucha' || op.type === 'savings') {
-        return s + parseFloat(op.amount || 0);
-      } else if (op.type === 'retirada-hucha' || op.type === 'savings_withdrawal') {
-        return s - parseFloat(op.amount || 0);
-      }
-      return s;
-    }, 0);
+    .reduce((s, op) => s + parseFloat(op.amount || 0), 0);
     const actual = filtrar({ y: añoSeleccionado, m: mesIdx });
     const anterior = filtrar({ y: mesIdx === 0 ? añoSeleccionado - 1 : añoSeleccionado, m: mesIdx === 0 ? 11 : mesIdx - 1 });
     return { actual, diferencia: actual - anterior };
@@ -237,7 +231,7 @@ const MobilePersonalAccount = () => {
           <div className="w-8 h-8 border-3 border-purple-600 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-      <div className="px-4 py-4 pb-28 space-y-4">
+      <div className="px-4 py-4 pb-6 space-y-4">
         {/* Selector de mes */}
         <div className="flex items-center justify-between bg-white dark:bg-slate-900 rounded-xl px-2 py-1.5 border border-slate-200 dark:border-slate-800">
           <button onClick={() => cambiarMes(-1)} className="p-2 text-slate-400 active:scale-90"><ChevronLeft className="w-5 h-5" /></button>
@@ -300,6 +294,18 @@ const MobilePersonalAccount = () => {
               <span className="text-[10px] font-bold text-red-600 uppercase">Gastos</span>
               <span className="text-xs font-bold text-red-700">-{formatAmount(totales.gastos)}€</span>
             </div>
+            {totales.ahorroMes > 0 && (
+              <div className="flex-1 bg-teal-50 dark:bg-teal-900/10 px-3 py-2 rounded-lg flex justify-between">
+                <span className="text-[10px] font-bold text-emerald-500 uppercase">Ahorro</span>
+                <span className="text-xs font-bold text-emerald-500 dark:text-emerald-400">-{formatAmount(totales.ahorroMes)}€</span>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+            <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Resultado</span>
+            <span className={`text-sm font-extrabold ${(totales.ingresos - totales.gastos - totales.ahorroMes) > 0 ? 'text-teal-600' : (totales.ingresos - totales.gastos - totales.ahorroMes) === 0 ? 'text-amber-500' : 'text-orange-500'}`}>
+              {(totales.ingresos - totales.gastos - totales.ahorroMes) > 0 ? '+' : ''}{formatAmount(totales.ingresos - totales.gastos - totales.ahorroMes)}€
+            </span>
           </div>
         </div>
 

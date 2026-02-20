@@ -23,7 +23,7 @@ const BottomTabBar = () => {
   if (location.pathname === '/login') return null;
 
   return (
-    <nav role="navigation" aria-label="Navegación principal" className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 safe-area-bottom">
+    <nav role="navigation" aria-label="Navegación principal" className="shrink-0 z-50 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 safe-area-bottom">
       <div className="flex items-center justify-around h-16 px-1">
         {tabs.map((tab) => {
           const active = isActive(tab.path);

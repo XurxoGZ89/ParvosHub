@@ -44,8 +44,8 @@ const MobileFamilyAccount = () => {
   const [editBudgets, setEditBudgets] = useState({});
   const [formData, setFormData] = useState({
     fecha: new Date().toISOString().split('T')[0], tipo: 'gasto', cantidad: '',
-    descripcion: '', categoria: 'Alimentación', cuenta: 'BBVA',
-    cuentaOrigen: 'Ahorro', cuentaDestino: 'BBVA'
+    descripcion: '', categoria: 'Alimentación', cuenta: 'Imagin',
+    cuentaOrigen: 'Ahorro', cuentaDestino: 'Imagin'
   });
 
   const cargarDatos = useCallback(async () => {
@@ -63,7 +63,7 @@ const MobileFamilyAccount = () => {
       }
     } catch (error) { console.error('Error:', error); }
     finally { setLoading(false); }
-  }, [mesSeleccionado, añoSeleccionado, meses]);
+  }, [mesSeleccionado, añoSeleccionado]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { cargarDatos(); }, [cargarDatos]);
 
@@ -82,6 +82,7 @@ const MobileFamilyAccount = () => {
       (op.tipo === 'retirada-hucha' && (op.cuenta === 'BBVA' || op.cuenta === 'Imagin')))
     .reduce((s, op) => s + parseFloat(op.cantidad || 0), 0);
   const gastosMes = operacionesDelMes.filter(op => op.tipo === 'gasto').reduce((s, op) => s + parseFloat(op.cantidad || 0), 0);
+  const ahorroMes = operacionesDelMes.filter(op => op.tipo === 'hucha' && (op.cuenta === 'Ahorro' || op.cuenta === null)).reduce((s, op) => s + parseFloat(op.cantidad || 0), 0);
 
   // Ahorro con diferencia respecto al mes anterior
   const calcularAhorro = () => {
@@ -189,7 +190,7 @@ const MobileFamilyAccount = () => {
           <div className="w-8 h-8 border-3 border-purple-600 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-      <div className="px-4 py-4 pb-28 space-y-4">
+      <div className="px-4 py-4 pb-6 space-y-4">
         {/* Selector de mes */}
         <div className="flex items-center justify-between bg-white dark:bg-slate-900 rounded-xl px-2 py-1.5 border border-slate-200 dark:border-slate-800">
           <button onClick={() => cambiarMes(-1)} className="p-2 text-slate-400 active:scale-90"><ChevronLeft className="w-5 h-5" /></button>
@@ -252,6 +253,18 @@ const MobileFamilyAccount = () => {
               <span className="text-[10px] font-bold text-red-600 uppercase">Gastos</span>
               <span className="text-xs font-bold text-red-700">-{formatAmount(gastosMes)}€</span>
             </div>
+            {ahorroMes > 0 && (
+              <div className="flex-1 bg-teal-50 dark:bg-teal-900/10 px-3 py-2 rounded-lg flex justify-between">
+                <span className="text-[10px] font-bold text-emerald-500 uppercase">Ahorro</span>
+                <span className="text-xs font-bold text-emerald-500 dark:text-emerald-400">-{formatAmount(ahorroMes)}€</span>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+            <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Resultado</span>
+            <span className={`text-sm font-extrabold ${(ingresosMes - gastosMes - ahorroMes) > 0 ? 'text-teal-600' : (ingresosMes - gastosMes - ahorroMes) === 0 ? 'text-amber-500' : 'text-orange-500'}`}>
+              {(ingresosMes - gastosMes - ahorroMes) > 0 ? '+' : ''}{formatAmount(ingresosMes - gastosMes - ahorroMes)}€
+            </span>
           </div>
         </div>
 
@@ -414,7 +427,7 @@ const MobileFamilyAccount = () => {
                   <CatIcon className="w-4.5 h-4.5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-800 dark:text-white truncate">{op.descripcion || op.categoria || op.tipo}</p>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-white truncate">{op.info || op.concepto || op.categoria || op.tipo}</p>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <p className="text-[11px] text-slate-400">
                       {new Date(op.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} · {op.cuenta} · {op.usuario}
@@ -514,7 +527,7 @@ const MobileFamilyAccount = () => {
             <div>
               <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5 block">{formData.tipo === 'ahorro' ? 'Cuenta origen' : 'Cuenta'}</label>
               <div className="flex gap-2">
-                {['BBVA','Imagin'].map(c => (
+                {['Imagin','BBVA'].map(c => (
                   <button key={c} type="button" onClick={() => setFormData({...formData, cuenta: c})}
                     className={`flex-1 py-3 rounded-xl text-sm font-semibold ${formData.cuenta === c ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600'}`}>{c}</button>
                 ))}
@@ -527,14 +540,14 @@ const MobileFamilyAccount = () => {
                 <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5 block">Origen</label>
                 <select value={formData.cuentaOrigen} onChange={(e) => setFormData({...formData, cuentaOrigen: e.target.value})}
                   className="w-full h-12 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm">
-                  <option value="Ahorro">Ahorro</option><option value="BBVA">BBVA</option><option value="Imagin">Imagin</option>
+                  <option value="Imagin">Imagin</option><option value="BBVA">BBVA</option>
                 </select>
               </div>
               <div>
                 <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5 block">Destino</label>
                 <select value={formData.cuentaDestino} onChange={(e) => setFormData({...formData, cuentaDestino: e.target.value})}
                   className="w-full h-12 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm">
-                  <option value="BBVA">BBVA</option><option value="Imagin">Imagin</option>
+                  <option value="Imagin">Imagin</option><option value="BBVA">BBVA</option>
                 </select>
               </div>
             </div>

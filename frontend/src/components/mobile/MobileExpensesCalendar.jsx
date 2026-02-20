@@ -126,7 +126,7 @@ const MobileExpensesCalendar = () => {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <MobileHeader title="Calendario Gastos" />
 
-      <div className="px-4 py-3 pb-28 space-y-3">
+      <div className="px-4 py-3 pb-6 space-y-3">
         {/* Mes + nav */}
         <div className="flex items-center justify-between">
           <button onClick={() => cambiarMes(-1)} className="p-2 text-slate-400 active:scale-90"><ChevronLeft className="w-5 h-5" /></button>
@@ -307,8 +307,24 @@ const MobileExpensesCalendar = () => {
               </select>
             )}
             {formData.recurrencia.tipo === 'unica' && (
-              <input type="month" value={formData.recurrencia.mesAno} onChange={(e) => setFormData({...formData, recurrencia: {...formData.recurrencia, mesAno: e.target.value}})}
-                className="w-full h-12 px-3 mt-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm" />
+              <div className="flex gap-2 mt-2">
+                <select value={formData.recurrencia.mesAno ? parseInt(formData.recurrencia.mesAno.split('-')[1]) - 1 : new Date().getMonth()}
+                  onChange={(e) => {
+                    const year = formData.recurrencia.mesAno ? formData.recurrencia.mesAno.split('-')[0] : new Date().getFullYear();
+                    setFormData({...formData, recurrencia: {...formData.recurrencia, mesAno: `${year}-${String(parseInt(e.target.value) + 1).padStart(2, '0')}`}});
+                  }}
+                  className="flex-1 h-12 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm">
+                  {MESES.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                </select>
+                <select value={formData.recurrencia.mesAno ? parseInt(formData.recurrencia.mesAno.split('-')[0]) : new Date().getFullYear()}
+                  onChange={(e) => {
+                    const month = formData.recurrencia.mesAno ? formData.recurrencia.mesAno.split('-')[1] : String(new Date().getMonth() + 1).padStart(2, '0');
+                    setFormData({...formData, recurrencia: {...formData.recurrencia, mesAno: `${e.target.value}-${month}`}});
+                  }}
+                  className="w-24 h-12 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm">
+                  {Array.from({length: 5}, (_, i) => new Date().getFullYear() + i).map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </div>
             )}
             {formData.recurrencia.tipo === 'cadaX' && (
               <input type="number" min="1" value={formData.recurrencia.cadaX} onChange={(e) => setFormData({...formData, recurrencia: {...formData.recurrencia, cadaX: parseInt(e.target.value)}})}

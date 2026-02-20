@@ -6,13 +6,30 @@ const MobileSheet = ({ isOpen, onClose, title, children, fullHeight = false }) =
   const startY = useRef(0);
   const currentY = useRef(0);
 
+  const scrollY = useRef(0);
+
   useEffect(() => {
     if (isOpen) {
+      // Safari iOS: overflow:hidden on body doesn't prevent scroll
+      // Must also fix body position to prevent background scrolling
+      scrollY.current = window.scrollY;
       document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY.current}px`;
+      document.body.style.width = '100%';
     } else {
       document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      window.scrollTo(0, scrollY.current);
     }
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+    };
   }, [isOpen]);
 
   const handleTouchStart = (e) => {
@@ -55,7 +72,7 @@ const MobileSheet = ({ isOpen, onClose, title, children, fullHeight = false }) =
         className={`absolute bottom-0 left-0 right-0 bg-white dark:bg-slate-900 rounded-t-2xl shadow-2xl animate-slideUp flex flex-col ${
           fullHeight ? 'max-h-[95vh]' : 'max-h-[85vh]'
         }`}
-        style={{ willChange: 'transform' }}
+        style={{ willChange: 'transform', maxHeight: fullHeight ? '95dvh' : '85dvh' }}
       >
         {/* Drag handle */}
         <div 

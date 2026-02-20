@@ -4,13 +4,13 @@ import BottomTabBar from '../mobile/BottomTabBar';
 
 const MobileLayout = () => {
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
-      {/* Page content */}
-      <div className="flex-1 pb-20">
+    <div className="h-[100dvh] bg-slate-50 dark:bg-slate-950 flex flex-col overflow-hidden">
+      {/* Page content - scrollable */}
+      <div className="flex-1 overflow-y-auto overscroll-contain">
         <Outlet />
       </div>
       
-      {/* Bottom Navigation */}
+      {/* Bottom Navigation - fixed at bottom as flex child */}
       <BottomTabBar />
     </div>
   );

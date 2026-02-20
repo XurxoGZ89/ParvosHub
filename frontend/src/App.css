@@ -1,6 +1,15 @@
 /* Global Responsive */
 * {
   box-sizing: border-box;
+  /* Safari: enable :active pseudo-class on touch */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Safari: smooth momentum scrolling for overflow containers */
+.overflow-y-auto,
+.overflow-x-auto,
+.overflow-auto {
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Mobile First - Base Styles */

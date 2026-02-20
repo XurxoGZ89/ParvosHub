@@ -570,7 +570,7 @@ function ExpensesCalendar({ onBack }) {
       {/* MODAL */}
       {mostrarModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={cerrarModal}>
-          <div onClick={(e) => e.stopPropagation()} className="bg-white dark:bg-slate-800 w-full max-w-md rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 max-h-[90vh] flex flex-col">
+          <div onClick={(e) => e.stopPropagation()} className="bg-white dark:bg-slate-800 w-full max-w-md rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 flex flex-col" style={{ maxHeight: '90dvh' }}>
             <div className="flex justify-between items-center p-5 border-b border-slate-200 dark:border-slate-700 shrink-0">
               <h3 className="text-lg font-bold text-slate-800 dark:text-white">{editando ? 'Editar Gasto' : 'Nuevo Gasto Programado'}</h3>
               <Button onClick={cerrarModal} variant="ghost" size="icon" className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 h-8 w-8">
@@ -681,9 +681,24 @@ function ExpensesCalendar({ onBack }) {
               {formData.recurrencia.tipo === 'unica' && (
                 <div>
                   <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Mes y año</label>
-                  <Input type="month" value={formData.recurrencia.mesAno}
-                    onChange={(e) => setFormData({ ...formData, recurrencia: { ...formData.recurrencia, mesAno: e.target.value } })}
-                    className="h-10" />
+                  <div className="flex gap-2">
+                    <select value={formData.recurrencia.mesAno ? parseInt(formData.recurrencia.mesAno.split('-')[1]) - 1 : new Date().getMonth()}
+                      onChange={(e) => {
+                        const year = formData.recurrencia.mesAno ? formData.recurrencia.mesAno.split('-')[0] : new Date().getFullYear();
+                        setFormData({ ...formData, recurrencia: { ...formData.recurrencia, mesAno: `${year}-${String(parseInt(e.target.value) + 1).padStart(2, '0')}` } });
+                      }}
+                      className="flex-1 h-10 px-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
+                      {MESES.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                    </select>
+                    <select value={formData.recurrencia.mesAno ? parseInt(formData.recurrencia.mesAno.split('-')[0]) : new Date().getFullYear()}
+                      onChange={(e) => {
+                        const month = formData.recurrencia.mesAno ? formData.recurrencia.mesAno.split('-')[1] : String(new Date().getMonth() + 1).padStart(2, '0');
+                        setFormData({ ...formData, recurrencia: { ...formData.recurrencia, mesAno: `${e.target.value}-${month}` } });
+                      }}
+                      className="w-24 h-10 px-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
+                      {Array.from({length: 5}, (_, i) => new Date().getFullYear() + i).map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </div>
                 </div>
               )}
             </form>

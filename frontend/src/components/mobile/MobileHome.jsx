@@ -133,7 +133,7 @@ const MobileHome = () => {
         }`}>{toast}</div>
       )}
       
-      <div className="px-4 py-4 pb-28 space-y-4">
+      <div className="px-4 py-4 pb-6 space-y-4">
         {/* Saludo */}
         <div className="mb-1">
           <h2 className="text-xl font-bold text-slate-900 dark:text-white">

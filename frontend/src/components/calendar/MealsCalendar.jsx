@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { 
-  ChevronLeft, ChevronRight, Plus, X, Search, Sun, Moon, 
+  ChevronLeft, ChevronRight, Plus, X, Search, Sun, Moon, Coffee,
   Edit2, Trash2, Check, Calendar, Package, 
   ShoppingCart, BarChart3, AlertTriangle, ArrowLeft,
-  Beef, Fish, Salad, UtensilsCrossed, Utensils
+  Beef, Fish, Salad, UtensilsCrossed, Utensils,
+  Cherry, LeafyGreen, Wheat, Milk, Briefcase
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -16,6 +17,10 @@ const CATEGORIAS = [
   { value: 'carne', label: 'Carne', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', icon: Beef },
   { value: 'pescado', label: 'Pescado', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', icon: Fish },
   { value: 'vegetariano', label: 'Vegetariano', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', icon: Salad },
+  { value: 'fruta', label: 'Fruta', color: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400', icon: Cherry },
+  { value: 'verduras', label: 'Verduras', color: 'bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-400', icon: LeafyGreen },
+  { value: 'cereales', label: 'Cereales', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', icon: Wheat },
+  { value: 'lacteos', label: 'Lácteos', color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400', icon: Milk },
   { value: 'otros', label: 'Otros', color: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300', icon: UtensilsCrossed },
 ];
 
@@ -24,7 +29,12 @@ const CATEGORIAS_WIDGET = [
     { value: 'carne', label: 'Carne', icon: Beef, barColor: 'bg-red-400' },
     { value: 'pescado', label: 'Pescado', icon: Fish, barColor: 'bg-blue-400' },
     { value: 'vegetariano', label: 'Vegetariano', icon: Salad, barColor: 'bg-green-400' },
+    { value: 'fruta', label: 'Fruta', icon: Cherry, barColor: 'bg-pink-400' },
+    { value: 'verduras', label: 'Verduras', icon: LeafyGreen, barColor: 'bg-lime-500' },
+    { value: 'cereales', label: 'Cereales', icon: Wheat, barColor: 'bg-amber-500' },
+    { value: 'lacteos', label: 'Lácteos', icon: Milk, barColor: 'bg-cyan-400' },
     { value: 'comer_fuera', label: 'Comer Fuera', icon: Utensils, barColor: 'bg-amber-400' },
+    { value: 'comer_trabajo', label: 'Comer Trabajo', icon: Briefcase, barColor: 'bg-slate-400' },
     { value: 'otros', label: 'Otros', icon: UtensilsCrossed, barColor: 'bg-slate-400' },
   ]
 ];
@@ -104,6 +114,7 @@ function MealsCalendar({ onBack }) {
   const [pulseCell, setPulseCell] = useState(null);
   const [modoTextoLibre, setModoTextoLibre] = useState(null);
   const [textoLibre, setTextoLibre] = useState('');
+  const [categoriaTextoLibre, setCategoriaTextoLibre] = useState('comer_fuera');
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [deleteModal, setDeleteModal] = useState(null);
@@ -150,58 +161,13 @@ function MealsCalendar({ onBack }) {
     }
   }, []);
 
-  const limpiarComidasVencidas = useCallback(async () => {
-    try {
-      const response = await axios.get(`${API_URL}/comidas-planificadas/vencidas`);
-      const comidasVencidas = response.data;
-      if (comidasVencidas.length === 0) return;
-
-      await Promise.all(comidasVencidas.map(comida => 
-        axios.delete(`${API_URL}/comidas-planificadas/${comida.id}`)
-      ));
-
-      const comidasPorId = new Map();
-      comidasVencidas.forEach(comida => {
-        if (comida.comida_id) {
-          if (!comidasPorId.has(comida.comida_id)) {
-            comidasPorId.set(comida.comida_id, []);
-          }
-          comidasPorId.get(comida.comida_id).push(comida.id);
-        }
-      });
-
-      const todasPlanificadas = await axios.get(`${API_URL}/comidas-planificadas`);
-      const comidasADestachar = [];
-
-      for (const [comidaId, idsVencidos] of comidasPorId.entries()) {
-        const otrasPlanificaciones = todasPlanificadas.data.filter(
-          cp => cp.comida_id === comidaId && !idsVencidos.includes(cp.id)
-        );
-        if (otrasPlanificaciones.length === 0) {
-          comidasADestachar.push(comidaId);
-        }
-      }
-
-      if (comidasADestachar.length > 0) {
-        await Promise.all(comidasADestachar.map(comidaId =>
-          axios.put(`${API_URL}/comidas-congeladas/${comidaId}`, { tachada: false })
-        ));
-      }
-    } catch (err) {
-      console.error('Error al limpiar vencidas:', err);
-    }
-  }, []);
-
   useEffect(() => {
-    limpiarComidasVencidas().then(() => {
-      cargarComidasCongeladas();
-      cargarComidasPlanificadas();
-    });
-    axios.delete(`${API_URL}/comidas-congeladas/limpiar/pasadas`).catch(console.error);
+    cargarComidasCongeladas();
+    cargarComidasPlanificadas();
 
     const saved = localStorage.getItem('parvos_lista_compra');
     if (saved) setListaCompra(JSON.parse(saved));
-  }, [cargarComidasCongeladas, cargarComidasPlanificadas, limpiarComidasVencidas]);
+  }, [cargarComidasCongeladas, cargarComidasPlanificadas]);
 
   useEffect(() => {
     localStorage.setItem('parvos_lista_compra', JSON.stringify(listaCompra));
@@ -254,6 +220,7 @@ function MealsCalendar({ onBack }) {
 
   const diasSemana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
   const diasCortos = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  const diasMini = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
   const getComidasPlanificadas = useCallback((fecha, tipoComida) => {
     return comidasPlanificadas.filter(c => c.fecha === fecha && c.tipo_comida === tipoComida);
@@ -263,7 +230,7 @@ function MealsCalendar({ onBack }) {
   const resumenSemanal = useMemo(() => {
     const productosDisponibles = comidasCongeladas.filter(c => !c.tachada).length;
     const planificadosSemana = comidasPlanificadas.filter(c => fechasSemana.includes(c.fecha)).length;
-    const totalSlots = 14;
+    const totalSlots = 21;
     const sinPlanificar = totalSlots - planificadosSemana;
     
     const ultimaFechaSemana = fechasSemana[6];
@@ -282,9 +249,9 @@ function MealsCalendar({ onBack }) {
     const comidasMes = comidasPlanificadas.filter(c => c.fecha && c.fecha.startsWith(mesActual));
     const total = comidasMes.length;
     
-    if (total === 0) return { carne: 0, pescado: 0, vegetariano: 0, comer_fuera: 0, otros: 0, total: 0 };
+    if (total === 0) return { carne: 0, pescado: 0, vegetariano: 0, fruta: 0, verduras: 0, cereales: 0, lacteos: 0, comer_fuera: 0, comer_trabajo: 0, otros: 0, total: 0 };
 
-    const conteo = { carne: 0, pescado: 0, vegetariano: 0, comer_fuera: 0, otros: 0 };
+    const conteo = { carne: 0, pescado: 0, vegetariano: 0, fruta: 0, verduras: 0, cereales: 0, lacteos: 0, comer_fuera: 0, comer_trabajo: 0, otros: 0 };
     comidasMes.forEach(c => {
       // Items manuales (sin comida_id) y sin categoría van a "comer_fuera"
       // El resto usa su categoría normalmente
@@ -611,7 +578,7 @@ function MealsCalendar({ onBack }) {
         comida_nombre: textoLibre.trim(),
         fecha: modoTextoLibre.fechaStr,
         tipo_comida: modoTextoLibre.tipoComida,
-        categoria: 'comer_fuera'
+        categoria: categoriaTextoLibre
       });
       
       if (!response.data || !response.data.id) throw new Error('Respuesta inválida');
@@ -620,6 +587,7 @@ function MealsCalendar({ onBack }) {
       setToast({ tipo: 'success', mensaje: `✓ "${textoLibre.trim()}" añadido` });
       setTextoLibre('');
       setModoTextoLibre(null);
+      setCategoriaTextoLibre('comer_fuera');
     } catch (err) {
       setToast({ tipo: 'error', mensaje: 'Error al añadir' });
     } finally {
@@ -673,11 +641,17 @@ function MealsCalendar({ onBack }) {
   };
 
   const getCategoryBorderColor = (cat, esManual) => {
-    if (esManual) return 'border-l-amber-400';
+    if (esManual && cat !== 'comer_trabajo') return 'border-l-amber-400';
     switch(cat) {
       case 'carne': return 'border-l-red-400';
       case 'pescado': return 'border-l-blue-400';
       case 'vegetariano': return 'border-l-green-400';
+      case 'fruta': return 'border-l-pink-400';
+      case 'verduras': return 'border-l-lime-500';
+      case 'cereales': return 'border-l-amber-500';
+      case 'lacteos': return 'border-l-cyan-400';
+      case 'comer_fuera': return 'border-l-amber-400';
+      case 'comer_trabajo': return 'border-l-slate-400';
       default: return 'border-l-slate-300 dark:border-l-slate-500';
     }
   };
@@ -697,8 +671,8 @@ function MealsCalendar({ onBack }) {
         onDragEnter={(e) => handleDragEnter(e, fecha, tipoComida)}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, fecha, tipoComida)}
-        className={`p-1.5 sm:p-2 border-r border-slate-100 dark:border-slate-700 last:border-r-0 min-h-[80px] transition-all duration-200 relative ${
-          esHoy ? 'bg-indigo-50/50 dark:bg-indigo-900/15' : tipoComida === 'cena' ? 'bg-slate-50/30 dark:bg-slate-800/40' : ''
+        className={`p-1 md:p-1.5 lg:p-2 border-r border-slate-100 dark:border-slate-700 last:border-r-0 h-[90px] md:h-[100px] lg:h-[110px] xl:h-[120px] transition-all duration-200 relative ${
+          esHoy ? 'bg-indigo-50/50 dark:bg-indigo-900/15' : tipoComida === 'cena' ? 'bg-slate-50/30 dark:bg-slate-800/40' : tipoComida === 'desayuno' ? 'bg-orange-50/30 dark:bg-orange-900/10' : ''
         } ${esFinSemana && !esHoy ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''} ${isDragOver ? 'bg-indigo-50 dark:bg-indigo-900/30 ring-2 ring-inset ring-indigo-400 dark:ring-indigo-500' : ''} ${isPulsing ? 'pulse-animation' : ''}`}
       >
         {isDragOver && comidas.length === 0 && (
@@ -709,7 +683,8 @@ function MealsCalendar({ onBack }) {
           </div>
         )}
         {comidas.length > 0 ? (
-          <div className="space-y-1">
+          <div className="h-full flex flex-col">
+            <div className="flex-1 overflow-y-auto space-y-1 custom-scrollbar min-h-0">
             {comidas.map((comida) => {
               const esDeInventario = !!comida.comida_id;
               const borderColor = getCategoryBorderColor(comida.categoria, !esDeInventario);
@@ -721,7 +696,7 @@ function MealsCalendar({ onBack }) {
                   onDragStart={(e) => handleDragStart(e, comida, 'calendario')}
                   onDragEnd={handleDragEnd}
                   title={`${comida.comida_nombre || comida.nombre}${!esDeInventario ? ' (Comer Fuera)' : ` (${catInfo.label})`}`}
-                  className={`group relative border-l-[3px] ${borderColor} rounded-r-md py-1 px-1.5 sm:px-2 transition-all cursor-grab active:cursor-grabbing hover:shadow-md ${
+                  className={`group relative border-l-[3px] ${borderColor} rounded-r-md py-0.5 md:py-1 px-1 md:px-1.5 lg:px-2 transition-all cursor-grab active:cursor-grabbing hover:shadow-md ${
                     esDeInventario 
                       ? 'bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/20' 
                       : 'bg-amber-50/80 dark:bg-amber-900/15 hover:bg-amber-100/80 dark:hover:bg-amber-900/25'
@@ -737,7 +712,7 @@ function MealsCalendar({ onBack }) {
                       className="text-xs h-6 p-1"
                     />
                   ) : (
-                    <p className="text-[11px] sm:text-xs font-medium leading-snug pr-6 break-words">
+                    <p className="text-[10px] md:text-[11px] lg:text-xs font-medium leading-snug pr-5 lg:pr-6 break-words">
                       {comida.comida_nombre || comida.nombre}
                     </p>
                   )}
@@ -769,9 +744,10 @@ function MealsCalendar({ onBack }) {
               );
             })}
             {/* Mini botón + debajo de items existentes */}
+            </div>
             <button
               onClick={() => setModoTextoLibre({ fechaStr: fecha, tipoComida, dia: diasSemana[idx] })}
-              className="w-full py-0.5 rounded text-slate-300 dark:text-slate-600 hover:text-indigo-400 dark:hover:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors flex items-center justify-center"
+              className="w-full py-0.5 rounded text-slate-300 dark:text-slate-600 hover:text-indigo-400 dark:hover:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors flex items-center justify-center shrink-0"
             >
               <Plus className="w-3 h-3" />
             </button>
@@ -779,7 +755,7 @@ function MealsCalendar({ onBack }) {
         ) : (
           <button
             onClick={() => setModoTextoLibre({ fechaStr: fecha, tipoComida, dia: diasSemana[idx] })}
-            className="w-full h-full min-h-[60px] rounded-lg border border-dashed border-slate-200 dark:border-slate-700/50 hover:border-indigo-300 dark:hover:border-indigo-500 flex items-center justify-center transition-all hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 group"
+            className="w-full h-full rounded-lg border border-dashed border-slate-200 dark:border-slate-700/50 hover:border-indigo-300 dark:hover:border-indigo-500 flex items-center justify-center transition-all hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 group"
           >
             <Plus className="w-4 h-4 text-slate-200 dark:text-slate-700 group-hover:text-indigo-400 transition-colors" />
           </button>
@@ -789,17 +765,17 @@ function MealsCalendar({ onBack }) {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row h-screen overflow-hidden bg-slate-50 dark:bg-slate-900">
+    <div className="flex flex-col xl:flex-row h-screen overflow-hidden bg-slate-50 dark:bg-slate-900">
       
-      {/* Mobile: Overlay backdrop */}
+      {/* Mobile/Tablet: Overlay backdrop */}
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 bg-black/40 z-40 xl:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* ===== SIDEBAR - DESPENSA ===== */}
       <aside 
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-80 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col transform transition-transform duration-300 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        className={`fixed xl:static inset-y-0 left-0 z-50 w-72 xl:w-64 2xl:w-72 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col transform transition-transform duration-300 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full xl:translate-x-0'
         }`}
         onDragOver={draggedItem?.source === 'calendario' ? handleDragOver : undefined}
         onDrop={draggedItem?.source === 'calendario' ? handleDropOnSidebar : undefined}
@@ -817,7 +793,7 @@ function MealsCalendar({ onBack }) {
                 ParvosHub <span className="text-indigo-600">V2</span>
               </h1>
             </div>
-            <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1">
+            <button onClick={() => setSidebarOpen(false)} className="xl:hidden p-1">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -939,7 +915,7 @@ function MealsCalendar({ onBack }) {
         {/* Header */}
         <header className="h-14 sm:h-16 flex items-center justify-between px-4 sm:px-8 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700">
           <div className="flex items-center gap-3 sm:gap-6">
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg">
+            <button onClick={() => setSidebarOpen(true)} className="xl:hidden p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg">
               <Package className="w-5 h-5" />
             </button>
             <h2 className="text-lg sm:text-2xl font-bold hidden sm:block">Planificador Semanal</h2>
@@ -969,14 +945,14 @@ function MealsCalendar({ onBack }) {
         </header>
 
         {/* Grid del Calendario */}
-        <div className="flex-1 overflow-auto p-3 sm:p-6 lg:p-8">
+        <div className="flex-1 overflow-auto p-3 sm:p-4 md:p-5 lg:p-6 xl:p-8">
           
           {/* Desktop/tablet: Grid completo */}
           <div className="hidden md:block">
             <div className="bg-white dark:bg-slate-800 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden">
               {/* Cabecera de días */}
-              <div className="grid grid-cols-[80px_repeat(7,1fr)] sm:grid-cols-[100px_repeat(7,1fr)] border-b border-slate-200 dark:border-slate-700">
-                <div className="p-3 sm:p-4 border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50"></div>
+              <div className="grid grid-cols-[44px_repeat(7,1fr)] md:grid-cols-[56px_repeat(7,1fr)] lg:grid-cols-[72px_repeat(7,1fr)] xl:grid-cols-[90px_repeat(7,1fr)] border-b border-slate-200 dark:border-slate-700">
+                <div className="p-1.5 md:p-2 lg:p-3 xl:p-4 border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50"></div>
                 {diasSemana.map((dia, idx) => {
                   const fechaStr = fechasSemana[idx];
                   const fecha = new Date(fechaStr + 'T12:00:00');
@@ -985,15 +961,16 @@ function MealsCalendar({ onBack }) {
                   return (
                     <div 
                       key={dia} 
-                      className={`p-2 sm:p-4 text-center border-r border-slate-200 dark:border-slate-700 last:border-r-0 ${
+                      className={`p-1 md:p-2 lg:p-3 xl:p-4 text-center border-r border-slate-200 dark:border-slate-700 last:border-r-0 ${
                         esHoy ? 'bg-indigo-600' : esFinSemana ? 'bg-indigo-50/50 dark:bg-indigo-900/20' : 'bg-slate-50 dark:bg-slate-700/50'
                       }`}
                     >
-                      <p className={`text-[9px] sm:text-[10px] uppercase font-bold tracking-widest ${esHoy ? 'text-white' : 'text-slate-400'}`}>
-                        <span className="hidden lg:inline">{dia}</span>
-                        <span className="lg:hidden">{diasCortos[idx]}</span>
+                      <p className={`text-[8px] md:text-[9px] lg:text-[10px] uppercase font-bold tracking-wider lg:tracking-widest ${esHoy ? 'text-white' : 'text-slate-400'}`}>
+                        <span className="hidden xl:inline">{dia}</span>
+                        <span className="hidden lg:inline xl:hidden">{diasCortos[idx]}</span>
+                        <span className="lg:hidden">{diasMini[idx]}</span>
                       </p>
-                      <p className={`text-base sm:text-lg font-bold ${esHoy ? 'text-white' : esFinSemana ? 'text-indigo-600' : ''}`}>
+                      <p className={`text-sm md:text-base lg:text-lg font-bold ${esHoy ? 'text-white' : esFinSemana ? 'text-indigo-600' : ''}`}>
                         {fecha.getDate()}
                       </p>
                     </div>
@@ -1001,20 +978,29 @@ function MealsCalendar({ onBack }) {
                 })}
               </div>
 
+              {/* Fila: Desayuno */}
+              <div className="grid grid-cols-[44px_repeat(7,1fr)] md:grid-cols-[56px_repeat(7,1fr)] lg:grid-cols-[72px_repeat(7,1fr)] xl:grid-cols-[90px_repeat(7,1fr)] border-b border-slate-100 dark:border-slate-700">
+                <div className="p-1.5 md:p-2 lg:p-3 xl:p-6 bg-orange-50/70 dark:bg-orange-900/20 border-r border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center gap-0.5 lg:gap-1">
+                  <Coffee className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5 text-orange-500" />
+                  <span className="text-[7px] md:text-[8px] lg:text-[10px] font-bold uppercase tracking-tighter text-orange-600 dark:text-orange-400 leading-tight text-center">Desayuno</span>
+                </div>
+                {fechasSemana.map((fecha, idx) => renderCalendarCell(fecha, 'desayuno', idx))}
+              </div>
+
               {/* Fila: Comida */}
-              <div className="grid grid-cols-[80px_repeat(7,1fr)] sm:grid-cols-[100px_repeat(7,1fr)] border-b border-slate-100 dark:border-slate-700">
-                <div className="p-3 sm:p-6 bg-slate-50 dark:bg-slate-700/50 border-r border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center gap-1">
-                  <Sun className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />
-                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-tighter">Comida</span>
+              <div className="grid grid-cols-[44px_repeat(7,1fr)] md:grid-cols-[56px_repeat(7,1fr)] lg:grid-cols-[72px_repeat(7,1fr)] xl:grid-cols-[90px_repeat(7,1fr)] border-b border-slate-100 dark:border-slate-700">
+                <div className="p-1.5 md:p-2 lg:p-3 xl:p-6 bg-slate-50 dark:bg-slate-700/50 border-r border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center gap-0.5 lg:gap-1">
+                  <Sun className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5 text-amber-500" />
+                  <span className="text-[7px] md:text-[8px] lg:text-[10px] font-bold uppercase tracking-tighter leading-tight text-center">Comida</span>
                 </div>
                 {fechasSemana.map((fecha, idx) => renderCalendarCell(fecha, 'comida', idx))}
               </div>
 
               {/* Fila: Cena */}
-              <div className="grid grid-cols-[80px_repeat(7,1fr)] sm:grid-cols-[100px_repeat(7,1fr)] bg-indigo-50/50 dark:bg-indigo-950/20">
-                <div className="p-3 sm:p-6 bg-indigo-100/70 dark:bg-indigo-900/30 border-r border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center gap-1">
-                  <Moon className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-500" />
-                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-tighter text-indigo-600 dark:text-indigo-400">Cena</span>
+              <div className="grid grid-cols-[44px_repeat(7,1fr)] md:grid-cols-[56px_repeat(7,1fr)] lg:grid-cols-[72px_repeat(7,1fr)] xl:grid-cols-[90px_repeat(7,1fr)] bg-indigo-50/50 dark:bg-indigo-950/20">
+                <div className="p-1.5 md:p-2 lg:p-3 xl:p-6 bg-indigo-100/70 dark:bg-indigo-900/30 border-r border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center gap-0.5 lg:gap-1">
+                  <Moon className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5 text-indigo-500" />
+                  <span className="text-[7px] md:text-[8px] lg:text-[10px] font-bold uppercase tracking-tighter text-indigo-600 dark:text-indigo-400 leading-tight text-center">Cena</span>
                 </div>
                 {fechasSemana.map((fecha, idx) => renderCalendarCell(fecha, 'cena', idx))}
               </div>
@@ -1051,6 +1037,16 @@ function MealsCalendar({ onBack }) {
             {mobileDay !== null && (
               <div className="space-y-4">
                 <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-3 bg-orange-50 dark:bg-orange-900/10 border-b border-slate-200 dark:border-slate-700">
+                    <Coffee className="w-4 h-4 text-orange-500" />
+                    <span className="text-sm font-bold">Desayuno</span>
+                  </div>
+                  <div className="p-3">
+                    {renderCalendarCell(fechasSemana[mobileDay], 'desayuno', mobileDay)}
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden">
                   <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 dark:bg-amber-900/10 border-b border-slate-200 dark:border-slate-700">
                     <Sun className="w-4 h-4 text-amber-500" />
                     <span className="text-sm font-bold">Comida</span>
@@ -1074,7 +1070,7 @@ function MealsCalendar({ onBack }) {
           </div>
 
           {/* ===== TARJETAS INFERIORES ===== */}
-          <div className="mt-6 sm:mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+          <div className="mt-5 md:mt-6 lg:mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 lg:gap-6">
             
             {/* 1. Resumen Semanal */}
             <div className="bg-white dark:bg-slate-800 p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-700 shadow-lg">
@@ -1089,12 +1085,12 @@ function MealsCalendar({ onBack }) {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">Planificados esta semana</span>
-                  <span className="text-sm sm:text-base font-bold text-emerald-600">{resumenSemanal.planificadosSemana} / 14</span>
+                  <span className="text-sm sm:text-base font-bold text-emerald-600">{resumenSemanal.planificadosSemana} / 21</span>
                 </div>
                 <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2 mt-1">
                   <div 
                     className="bg-gradient-to-r from-indigo-500 to-emerald-500 h-2 rounded-full transition-all duration-500" 
-                    style={{ width: `${Math.min(100, (resumenSemanal.planificadosSemana / 14) * 100)}%` }}
+                    style={{ width: `${Math.min(100, (resumenSemanal.planificadosSemana / 21) * 100)}%` }}
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -1299,37 +1295,62 @@ function MealsCalendar({ onBack }) {
         </div>
       )}
 
-      {/* Modal: Texto libre (Comer Fuera) */}
+      {/* Modal: Texto libre (Comer Fuera / Comer Trabajo) */}
       {modoTextoLibre && (
         <div className="fixed inset-0 bg-black/50 z-[150] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-5 sm:p-6 animate-slide-up">
             <div className="flex items-center gap-2 mb-3 sm:mb-4">
-              <Utensils className="w-6 h-6 text-amber-500" />
-              <h3 className="text-lg sm:text-xl font-bold">Comer Fuera</h3>
+              {categoriaTextoLibre === 'comer_trabajo' ? <Briefcase className="w-6 h-6 text-slate-500" /> : <Utensils className="w-6 h-6 text-amber-500" />}
+              <h3 className="text-lg sm:text-xl font-bold">{categoriaTextoLibre === 'comer_trabajo' ? 'Comer Trabajo' : 'Comer Fuera'}</h3>
             </div>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-              {modoTextoLibre.dia} — {modoTextoLibre.tipoComida === 'comida' ? <span className="inline-flex items-center gap-1"><Sun className="w-4 h-4 text-amber-400" /> Comida</span> : <span className="inline-flex items-center gap-1"><Moon className="w-4 h-4 text-indigo-400" /> Cena</span>}
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
+              {modoTextoLibre.dia} — {modoTextoLibre.tipoComida === 'desayuno' ? <span className="inline-flex items-center gap-1"><Coffee className="w-4 h-4 text-orange-400" /> Desayuno</span> : modoTextoLibre.tipoComida === 'comida' ? <span className="inline-flex items-center gap-1"><Sun className="w-4 h-4 text-amber-400" /> Comida</span> : <span className="inline-flex items-center gap-1"><Moon className="w-4 h-4 text-indigo-400" /> Cena</span>}
             </p>
+
+            {/* Selector Comer Fuera / Comer Trabajo */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setCategoriaTextoLibre('comer_fuera')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                  categoriaTextoLibre === 'comer_fuera'
+                    ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 ring-2 ring-amber-400'
+                    : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                }`}
+              >
+                <Utensils className="w-4 h-4" /> Comer Fuera
+              </button>
+              <button
+                onClick={() => setCategoriaTextoLibre('comer_trabajo')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                  categoriaTextoLibre === 'comer_trabajo'
+                    ? 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 ring-2 ring-slate-400'
+                    : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                }`}
+              >
+                <Briefcase className="w-4 h-4" /> Comer Trabajo
+              </button>
+            </div>
+
             <Input
               type="text"
               value={textoLibre}
               onChange={(e) => setTextoLibre(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleAñadirTextoLibre(); }}
               className="mb-4"
-              placeholder="Ej: Restaurante, Casa de los abuelos..."
+              placeholder={categoriaTextoLibre === 'comer_trabajo' ? 'Ej: Menú oficina, Cantina...' : 'Ej: Restaurante, Casa de los abuelos...'}
               autoFocus
             />
             
-            <p className="text-xs text-amber-600 dark:text-amber-400 mb-4 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-              Se contará como "Comer Fuera" en el balance mensual
+            <p className={`text-xs mb-4 flex items-center gap-1.5 ${categoriaTextoLibre === 'comer_trabajo' ? 'text-slate-500 dark:text-slate-400' : 'text-amber-600 dark:text-amber-400'}`}>
+              <span className={`w-2 h-2 rounded-full ${categoriaTextoLibre === 'comer_trabajo' ? 'bg-slate-400' : 'bg-amber-400'}`}></span>
+              Se contará como "{categoriaTextoLibre === 'comer_trabajo' ? 'Comer Trabajo' : 'Comer Fuera'}" en el balance mensual
             </p>
 
             <div className="flex gap-2 sm:gap-3">
-              <Button onClick={handleAñadirTextoLibre} disabled={loading || !textoLibre.trim()} className="flex-1 bg-amber-500 hover:bg-amber-600 text-sm">
+              <Button onClick={handleAñadirTextoLibre} disabled={loading || !textoLibre.trim()} className={`flex-1 text-sm ${categoriaTextoLibre === 'comer_trabajo' ? 'bg-slate-500 hover:bg-slate-600' : 'bg-amber-500 hover:bg-amber-600'}`}>
                 {loading ? 'Añadiendo...' : 'Añadir'}
               </Button>
-              <Button onClick={() => { setModoTextoLibre(null); setTextoLibre(''); }} disabled={loading} variant="outline" size="icon">
+              <Button onClick={() => { setModoTextoLibre(null); setTextoLibre(''); setCategoriaTextoLibre('comer_fuera'); }} disabled={loading} variant="outline" size="icon">
                 <X className="w-5 h-5" />
               </Button>
             </div>
@@ -1482,10 +1503,6 @@ function MealsCalendar({ onBack }) {
       )}
 
       <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; }
         @keyframes slide-up {
           from { transform: translateY(100%); opacity: 0; }
           to { transform: translateY(0); opacity: 1; }

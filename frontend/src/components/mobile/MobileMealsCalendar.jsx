@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Plus, X, Search, Sun, Moon, Trash2, Check, Package, ShoppingCart, Beef, Fish, Salad, UtensilsCrossed } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, Search, Sun, Moon, Coffee, Trash2, Check, Package, ShoppingCart, Beef, Fish, Salad, UtensilsCrossed, Cherry, LeafyGreen, Wheat, Milk, Briefcase } from 'lucide-react';
 import MobileHeader from './MobileHeader';
 import MobileSheet from './MobileSheet';
 import api from '../../lib/api';
@@ -8,6 +8,10 @@ const CATEGORIAS = [
   { value: 'carne', label: 'Carne', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', icon: Beef, dot: 'bg-red-400' },
   { value: 'pescado', label: 'Pescado', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', icon: Fish, dot: 'bg-blue-400' },
   { value: 'vegetariano', label: 'Vegetariano', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', icon: Salad, dot: 'bg-green-400' },
+  { value: 'fruta', label: 'Fruta', color: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400', icon: Cherry, dot: 'bg-pink-400' },
+  { value: 'verduras', label: 'Verduras', color: 'bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-400', icon: LeafyGreen, dot: 'bg-lime-500' },
+  { value: 'cereales', label: 'Cereales', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', icon: Wheat, dot: 'bg-amber-500' },
+  { value: 'lacteos', label: 'Lácteos', color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400', icon: Milk, dot: 'bg-cyan-400' },
   { value: 'otros', label: 'Otros', color: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300', icon: UtensilsCrossed, dot: 'bg-slate-400' },
 ];
 
@@ -22,6 +26,7 @@ const MobileMealsCalendar = () => {
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [showAddMeal, setShowAddMeal] = useState(false);
   const [textoLibre, setTextoLibre] = useState('');
+  const [categoriaTextoLibre, setCategoriaTextoLibre] = useState('comer_fuera');
   const [tipoComidaAdd, setTipoComidaAdd] = useState('comida');
   const [fechaAdd, setFechaAdd] = useState('');
   const [busqueda, setBusqueda] = useState('');
@@ -72,7 +77,7 @@ const MobileMealsCalendar = () => {
   const stats = useMemo(() => {
     const plan = comidasPlanificadas.filter(c => fechasSemana.includes(c.fecha)).length;
     const disp = comidasCongeladas.filter(c => !c.tachada).length;
-    return { plan, disp, pct: Math.round((plan / 14) * 100) };
+    return { plan, disp, pct: Math.round((plan / 21) * 100) };
   }, [comidasPlanificadas, comidasCongeladas, fechasSemana]);
 
   useEffect(() => {
@@ -96,8 +101,8 @@ const MobileMealsCalendar = () => {
   const handleAddTextoLibre = async () => {
     if (!textoLibre.trim() || !fechaAdd) return;
     try {
-      await api.post('/comidas-planificadas', { comida_id: null, fecha: fechaAdd, tipo_comida: tipoComidaAdd, comida_nombre: textoLibre.trim(), categoria: 'comer_fuera' });
-      await cargarDatos(); setTextoLibre(''); setShowAddMeal(false); setToast('✓ Añadida');
+      await api.post('/comidas-planificadas', { comida_id: null, fecha: fechaAdd, tipo_comida: tipoComidaAdd, comida_nombre: textoLibre.trim(), categoria: categoriaTextoLibre });
+      await cargarDatos(); setTextoLibre(''); setCategoriaTextoLibre('comer_fuera'); setShowAddMeal(false); setToast('✓ Añadida');
     } catch { setToast('Error'); }
   };
 
@@ -130,6 +135,7 @@ const MobileMealsCalendar = () => {
 
   const selectedFecha = fechasSemana[selectedDay] || fechasSemana[0];
   const getCatDot = (cat, manual) => {
+    if (cat === 'comer_trabajo') return 'bg-slate-400';
     if (manual || cat === 'comer_fuera') return 'bg-amber-400';
     const c = CATEGORIAS.find(x => x.value === cat); return c ? c.dot : 'bg-slate-300';
   };
@@ -138,7 +144,7 @@ const MobileMealsCalendar = () => {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <MobileHeader title="Calendario Comidas" />
 
-      <div className="px-4 py-3 pb-28 space-y-3">
+      <div className="px-4 py-3 pb-6 space-y-3">
         {/* Semana nav */}
         <div className="flex items-center justify-between">
           <button onClick={() => setSemanaActual(semanaActual - 1)} className="p-2 text-slate-400 active:scale-90"><ChevronLeft className="w-5 h-5" /></button>
@@ -156,7 +162,7 @@ const MobileMealsCalendar = () => {
               <div className="w-10 bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
                 <div className="bg-purple-500 h-1.5 rounded-full transition-all" style={{ width: `${stats.pct}%` }} />
               </div>
-              <span className="text-[10px] font-bold text-purple-600">{stats.plan}/14</span>
+              <span className="text-[10px] font-bold text-purple-600">{stats.plan}/21</span>
             </div>
           </div>
           <button onClick={() => setShowDespensa(true)} className="bg-white dark:bg-slate-900 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center gap-1.5 active:scale-95">
@@ -177,7 +183,8 @@ const MobileMealsCalendar = () => {
             const day = parseInt(fecha.split('-')[2]);
             const comidas = getComidasDia(fecha, 'comida');
             const cenas = getComidasDia(fecha, 'cena');
-            const hasContent = comidas.length > 0 || cenas.length > 0;
+            const desayunos = getComidasDia(fecha, 'desayuno');
+            const hasContent = comidas.length > 0 || cenas.length > 0 || desayunos.length > 0;
             return (
               <button key={fecha} onClick={() => setSelectedDay(i)}
                 className={`flex flex-col items-center py-2 rounded-xl transition-all active:scale-90 ${
@@ -195,6 +202,33 @@ const MobileMealsCalendar = () => {
 
         {/* Detalle del día seleccionado */}
         <div className="space-y-2">
+          {/* Desayuno */}
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Coffee className="w-4 h-4 text-orange-500" />
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Desayuno</span>
+              </div>
+              <button onClick={() => { setTipoComidaAdd('desayuno'); setFechaAdd(selectedFecha); setShowAddMeal(true); }}
+                className="w-6 h-6 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center text-orange-600 active:scale-90">
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            {getComidasDia(selectedFecha, 'desayuno').length > 0 ? (
+              <div className="divide-y divide-slate-50 dark:divide-slate-800">
+                {getComidasDia(selectedFecha, 'desayuno').map(c => (
+                  <div key={c.id} className="flex items-center gap-3 px-4 py-2.5">
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${getCatDot(c.categoria, !c.comida_id)}`} />
+                    <span className="flex-1 text-sm text-slate-700 dark:text-slate-200 truncate">{c.comida_nombre}</span>
+                    <button onClick={() => handleEliminarPlanificada(c.id, c.comida_id)} className="p-1 text-slate-300"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="px-4 py-4 text-center text-xs text-slate-400">Sin planificar</div>
+            )}
+          </div>
+
           {/* Comida */}
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 dark:border-slate-800">
@@ -316,17 +350,39 @@ const MobileMealsCalendar = () => {
       )}
 
       {/* Add Meal Sheet */}
-      <MobileSheet isOpen={showAddMeal} onClose={() => setShowAddMeal(false)} title={`Añadir ${tipoComidaAdd}`}>
+      <MobileSheet isOpen={showAddMeal} onClose={() => { setShowAddMeal(false); setCategoriaTextoLibre('comer_fuera'); }} title={`Añadir ${tipoComidaAdd}`}>
         <div className="space-y-4">
+          {/* Selector Comer Fuera / Comer Trabajo */}
+          <div>
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5 block">Tipo de comida fuera</label>
+            <div className="flex gap-2">
+              <button onClick={() => setCategoriaTextoLibre('comer_fuera')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                  categoriaTextoLibre === 'comer_fuera'
+                    ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 ring-2 ring-amber-400'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                }`}>
+                <UtensilsCrossed className="w-3.5 h-3.5" /> Comer Fuera
+              </button>
+              <button onClick={() => setCategoriaTextoLibre('comer_trabajo')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                  categoriaTextoLibre === 'comer_trabajo'
+                    ? 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 ring-2 ring-slate-400'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                }`}>
+                <Briefcase className="w-3.5 h-3.5" /> Comer Trabajo
+              </button>
+            </div>
+          </div>
           {/* Texto libre */}
           <div>
             <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5 block">Escribir manualmente</label>
             <div className="flex gap-2">
               <input type="text" value={textoLibre} onChange={(e) => setTextoLibre(e.target.value)}
                 className="flex-1 h-11 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm"
-                placeholder="Ej. Pizza casera" />
+                placeholder={categoriaTextoLibre === 'comer_trabajo' ? 'Ej. Menú oficina' : 'Ej. Pizza casera'} />
               <button onClick={handleAddTextoLibre} disabled={!textoLibre.trim()}
-                className="px-4 bg-purple-600 text-white rounded-xl text-sm font-semibold disabled:opacity-40 active:scale-95">
+                className={`px-4 text-white rounded-xl text-sm font-semibold disabled:opacity-40 active:scale-95 ${categoriaTextoLibre === 'comer_trabajo' ? 'bg-slate-500' : 'bg-purple-600'}`}>
                 Añadir
               </button>
             </div>

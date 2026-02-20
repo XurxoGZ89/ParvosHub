@@ -91,9 +91,9 @@ const ParvosAccount = () => {
     cantidad: '',
     descripcion: '',
     categoria: 'Alimentación',
-    cuenta: 'BBVA',
+    cuenta: 'Imagin',
     cuentaOrigen: 'Ahorro',
-    cuentaDestino: 'BBVA'
+    cuentaDestino: 'Imagin'
   });
 
   const categorias = [
@@ -310,7 +310,11 @@ const ParvosAccount = () => {
       .filter(op => op.tipo === 'gasto')
       .reduce((sum, op) => sum + parseFloat(op.cantidad || 0), 0);
 
-    return { ingresos, gastos };
+    const ahorroMes = operacionesDelMes
+      .filter(op => op.tipo === 'hucha' && (op.cuenta === 'Ahorro' || op.cuenta === null))
+      .reduce((sum, op) => sum + parseFloat(op.cantidad || 0), 0);
+
+    return { ingresos, gastos, ahorroMes };
   };
 
   // Calcular gastos por categoría
@@ -443,9 +447,9 @@ const ParvosAccount = () => {
         cantidad: '',
         descripcion: '',
         categoria: 'Alimentación',
-        cuenta: 'BBVA',
+        cuenta: 'Imagin',
         cuentaOrigen: 'Ahorro',
-        cuentaDestino: 'BBVA'
+        cuentaDestino: 'Imagin'
       });
       cargarDatos();
     } catch (error) {
@@ -643,7 +647,7 @@ const ParvosAccount = () => {
   const saldoMesAnterior = calcularSaldoMesAnterior();
   const ingresosGastosDelMes = calcularIngresosGastosDelMes();
   const gastosPorCategoria = calcularGastosPorCategoria();
-  const presupuestoVsReal = calcularPresupuestoVsReal();
+  const presupuestoVsReal = calcularPresupuestoVsReal(); // eslint-disable-line no-unused-vars
 
   return (
     <div className="pb-8 lg:p-8 lg:space-y-8">
@@ -714,19 +718,26 @@ const ParvosAccount = () => {
               <span className="text-xs lg:text-sm font-semibold text-red-600 dark:text-red-400">Gastos</span>
               <span className="text-sm lg:text-base font-bold text-red-600 dark:text-red-400">-{formatAmount(ingresosGastosDelMes.gastos || 0)} €</span>
             </div>
+            {/* Ahorro */}
+            {ingresosGastosDelMes.ahorroMes > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs lg:text-sm font-semibold text-emerald-500 dark:text-emerald-400">Ahorro</span>
+                <span className="text-sm lg:text-base font-bold text-emerald-500 dark:text-emerald-400">-{formatAmount(ingresosGastosDelMes.ahorroMes || 0)} €</span>
+              </div>
+            )}
             {/* Separador */}
             <div className="border-t border-slate-200 dark:border-stone-700 pt-1.5">
               {/* Resultado */}
               <div className="flex items-center justify-between">
                 <span className="text-xs lg:text-sm font-bold text-slate-700 dark:text-slate-300">Resultado</span>
                 <span className={`text-base lg:text-lg font-extrabold ${
-                  (ingresosGastosDelMes.ingresos - ingresosGastosDelMes.gastos) > 0 
+                  (ingresosGastosDelMes.ingresos - ingresosGastosDelMes.gastos - ingresosGastosDelMes.ahorroMes) > 0 
                     ? 'text-teal-500 dark:text-teal-400' 
-                    : (ingresosGastosDelMes.ingresos - ingresosGastosDelMes.gastos) === 0
+                    : (ingresosGastosDelMes.ingresos - ingresosGastosDelMes.gastos - ingresosGastosDelMes.ahorroMes) === 0
                     ? 'text-amber-500 dark:text-amber-400'
                     : 'text-orange-500 dark:text-orange-400'
                 }`}>
-                  {(ingresosGastosDelMes.ingresos - ingresosGastosDelMes.gastos) > 0 ? '+' : ''}{formatAmount((ingresosGastosDelMes.ingresos - ingresosGastosDelMes.gastos) || 0)} €
+                  {(ingresosGastosDelMes.ingresos - ingresosGastosDelMes.gastos - ingresosGastosDelMes.ahorroMes) > 0 ? '+' : ''}{formatAmount((ingresosGastosDelMes.ingresos - ingresosGastosDelMes.gastos - ingresosGastosDelMes.ahorroMes) || 0)} €
                 </span>
               </div>
             </div>
@@ -1110,8 +1121,8 @@ const ParvosAccount = () => {
                       }`}
                     >
                       <option value="todas">Cuenta: Todas</option>
-                      <option value="BBVA">BBVA</option>
                       <option value="Imagin">Imagin</option>
+                      <option value="BBVA">BBVA</option>
                     </select>
                     {/* Botón limpiar filtros */}
                     {(filtros.tipo !== 'todos' || filtros.categoria !== 'todas' || filtros.cuenta !== 'todas') && (
@@ -1577,8 +1588,8 @@ const ParvosAccount = () => {
                       className="w-full px-3 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-xs focus:ring-2 focus:ring-white/50 focus:border-white/50"
                     >
                       <option value="Ahorro" className="text-slate-900">Ahorro (Imagin)</option>
-                      <option value="BBVA" className="text-slate-900">BBVA</option>
                       <option value="Imagin" className="text-slate-900">Imagin</option>
+                      <option value="BBVA" className="text-slate-900">BBVA</option>
                     </select>
                   </div>
                   <div>
@@ -1588,8 +1599,8 @@ const ParvosAccount = () => {
                       onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, cuentaDestino: e.target.value})}
                       className="w-full px-3 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-xs focus:ring-2 focus:ring-white/50 focus:border-white/50"
                     >
-                      <option value="BBVA" className="text-slate-900">BBVA</option>
                       <option value="Imagin" className="text-slate-900">Imagin</option>
+                      <option value="BBVA" className="text-slate-900">BBVA</option>
                     </select>
                   </div>
                 </>
@@ -1601,8 +1612,8 @@ const ParvosAccount = () => {
                     onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, cuenta: e.target.value})}
                     className="w-full px-3 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-xs focus:ring-2 focus:ring-white/50 focus:border-white/50"
                   >
-                    <option value="BBVA" className="text-slate-900">BBVA</option>
                     <option value="Imagin" className="text-slate-900">Imagin</option>
+                    <option value="BBVA" className="text-slate-900">BBVA</option>
                   </select>
                 </div>
               ) : formNuevaOperacion.tipo !== 'retirada-hucha' ? (
@@ -1613,8 +1624,8 @@ const ParvosAccount = () => {
                     onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, cuenta: e.target.value})}
                     className="w-full px-3 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-xs focus:ring-2 focus:ring-white/50 focus:border-white/50"
                   >
-                    <option value="BBVA" className="text-slate-900">BBVA</option>
                     <option value="Imagin" className="text-slate-900">Imagin</option>
+                    <option value="BBVA" className="text-slate-900">BBVA</option>
                   </select>
                 </div>
               ) : null}
@@ -1789,7 +1800,7 @@ const ParvosAccount = () => {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
+            <div className="p-6 overflow-y-auto space-y-4" style={{ maxHeight: '60dvh' }}>
               {categorias.map((cat) => {
                 const Icon = cat.icon;
                 return (
@@ -1972,8 +1983,8 @@ const ParvosAccount = () => {
                       className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
                     >
                       <option value="Ahorro">Ahorro (Imagin)</option>
-                      <option value="BBVA">BBVA</option>
                       <option value="Imagin">Imagin</option>
+                      <option value="BBVA">BBVA</option>
                     </select>
                   </div>
                   <div>
@@ -1990,8 +2001,8 @@ const ParvosAccount = () => {
                       })}
                       className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
                     >
-                      <option value="BBVA">BBVA</option>
                       <option value="Imagin">Imagin</option>
+                      <option value="BBVA">BBVA</option>
                     </select>
                   </div>
                 </>
@@ -2006,8 +2017,8 @@ const ParvosAccount = () => {
                     })}
                     className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
                   >
-                    <option value="BBVA">BBVA</option>
                     <option value="Imagin">Imagin</option>
+                    <option value="BBVA">BBVA</option>
                   </select>
                 </div>
               ) : null}

@@ -234,12 +234,17 @@ const UserAccount = () => {
       .filter(op => op.type === 'gasto')
       .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
 
+    const ahorroMes = operacionesDelMes
+      .filter(op => (op.type === 'hucha' || op.type === 'savings') && (op.account_name === 'Ahorro' || op.account_name === null))
+      .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
+
     return {
       cuenta1: totalCuenta1,
       cuenta2: totalCuenta2,
       total: totalCuenta1 + totalCuenta2,
       ingresos,
-      gastos
+      gastos,
+      ahorroMes
     };
   };
 
@@ -301,7 +306,8 @@ const UserAccount = () => {
       return false;
     });
 
-    // Calcular ahorro total: hucha suma, retirada-hucha resta
+    // Calcular ahorro total: todas las operaciones de la cuenta Ahorro ya tienen
+    // el signo correcto desde el backend (positivo para entradas, negativo para salidas)
     const ahorroActual = operacionesHastaAhora
       .filter(op => {
         // Reconocer tanto tipos español como inglés para compatibilidad
@@ -309,14 +315,7 @@ const UserAccount = () => {
         const esRetirada = (op.type === 'retirada-hucha' || op.type === 'savings_withdrawal') && op.account_name === 'Ahorro';
         return esHucha || esRetirada;
       })
-      .reduce((sum, op) => {
-        if (op.type === 'hucha' || op.type === 'savings') {
-          return sum + parseFloat(op.amount || 0);
-        } else if (op.type === 'retirada-hucha' || op.type === 'savings_withdrawal') {
-          return sum - parseFloat(op.amount || 0);
-        }
-        return sum;
-      }, 0);
+      .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
 
     // Calcular ahorro del mes anterior
     const mesAnteriorIdx = mesIdx === 0 ? 11 : mesIdx - 1;
@@ -339,14 +338,7 @@ const UserAccount = () => {
         const esRetirada = (op.type === 'retirada-hucha' || op.type === 'savings_withdrawal') && op.account_name === 'Ahorro';
         return esHucha || esRetirada;
       })
-      .reduce((sum, op) => {
-        if (op.type === 'hucha' || op.type === 'savings') {
-          return sum + parseFloat(op.amount || 0);
-        } else if (op.type === 'retirada-hucha' || op.type === 'savings_withdrawal') {
-          return sum - parseFloat(op.amount || 0);
-        }
-        return sum;
-      }, 0);
+      .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
 
     const diferencia = ahorroActual - ahorroAnterior;
     const porcentaje = ahorroAnterior !== 0 ? ((diferencia / Math.abs(ahorroAnterior)) * 100) : 0;
@@ -690,6 +682,7 @@ const UserAccount = () => {
   const saldoMesAnterior = calcularSaldoMesAnterior();
   // const ingresosGastosDelMes = calcularIngresosGastosDelMes();
   const gastosPorCategoria = calcularGastosPorCategoria();
+  // eslint-disable-next-line no-unused-vars
   const presupuestoVsReal = calcularPresupuestoVsReal();
 
   return (
@@ -769,19 +762,26 @@ const UserAccount = () => {
               <span className="text-xs lg:text-sm font-semibold text-red-600 dark:text-red-400">Gastos</span>
               <span className="text-sm lg:text-base font-bold text-red-600 dark:text-red-400">-{formatAmount(totales.gastos || 0)} €</span>
             </div>
+            {/* Ahorro */}
+            {totales.ahorroMes > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs lg:text-sm font-semibold text-emerald-500 dark:text-emerald-400">Ahorro</span>
+                <span className="text-sm lg:text-base font-bold text-emerald-500 dark:text-emerald-400">-{formatAmount(totales.ahorroMes || 0)} €</span>
+              </div>
+            )}
             {/* Separador */}
             <div className="border-t border-slate-200 dark:border-stone-700 pt-1.5">
               {/* Resultado */}
               <div className="flex items-center justify-between">
                 <span className="text-xs lg:text-sm font-bold text-slate-700 dark:text-slate-300">Resultado</span>
                 <span className={`text-base lg:text-lg font-extrabold ${
-                  (totales.ingresos - totales.gastos) > 0 
+                  (totales.ingresos - totales.gastos - totales.ahorroMes) > 0 
                     ? 'text-teal-500 dark:text-teal-400' 
-                    : (totales.ingresos - totales.gastos) === 0
+                    : (totales.ingresos - totales.gastos - totales.ahorroMes) === 0
                     ? 'text-amber-500 dark:text-amber-400'
                     : 'text-orange-500 dark:text-orange-400'
                 }`}>
-                  {(totales.ingresos - totales.gastos) > 0 ? '+' : ''}{formatAmount((totales.ingresos - totales.gastos) || 0)} €
+                  {(totales.ingresos - totales.gastos - totales.ahorroMes) > 0 ? '+' : ''}{formatAmount((totales.ingresos - totales.gastos - totales.ahorroMes) || 0)} €
                 </span>
               </div>
             </div>
@@ -1274,7 +1274,7 @@ const UserAccount = () => {
                     {operacionesPaginadas.map((op) => {
                       const saldoInfo = saldosAcumulados[op.id] || {};
                       const fechaFormateada = formatearFecha(op.date); // YYYY-MM-DD
-                      const [anyo, mes, dia] = fechaFormateada.split('-').map(Number);
+                      const [anyo, , dia] = fechaFormateada.split('-').map(Number);
                       const fechaObj = new Date(fechaFormateada);
                       const mesNombre = fechaObj.toLocaleString('es-ES', { month: 'short' }).replace('.', '');
                       const anyoActual = new Date().getFullYear();
@@ -1964,7 +1964,7 @@ const UserAccount = () => {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
+            <div className="p-6 overflow-y-auto space-y-4" style={{ maxHeight: '60dvh' }}>
               {categorias.map((cat) => {
                 const Icon = cat.icon;
                 return (
