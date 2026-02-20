@@ -563,9 +563,11 @@ const MobileFamilyAccount = () => {
               </div>
             </div>
           )}
-          <button type="submit" className="w-full py-3.5 bg-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-[0.98] transition-transform text-sm">
-            Añadir Movimiento
-          </button>
+          <div className="sticky bottom-0 pt-3 pb-1 bg-white dark:bg-slate-900 -mx-5 px-5 border-t border-slate-100 dark:border-slate-800 mt-2">
+            <button type="submit" className="w-full py-3.5 bg-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-[0.98] transition-transform text-sm">
+              Añadir Movimiento
+            </button>
+          </div>
         </form>
       </MobileSheet>
 

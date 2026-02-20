@@ -458,10 +458,12 @@ const MobileHome = () => {
             </div>
           )}
 
-          <button type="submit" className="w-full h-13 bg-purple-600 text-white font-bold rounded-xl shadow-lg shadow-purple-600/20 active:scale-[0.98] transition-transform text-sm py-3.5">
-            <Plus className="w-4 h-4 inline mr-1.5" />
-            Añadir Movimiento
-          </button>
+          <div className="sticky bottom-0 pt-3 pb-1 bg-white dark:bg-slate-900 -mx-5 px-5 border-t border-slate-100 dark:border-slate-800 mt-2">
+            <button type="submit" className="w-full bg-purple-600 text-white font-bold rounded-xl shadow-lg shadow-purple-600/20 active:scale-[0.98] transition-transform text-sm py-3.5">
+              <Plus className="w-4 h-4 inline mr-1.5" />
+              Añadir Movimiento
+            </button>
+          </div>
         </form>
       </MobileSheet>
     </div>
