@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ShoppingCart, Home as HomeIcon, Car, Plus, PiggyBank, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, ChevronDown, Trash2, DollarSign, FileText, CreditCard, Utensils, Edit2 } from 'lucide-react';
 import MobileHeader from './MobileHeader';
 import MobileSheet from './MobileSheet';
@@ -39,6 +39,7 @@ const MobilePersonalAccount = () => {
   const [añoSeleccionado, setAñoSeleccionado] = useState(new Date().getFullYear());
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [showAddSheet, setShowAddSheet] = useState(false);
+  const [editingOperacion, setEditingOperacion] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [showCategorias, setShowCategorias] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -49,13 +50,25 @@ const MobilePersonalAccount = () => {
   const [categoryBudgets, setCategoryBudgets] = useState({});
   const [editBudgets, setEditBudgets] = useState({});
 
-  const cuentasUsuario = user?.username === 'xurxo' ? ['Santander', 'Prepago'] : ['BBVA', 'Virtual'];
+  const cuentasUsuario = useMemo(
+    () => (user?.username === 'xurxo' ? ['Santander', 'Prepago'] : ['BBVA', 'Virtual']),
+    [user?.username]
+  );
 
   const [formData, setFormData] = useState({
     fecha: new Date().toISOString().split('T')[0], tipo: 'gasto', cantidad: '',
     descripcion: '', categoria: 'Alimentación', cuenta: cuentasUsuario[0],
     cuentaOrigen: 'Ahorro', cuentaDestino: cuentasUsuario[0]
   });
+
+  const resetForm = useCallback(() => {
+    setFormData({
+      fecha: new Date().toISOString().split('T')[0], tipo: 'gasto', cantidad: '',
+      descripcion: '', categoria: 'Alimentación', cuenta: cuentasUsuario[0],
+      cuentaOrigen: 'Ahorro', cuentaDestino: cuentasUsuario[0]
+    });
+    setEditingOperacion(null);
+  }, [cuentasUsuario]);
 
   const cargarDatos = useCallback(async () => {
     try {
@@ -199,12 +212,33 @@ const MobilePersonalAccount = () => {
           category: formData.tipo === 'gasto' ? formData.categoria : '', account_name: formData.cuenta
         };
       }
-      await api.post('/api/user/operations', payload);
+      if (editingOperacion?.id) {
+        await api.put(`/api/user/operations/${editingOperacion.id}`, payload);
+      } else {
+        await api.post('/api/user/operations', payload);
+      }
       setShowAddSheet(false);
-      setFormData({ fecha: new Date().toISOString().split('T')[0], tipo: 'gasto', cantidad: '', descripcion: '', categoria: 'Alimentación', cuenta: cuentasUsuario[0], cuentaOrigen: 'Ahorro', cuentaDestino: cuentasUsuario[0] });
+      resetForm();
       cargarDatos();
-      setToast('✓ Movimiento creado'); setTimeout(() => setToast(null), 2500);
+      setToast(editingOperacion?.id ? '✓ Movimiento actualizado' : '✓ Movimiento creado');
+      setTimeout(() => setToast(null), 2500);
     } catch (error) { setToast('Error al crear'); setTimeout(() => setToast(null), 3000); }
+  };
+
+  const handleEditar = (op) => {
+    const tipo = op.type === 'hucha' ? 'ahorro' : op.type;
+    setEditingOperacion(op);
+    setFormData({
+      fecha: op.date || new Date().toISOString().split('T')[0],
+      tipo,
+      cantidad: op.amount ?? '',
+      descripcion: op.description || '',
+      categoria: op.category || 'Alimentación',
+      cuenta: op.account_name || cuentasUsuario[0],
+      cuentaOrigen: 'Ahorro',
+      cuentaDestino: op.account_name || cuentasUsuario[0]
+    });
+    setShowAddSheet(true);
   };
 
   const getCatInfo = (nombre) => {
@@ -506,7 +540,10 @@ const MobilePersonalAccount = () => {
                       {formatAmount(saldoInfo.total || 0)}€
                     </span>
                   </div>
-                  <button onClick={() => setDeleteConfirm(op.id)} className="p-2.5 -mr-1 text-slate-300 active:text-red-500">
+                  <button onClick={() => handleEditar(op)} className="p-2 text-slate-300 active:text-purple-600" aria-label="Editar movimiento">
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => setDeleteConfirm(op.id)} className="p-2 -mr-1 text-slate-300 active:text-red-500" aria-label="Eliminar movimiento">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -544,8 +581,8 @@ const MobilePersonalAccount = () => {
       {/* Add Sheet */}
       <MobileSheet isOpen={showAddSheet} onClose={() => {
         setShowAddSheet(false);
-        setFormData({ fecha: new Date().toISOString().split('T')[0], tipo: 'gasto', cantidad: '', descripcion: '', categoria: 'Alimentación', cuenta: cuentasUsuario[0], cuentaOrigen: 'Ahorro', cuentaDestino: cuentasUsuario[0] });
-      }} title="Nuevo Movimiento Personal" fullHeight>
+        resetForm();
+      }} title={editingOperacion ? 'Editar Movimiento Personal' : 'Nuevo Movimiento Personal'} fullHeight>
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-4 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 gap-1">
             {['ingreso','gasto','ahorro','retirada-hucha'].map(t => (
@@ -626,9 +663,9 @@ const MobilePersonalAccount = () => {
               </div>
             </div>
           )}
-          <div className="pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.25rem)] bg-white dark:bg-slate-900 -mx-5 px-5 border-t border-slate-100 dark:border-slate-800 mt-2">
+          <div className="sticky bottom-0 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.25rem)] bg-white dark:bg-slate-900 -mx-5 px-5 border-t border-slate-100 dark:border-slate-800 mt-2">
             <button type="submit" className="w-full py-3.5 bg-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-[0.98] transition-transform text-sm">
-              Añadir Movimiento
+              {editingOperacion ? 'Guardar cambios' : 'Añadir Movimiento'}
             </button>
           </div>
         </form>

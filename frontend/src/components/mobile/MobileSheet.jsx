@@ -13,22 +13,31 @@ const MobileSheet = ({ isOpen, onClose, title, children, fullHeight = false }) =
       // Safari iOS: overflow:hidden on body doesn't prevent scroll
       // Must also fix body position to prevent background scrolling
       scrollY.current = window.scrollY;
+      document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
       document.body.style.position = 'fixed';
       document.body.style.top = `-${scrollY.current}px`;
       document.body.style.width = '100%';
+      document.body.style.left = '0';
+      document.body.style.right = '0';
     } else {
+      document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
       document.body.style.position = '';
       document.body.style.top = '';
       document.body.style.width = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
       window.scrollTo(0, scrollY.current);
     }
     return () => {
+      document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
       document.body.style.position = '';
       document.body.style.top = '';
       document.body.style.width = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
     };
   }, [isOpen]);
 
@@ -98,7 +107,7 @@ const MobileSheet = ({ isOpen, onClose, title, children, fullHeight = false }) =
         )}
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 safe-area-bottom">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 safe-area-bottom [webkit-overflow-scrolling:touch]">
           {children}
         </div>
       </div>

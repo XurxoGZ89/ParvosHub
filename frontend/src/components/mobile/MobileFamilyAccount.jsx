@@ -33,6 +33,7 @@ const MobileFamilyAccount = () => {
   const [añoSeleccionado, setAñoSeleccionado] = useState(new Date().getFullYear());
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [showAddSheet, setShowAddSheet] = useState(false);
+  const [editingOperacion, setEditingOperacion] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [showCategorias, setShowCategorias] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -47,6 +48,15 @@ const MobileFamilyAccount = () => {
     descripcion: '', categoria: 'Alimentación', cuenta: 'Imagin',
     cuentaOrigen: 'Ahorro', cuentaDestino: 'Imagin'
   });
+
+  const resetForm = () => {
+    setFormData({
+      fecha: new Date().toISOString().split('T')[0], tipo: 'gasto', cantidad: '',
+      descripcion: '', categoria: 'Alimentación', cuenta: 'Imagin',
+      cuentaOrigen: 'Ahorro', cuentaDestino: 'Imagin'
+    });
+    setEditingOperacion(null);
+  };
 
   const cargarDatos = useCallback(async () => {
     try {
@@ -164,10 +174,33 @@ const MobileFamilyAccount = () => {
       } else {
         payload = { tipo: formData.tipo, fecha: formData.fecha, cantidad: parseFloat(formData.cantidad), descripcion: formData.descripcion, categoria: formData.tipo === 'gasto' ? formData.categoria : '', cuenta: formData.cuenta, usuario: user?.username || 'Sonia' };
       }
-      await api.post('/operaciones', payload);
-      setShowAddSheet(false); cargarDatos();
-      setToast('✓ Movimiento creado'); setTimeout(() => setToast(null), 2500);
+      if (editingOperacion?.id) {
+        await api.put(`/operaciones/${editingOperacion.id}`, payload);
+      } else {
+        await api.post('/operaciones', payload);
+      }
+      setShowAddSheet(false);
+      resetForm();
+      cargarDatos();
+      setToast(editingOperacion?.id ? '✓ Movimiento actualizado' : '✓ Movimiento creado');
+      setTimeout(() => setToast(null), 2500);
     } catch (error) { setToast('Error al crear'); setTimeout(() => setToast(null), 3000); }
+  };
+
+  const handleEditar = (op) => {
+    const tipo = op.tipo === 'hucha' ? 'ahorro' : op.tipo;
+    setEditingOperacion(op);
+    setFormData({
+      fecha: op.fecha || new Date().toISOString().split('T')[0],
+      tipo,
+      cantidad: op.cantidad ?? '',
+      descripcion: op.info || op.descripcion || op.concepto || '',
+      categoria: op.categoria || 'Alimentación',
+      cuenta: op.cuenta || 'Imagin',
+      cuentaOrigen: 'Ahorro',
+      cuentaDestino: op.cuenta || 'Imagin'
+    });
+    setShowAddSheet(true);
   };
 
   const getCatInfo = (nombre) => { const c = categorias.find(cat => cat.nombre === nombre); return c || { icon: CreditCard, color: 'slate' }; };
@@ -451,7 +484,8 @@ const MobileFamilyAccount = () => {
                       {formatAmount(saldoInfo.total || 0)}€
                     </span>
                   </div>
-                  <button onClick={() => setDeleteConfirm(op.id)} className="p-2.5 -mr-1 text-slate-300 active:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={() => handleEditar(op)} className="p-2 text-slate-300 active:text-purple-600" aria-label="Editar movimiento"><Edit2 className="w-4 h-4" /></button>
+                  <button onClick={() => setDeleteConfirm(op.id)} className="p-2 -mr-1 text-slate-300 active:text-red-500" aria-label="Eliminar movimiento"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
             );
@@ -485,8 +519,8 @@ const MobileFamilyAccount = () => {
       {/* Add Sheet */}
       <MobileSheet isOpen={showAddSheet} onClose={() => {
         setShowAddSheet(false);
-        setFormData({ fecha: new Date().toISOString().split('T')[0], tipo: 'gasto', cantidad: '', descripcion: '', categoria: 'Alimentación', cuenta: 'Imagin', cuentaOrigen: 'Ahorro', cuentaDestino: 'Imagin' });
-      }} title="Nuevo Movimiento Familiar" fullHeight>
+        resetForm();
+      }} title={editingOperacion ? 'Editar Movimiento Familiar' : 'Nuevo Movimiento Familiar'} fullHeight>
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-4 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 gap-1">
             {['ingreso','gasto','ahorro','retirada-hucha'].map(t => (
@@ -563,9 +597,9 @@ const MobileFamilyAccount = () => {
               </div>
             </div>
           )}
-          <div className="pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.25rem)] bg-white dark:bg-slate-900 -mx-5 px-5 border-t border-slate-100 dark:border-slate-800 mt-2">
+          <div className="sticky bottom-0 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.25rem)] bg-white dark:bg-slate-900 -mx-5 px-5 border-t border-slate-100 dark:border-slate-800 mt-2">
             <button type="submit" className="w-full py-3.5 bg-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-[0.98] transition-transform text-sm">
-              Añadir Movimiento
+              {editingOperacion ? 'Guardar cambios' : 'Añadir Movimiento'}
             </button>
           </div>
         </form>
