@@ -314,7 +314,7 @@ const MobileHome = () => {
       {/* FAB */}
       <button
         onClick={() => { setModalType('parvos'); setShowAddSheet(true); }}
-        className="fixed right-5 bottom-[5.5rem] z-[60] w-14 h-14 bg-purple-600 rounded-full shadow-lg shadow-purple-600/30 flex items-center justify-center text-white active:scale-90 transition-transform"
+        className="fixed right-5 bottom-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] z-[60] w-14 h-14 bg-purple-600 rounded-full shadow-lg shadow-purple-600/30 flex items-center justify-center text-white active:scale-90 transition-transform"
       >
         <Plus className="w-6 h-6" />
       </button>
@@ -323,11 +323,11 @@ const MobileHome = () => {
       <MobileSheet isOpen={showAddSheet} onClose={() => setShowAddSheet(false)} title={`Nuevo Movimiento ${modalType === 'parvos' ? 'Familiar' : 'Personal'}`} fullHeight>
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Tipo selector */}
-          <div className="grid grid-cols-4 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 gap-1">
+          <div className="grid grid-cols-2 sm:grid-cols-4 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 gap-1">
             {['ingreso', 'gasto', 'ahorro', 'retirada-hucha'].map(tipo => (
               <button key={tipo} type="button"
                 onClick={() => setFormData({...formData, tipo})}
-                className={`py-2.5 rounded-lg text-[11px] font-semibold transition-all text-center ${
+                className={`py-2.5 rounded-lg text-xs font-semibold transition-all text-center ${
                   formData.tipo === tipo ? 'bg-white dark:bg-slate-700 text-purple-600 shadow-sm' : 'text-slate-500'
                 }`}
               >
@@ -458,7 +458,7 @@ const MobileHome = () => {
             </div>
           )}
 
-          <div className="sticky bottom-0 pt-3 pb-1 bg-white dark:bg-slate-900 -mx-5 px-5 border-t border-slate-100 dark:border-slate-800 mt-2">
+          <div className="pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.25rem)] bg-white dark:bg-slate-900 -mx-5 px-5 border-t border-slate-100 dark:border-slate-800 mt-2">
             <button type="submit" className="w-full bg-purple-600 text-white font-bold rounded-xl shadow-lg shadow-purple-600/20 active:scale-[0.98] transition-transform text-sm py-3.5">
               <Plus className="w-4 h-4 inline mr-1.5" />
               Añadir Movimiento

@@ -220,7 +220,7 @@ const MobileMealsCalendar = () => {
                   <div key={c.id} className="flex items-center gap-3 px-4 py-2.5">
                     <div className={`w-2 h-2 rounded-full shrink-0 ${getCatDot(c.categoria, !c.comida_id)}`} />
                     <span className="flex-1 text-sm text-slate-700 dark:text-slate-200 truncate">{c.comida_nombre}</span>
-                    <button onClick={() => handleEliminarPlanificada(c.id, c.comida_id)} className="p-1 text-slate-300"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => handleEliminarPlanificada(c.id, c.comida_id)} className="p-2 rounded-lg text-slate-300"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 ))}
               </div>
@@ -247,7 +247,7 @@ const MobileMealsCalendar = () => {
                   <div key={c.id} className="flex items-center gap-3 px-4 py-2.5">
                     <div className={`w-2 h-2 rounded-full shrink-0 ${getCatDot(c.categoria, !c.comida_id)}`} />
                     <span className="flex-1 text-sm text-slate-700 dark:text-slate-200 truncate">{c.comida_nombre}</span>
-                    <button onClick={() => handleEliminarPlanificada(c.id, c.comida_id)} className="p-1 text-slate-300"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => handleEliminarPlanificada(c.id, c.comida_id)} className="p-2 rounded-lg text-slate-300"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 ))}
               </div>
@@ -274,7 +274,7 @@ const MobileMealsCalendar = () => {
                   <div key={c.id} className="flex items-center gap-3 px-4 py-2.5">
                     <div className={`w-2 h-2 rounded-full shrink-0 ${getCatDot(c.categoria, !c.comida_id)}`} />
                     <span className="flex-1 text-sm text-slate-700 dark:text-slate-200 truncate">{c.comida_nombre}</span>
-                    <button onClick={() => handleEliminarPlanificada(c.id, c.comida_id)} className="p-1 text-slate-300"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => handleEliminarPlanificada(c.id, c.comida_id)} className="p-2 rounded-lg text-slate-300"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 ))}
               </div>
@@ -434,7 +434,7 @@ const MobileMealsCalendar = () => {
                   <div className={`w-2 h-2 rounded-full ${cat.dot}`} />
                   <CatIcon className="w-4 h-4 text-slate-500" />
                   <span className="flex-1 text-sm text-slate-700 dark:text-slate-200">{c.nombre}</span>
-                  <button onClick={() => handleEliminarProducto(c.id)} className="p-1 text-slate-300"><Trash2 className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => handleEliminarProducto(c.id)} className="p-2 rounded-lg text-slate-300"><Trash2 className="w-4 h-4" /></button>
                 </div>
               );
             })}
@@ -496,7 +496,7 @@ const MobileMealsCalendar = () => {
                   {item.checked && <Check className="w-3 h-3 text-white" />}
                 </button>
                 <span className={`flex-1 text-sm ${item.checked ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}>{item.nombre}</span>
-                <button onClick={() => setListaCompra(prev => prev.filter(i => i.id !== item.id))} className="p-1 text-slate-300"><X className="w-3.5 h-3.5" /></button>
+                <button onClick={() => setListaCompra(prev => prev.filter(i => i.id !== item.id))} className="p-2 rounded-lg text-slate-300"><X className="w-4 h-4" /></button>
               </div>
             ))}
             {listaCompra.length === 0 && <p className="text-xs text-slate-400 text-center py-4">Lista vacía</p>}

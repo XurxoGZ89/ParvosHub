@@ -151,7 +151,7 @@ const Login = () => {
 
               <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 text-center">
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  ¿Necesitas ayuda para entrar? <a href="#" className="text-blue-600 font-medium hover:underline">Contactar soporte</a>
+                  ¿Necesitas ayuda para entrar? <a href="mailto:soporte@parvoshub.com" className="text-blue-600 font-medium hover:underline">Contactar soporte</a>
                 </p>
               </div>
             </div>

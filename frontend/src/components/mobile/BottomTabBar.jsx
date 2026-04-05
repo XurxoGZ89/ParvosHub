@@ -40,7 +40,7 @@ const BottomTabBar = () => {
               }`}
             >
               <tab.icon className={`w-5 h-5 ${active ? 'stroke-[2.5]' : 'stroke-[1.5]'}`} />
-              <span className={`text-[10px] ${active ? 'font-bold' : 'font-medium'}`}>
+              <span className={`text-xs ${active ? 'font-bold' : 'font-medium'}`}>
                 {tab.label}
               </span>
             </button>

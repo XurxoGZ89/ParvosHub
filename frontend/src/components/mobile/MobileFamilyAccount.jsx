@@ -200,7 +200,7 @@ const MobileFamilyAccount = () => {
 
         {/* Saldo */}
         <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Saldo Total Familiar</p>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Saldo Total Familiar</p>
           <p className="text-2xl font-extrabold text-slate-900 dark:text-white">{formatAmount(totalSaldo)}€</p>
           {(() => {
             const mesIdx = meses.indexOf(mesSeleccionado);
@@ -246,16 +246,16 @@ const MobileFamilyAccount = () => {
           </div>
           <div className={`grid gap-2 mt-3 ${ahorroMes > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <div className="bg-green-50 dark:bg-green-900/10 px-3 py-2 rounded-lg text-center">
-              <span className="text-[10px] font-bold text-green-600 uppercase block">Ingresos</span>
+              <span className="text-xs font-bold text-green-600 uppercase block">Ingresos</span>
               <span className="text-xs font-bold text-green-700">+{formatAmount(ingresosMes)}€</span>
             </div>
             <div className="bg-red-50 dark:bg-red-900/10 px-3 py-2 rounded-lg text-center">
-              <span className="text-[10px] font-bold text-red-600 uppercase block">Gastos</span>
+              <span className="text-xs font-bold text-red-600 uppercase block">Gastos</span>
               <span className="text-xs font-bold text-red-700">-{formatAmount(gastosMes)}€</span>
             </div>
             {ahorroMes > 0 && (
               <div className="bg-teal-50 dark:bg-teal-900/10 px-3 py-2 rounded-lg text-center">
-                <span className="text-[10px] font-bold text-emerald-500 uppercase block">Ahorro</span>
+                <span className="text-xs font-bold text-emerald-500 uppercase block">Ahorro</span>
                 <span className="text-xs font-bold text-emerald-500 dark:text-emerald-400">-{formatAmount(ahorroMes)}€</span>
               </div>
             )}
@@ -465,7 +465,7 @@ const MobileFamilyAccount = () => {
       {/* FAB */}
       <button onClick={() => setShowAddSheet(true)}
         aria-label="Añadir movimiento"
-        className="fixed right-5 bottom-[5.5rem] z-[60] w-14 h-14 bg-purple-600 rounded-full shadow-lg shadow-purple-600/30 flex items-center justify-center text-white active:scale-90 transition-transform">
+        className="fixed right-5 bottom-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] z-[60] w-14 h-14 bg-purple-600 rounded-full shadow-lg shadow-purple-600/30 flex items-center justify-center text-white active:scale-90 transition-transform">
         <Plus className="w-6 h-6" />
       </button>
 
@@ -488,10 +488,10 @@ const MobileFamilyAccount = () => {
         setFormData({ fecha: new Date().toISOString().split('T')[0], tipo: 'gasto', cantidad: '', descripcion: '', categoria: 'Alimentación', cuenta: 'Imagin', cuentaOrigen: 'Ahorro', cuentaDestino: 'Imagin' });
       }} title="Nuevo Movimiento Familiar" fullHeight>
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="grid grid-cols-4 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 gap-1">
+          <div className="grid grid-cols-2 sm:grid-cols-4 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 gap-1">
             {['ingreso','gasto','ahorro','retirada-hucha'].map(t => (
               <button key={t} type="button" onClick={() => setFormData({...formData, tipo: t})}
-                className={`py-2.5 rounded-lg text-[11px] font-semibold transition-all text-center ${formData.tipo === t ? 'bg-white dark:bg-slate-700 text-purple-600 shadow-sm' : 'text-slate-500'}`}>
+                className={`py-2.5 rounded-lg text-xs font-semibold transition-all text-center ${formData.tipo === t ? 'bg-white dark:bg-slate-700 text-purple-600 shadow-sm' : 'text-slate-500'}`}>
                 {t === 'retirada-hucha' ? 'Retirada' : t === 'ahorro' ? 'Ahorro' : t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
             ))}
@@ -563,7 +563,7 @@ const MobileFamilyAccount = () => {
               </div>
             </div>
           )}
-          <div className="sticky bottom-0 pt-3 pb-1 bg-white dark:bg-slate-900 -mx-5 px-5 border-t border-slate-100 dark:border-slate-800 mt-2">
+          <div className="pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.25rem)] bg-white dark:bg-slate-900 -mx-5 px-5 border-t border-slate-100 dark:border-slate-800 mt-2">
             <button type="submit" className="w-full py-3.5 bg-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-[0.98] transition-transform text-sm">
               Añadir Movimiento
             </button>

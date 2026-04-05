@@ -140,15 +140,15 @@ const MobileExpensesCalendar = () => {
         {/* Resumen mini */}
         <div className="flex gap-2">
           <div className="flex-1 bg-white dark:bg-slate-900 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-center">
-            <p className="text-[10px] font-bold text-slate-400 uppercase">Total</p>
+            <p className="text-xs font-bold text-slate-400 uppercase">Total</p>
             <p className="text-sm font-extrabold text-slate-900 dark:text-white">{resumenMes.total.toFixed(0)}€</p>
           </div>
           <div className="flex-1 bg-white dark:bg-slate-900 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-center">
-            <p className="text-[10px] font-bold text-slate-400 uppercase">Eventos</p>
+            <p className="text-xs font-bold text-slate-400 uppercase">Eventos</p>
             <p className="text-sm font-extrabold text-slate-900 dark:text-white">{resumenMes.count}</p>
           </div>
           <div className="flex-1 bg-purple-50 dark:bg-purple-900/20 px-3 py-2 rounded-xl border border-purple-200 dark:border-purple-800 text-center">
-            <p className="text-[10px] font-bold text-purple-600 uppercase">Pendiente</p>
+            <p className="text-xs font-bold text-purple-600 uppercase">Pendiente</p>
             <p className="text-sm font-extrabold text-purple-700 dark:text-purple-300">{resumenMes.totalPendientes.toFixed(0)}€</p>
           </div>
         </div>
@@ -156,7 +156,7 @@ const MobileExpensesCalendar = () => {
         {/* Calendario grid */}
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3">
           <div className="grid grid-cols-7 gap-1 mb-2">
-            {DIAS_SEMANA.map(d => <div key={d} className="text-center text-[10px] font-bold text-slate-400 py-1">{d}</div>)}
+            {DIAS_SEMANA.map(d => <div key={d} className="text-center text-xs font-bold text-slate-400 py-1">{d}</div>)}
           </div>
           <div className="grid grid-cols-7 gap-1">
             {Array.from({ length: diasAnteriores }, (_, i) => <div key={`e${i}`} />)}
@@ -213,7 +213,7 @@ const MobileExpensesCalendar = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-slate-800 dark:text-white truncate">{ev.nombre}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">{formatRec(ev.recurrencia)}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{formatRec(ev.recurrencia)}</p>
                     </div>
                     <span className="text-sm font-bold text-slate-800 dark:text-white shrink-0">
                       {ev.cantidad_max ? `${ev.cantidad_min}–${ev.cantidad_max}€` : `${ev.cantidad_min}€`}
@@ -239,7 +239,7 @@ const MobileExpensesCalendar = () => {
       )}
 
       {/* FAB */}
-      <button onClick={() => abrirForm()} className="fixed right-5 bottom-[5.5rem] z-[60] w-14 h-14 bg-purple-600 rounded-full shadow-lg shadow-purple-600/30 flex items-center justify-center text-white active:scale-90 transition-transform">
+      <button onClick={() => abrirForm()} className="fixed right-5 bottom-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] z-[60] w-14 h-14 bg-purple-600 rounded-full shadow-lg shadow-purple-600/30 flex items-center justify-center text-white active:scale-90 transition-transform">
         <Plus className="w-6 h-6" />
       </button>
 
