@@ -107,7 +107,7 @@ const MobileSheet = ({ isOpen, onClose, title, children, fullHeight = false }) =
         )}
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 safe-area-bottom [webkit-overflow-scrolling:touch]">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 safe-area-bottom [webkit-overflow-scrolling:touch] [touch-action:pan-y]">
           {children}
         </div>
       </div>

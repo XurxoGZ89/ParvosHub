@@ -583,7 +583,7 @@ const MobilePersonalAccount = () => {
         setShowAddSheet(false);
         resetForm();
       }} title={editingOperacion ? 'Editar Movimiento Personal' : 'Nuevo Movimiento Personal'} fullHeight>
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-5 pb-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 gap-1">
             {['ingreso','gasto','ahorro','retirada-hucha'].map(t => (
               <button key={t} type="button" onClick={() => setFormData({...formData, tipo: t})}
@@ -663,7 +663,7 @@ const MobilePersonalAccount = () => {
               </div>
             </div>
           )}
-          <div className="sticky bottom-0 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.25rem)] bg-white dark:bg-slate-900 -mx-5 px-5 border-t border-slate-100 dark:border-slate-800 mt-2">
+          <div className="pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.25rem)] bg-white dark:bg-slate-900 -mx-5 px-5 border-t border-slate-100 dark:border-slate-800 mt-2">
             <button type="submit" className="w-full py-3.5 bg-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-[0.98] transition-transform text-sm">
               {editingOperacion ? 'Guardar cambios' : 'Añadir Movimiento'}
             </button>
