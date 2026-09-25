@@ -6,6 +6,7 @@ const db = require('./db');
 // Importar rutas
 const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
+const cromosRoutes = require('./routes/cromos.routes');
 
 const app = express();
 app.use(cors());
@@ -39,6 +40,9 @@ app.use('/api/auth', authRoutes);
 
 // Rutas de usuario (operaciones personales)
 app.use('/api/user', userRoutes);
+
+// Colección de cromos (compartida)
+app.use('/api/cromos', cromosRoutes);
 
 // Endpoint de prueba
 app.get('/', (req, res) => {

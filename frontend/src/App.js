@@ -16,6 +16,7 @@ import ParvosAccount from './components/parvos/ParvosAccountV3';
 import ResumenAnual from './components/parvos/ResumenAnual';
 import ExpensesCalendar from './components/calendar/ExpensesCalendar';
 import MealsCalendar from './components/calendar/MealsCalendar';
+import Cromos from './components/cromos/Cromos';
 
 // Mobile Components
 import useDeviceType from './hooks/useDeviceType';
@@ -53,6 +54,7 @@ function AppRoutes() {
           <Route path="calendario-gastos" element={<MobileExpensesCalendar />} />
           <Route path="calendario-comidas" element={<MobileMealsCalendar />} />
           <Route path="resumen" element={<ResumenAnual />} />
+          <Route path="cromos" element={<Cromos mobile />} />
           <Route path="mas" element={<MobileMoreMenu />} />
           {/* Rutas antiguas redirigen */}
           <Route path="calendario" element={<Navigate to="/calendario-gastos" replace />} />
@@ -85,6 +87,7 @@ function AppRoutes() {
         <Route path="resumen" element={<ResumenAnual />} />
         <Route path="calendario-gastos" element={<ExpensesCalendar />} />
         <Route path="calendario-comidas" element={<MealsCalendar />} />
+        <Route path="cromos" element={<Cromos />} />
         {/* Rutas antiguas redirigen a las nuevas */}
         <Route path="calendario" element={<Navigate to="/calendario-gastos" replace />} />
         <Route path="calendariocomidasv2" element={<Navigate to="/calendario-comidas" replace />} />

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Eye, EyeOff, Home as HomeIcon, User, Users, BarChart3, CalendarDays, UtensilsCrossed, Coins, Sun as SunIcon, Moon as MoonIcon, LogOut, Hand } from 'lucide-react';
+import { Eye, EyeOff, Home as HomeIcon, User, Users, BarChart3, CalendarDays, UtensilsCrossed, Coins, Sun as SunIcon, Moon as MoonIcon, LogOut, Hand, Sticker } from 'lucide-react';
 import useAuthStore from '../../stores/authStore';
 import usePrivacyStore from '../../stores/privacyStore';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -30,6 +30,7 @@ const AppLayout = () => {
     { icon: BarChart3, label: 'Resumen Anual', path: '/resumen' },
     { icon: CalendarDays, label: 'Calendario Gastos', path: '/calendario-gastos' },
     { icon: UtensilsCrossed, label: 'Calendario Comidas', path: '/calendario-comidas' },
+    { icon: Sticker, label: 'Cromos LALIGA', path: '/cromos' },
   ];
 
   const isActive = (path) => location.pathname === path;

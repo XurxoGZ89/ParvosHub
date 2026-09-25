@@ -9,7 +9,8 @@ import {
   LogOut,
   ChevronRight,
   User,
-  Heart
+  Heart,
+  Sticker
 } from 'lucide-react';
 import MobileHeader from './MobileHeader';
 import useAuthStore from '../../stores/authStore';
@@ -58,6 +59,13 @@ const MobileMoreMenu = () => {
           sublabel: 'Gastos familiares por categoría',
           color: 'text-purple-600 bg-purple-100 dark:bg-purple-900/30',
           action: () => navigate('/resumen'),
+        },
+        {
+          icon: Sticker,
+          label: 'Cromos LALIGA',
+          sublabel: 'Álbum Panini 2026-27: tengo, faltan y repes',
+          color: 'text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30',
+          action: () => navigate('/cromos'),
         },
       ],
     },

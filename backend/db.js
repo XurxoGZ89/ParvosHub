@@ -215,6 +215,19 @@ async function initDatabase() {
       );
     `);
     console.log('Tabla actividad_reciente lista');
+
+    // Colección de cromos compartida (álbum Panini LALIGA)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cromos_coleccion (
+        coleccion VARCHAR(40) NOT NULL,
+        cromo_id VARCHAR(40) NOT NULL,
+        cantidad INTEGER NOT NULL DEFAULT 1 CHECK (cantidad >= 0),
+        updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (coleccion, cromo_id)
+      );
+    `);
+    console.log('Tabla cromos_coleccion lista');
   } catch (err) {
     console.error('Error al crear tabla:', err.message);
   }

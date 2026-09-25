@@ -15,7 +15,7 @@ const BottomTabBar = () => {
 
   const isActive = (path) => {
     if (path === '/') return location.pathname === '/';
-    if (path === '/mas') return ['/mas', '/calendario-gastos', '/calendario-comidas', '/resumen'].includes(location.pathname);
+    if (path === '/mas') return ['/mas', '/calendario-gastos', '/calendario-comidas', '/resumen', '/cromos'].includes(location.pathname);
     return location.pathname.startsWith(path);
   };
 
