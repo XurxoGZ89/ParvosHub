@@ -8,10 +8,13 @@ import api from '../lib/api';
 import useAuthStore from '../stores/authStore';
 import { usePrivacyFormatter } from '../utils/privacyFormatter';
 import { useCalendarEvents } from '../contexts/CalendarEventsContext';
+import { getCuentasDinero, getCuentasOperacion, cuentaLabel } from '../config/cuentasPersonales';
 
 const Home = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const cuentasPersonalDinero = getCuentasDinero(user?.username);
+  const cuentasPersonalOperacion = getCuentasOperacion(user?.username);
   const formatAmount = usePrivacyFormatter();
   const { getEventosPorMes } = useCalendarEvents();
   const [userStats, setUserStats] = useState(null);
@@ -333,9 +336,9 @@ const Home = () => {
                 cantidad: '',
                 descripcion: '',
                 categoria: 'Hogar',
-                cuenta: 'Santander',
+                cuenta: cuentasPersonalDinero[0],
                 cuentaOrigen: 'Ahorro',
-                cuentaDestino: 'Santander'
+                cuentaDestino: cuentasPersonalDinero[0]
               });
               setShowModal(true);
             }}
@@ -990,8 +993,7 @@ const Home = () => {
                       <option value="Ahorro">Ahorro</option>
                       {modalType === 'personal' ? (
                         <>
-                          <option value="Santander">Santander</option>
-                          <option value="Prepago">Prepago</option>
+                          {cuentasPersonalDinero.map(c => <option key={c} value={c}>{c}</option>)}
                         </>
                       ) : (
                         <>
@@ -1015,8 +1017,7 @@ const Home = () => {
                     >
                       {modalType === 'personal' ? (
                         <>
-                          <option value="Santander">Santander</option>
-                          <option value="Prepago">Prepago</option>
+                          {cuentasPersonalDinero.map(c => <option key={c} value={c}>{c}</option>)}
                         </>
                       ) : (
                         <>
@@ -1066,8 +1067,7 @@ const Home = () => {
                       >
                         {modalType === 'personal' ? (
                           <>
-                            <option value="Santander">Santander</option>
-                            <option value="Prepago">Prepago</option>
+                            {cuentasPersonalDinero.map(c => <option key={c} value={c}>{c}</option>)}
                           </>
                         ) : (
                           <>
@@ -1090,8 +1090,7 @@ const Home = () => {
                       >
                         {modalType === 'personal' ? (
                           <>
-                            <option value="Santander">Santander</option>
-                            <option value="Prepago">Prepago</option>
+                            {cuentasPersonalOperacion.map(c => <option key={c} value={c}>{cuentaLabel(c)}</option>)}
                           </>
                         ) : (
                           <>

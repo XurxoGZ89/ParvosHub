@@ -24,13 +24,31 @@ import {
   DollarSign,
   FileText,
   BarChart3,
-  ClipboardList
+  ClipboardList,
+  Settings,
+  Utensils as UtensilsIcon,
+  Bus
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../lib/api';
 import useAuthStore from '../../stores/authStore';
 import bbvaLogo from '../../assets/BBVA_2019.svg.png';
 import santanderLogo from '../../assets/santander.png';
 import { usePrivacyFormatter } from '../../utils/privacyFormatter';
+import {
+  COBEE_COMIDA,
+  COBEE_TRANSPORTE,
+  CUENTAS_COBEE,
+  CATEGORIAS_COBEE,
+  esCobee,
+  cuentaLabel,
+  tieneCobee,
+  getCuentasSaldo,
+  getCuentasDinero,
+  getCuentasOperacion,
+  calcularSaldoCuenta
+} from '../../config/cuentasPersonales';
+import CobeeConfigModal from './CobeeConfigModal';
 
 const meses = [
   'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
@@ -79,9 +97,17 @@ const UserAccount = () => {
   const [todasLasOperaciones, setTodasLasOperaciones] = useState([]);
 
   // Cuentas según usuario
-  const cuentasUsuario = user?.username === 'xurxo' 
-    ? ['Santander', 'Prepago']
-    : ['BBVA', 'Virtual'];
+  // cuentasUsuario: cuentas de dinero para cálculos de saldo (incluye cuentas antiguas)
+  const cuentasUsuario = getCuentasSaldo(user?.username);
+  // cuentasDinero: cuentas seleccionables para ahorro/traspasos
+  const cuentasDinero = getCuentasDinero(user?.username);
+  // cuentasOperacion: cuentas seleccionables para gastos/ingresos (incluye Cobee)
+  const cuentasOperacion = getCuentasOperacion(user?.username);
+  const conCobee = tieneCobee(user?.username);
+  const navigate = useNavigate();
+  const [cobeeConfig, setCobeeConfig] = useState(null);
+  const [modalCobee, setModalCobee] = useState(false);
+  const [errorFormulario, setErrorFormulario] = useState('');
 
   const [formNuevaOperacion, setFormNuevaOperacion] = useState({
     fecha: new Date().toISOString().split('T')[0],
@@ -165,6 +191,16 @@ const UserAccount = () => {
         setPresupuestos([]);
       }
 
+      // Cargar configuración Cobee
+      if (conCobee) {
+        try {
+          const cobeeResponse = await api.get('/api/user/cobee');
+          setCobeeConfig(cobeeResponse.data?.enabled ? cobeeResponse.data : null);
+        } catch (cobeeError) {
+          console.error('Error al cargar configuración Cobee:', cobeeError);
+        }
+      }
+
       // Cargar metas
       try {
         const metasResponse = await api.get('/api/user/goals');
@@ -176,7 +212,7 @@ const UserAccount = () => {
     } catch (error) {
       console.error('Error al cargar datos personales:', error);
     }
-  }, [mesSeleccionado, añoSeleccionado]);
+  }, [mesSeleccionado, añoSeleccionado, conCobee]);
 
   useEffect(() => {
     cargarDatos();
@@ -238,13 +274,28 @@ const UserAccount = () => {
       .filter(op => (op.type === 'hucha' || op.type === 'savings') && (op.account_name === 'Ahorro' || op.account_name === null))
       .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
 
+    // Cobee: saldos restringidos (no suman al saldo líquido)
+    const cobeeComida = calcularSaldoCuenta(todasLasOperaciones, COBEE_COMIDA);
+    const cobeeTransporte = calcularSaldoCuenta(todasLasOperaciones, COBEE_TRANSPORTE);
+    const ingresosCobee = operacionesDelMes
+      .filter(op => op.type === 'ingreso' && esCobee(op.account_name))
+      .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
+    const gastosCobee = operacionesDelMes
+      .filter(op => op.type === 'gasto' && esCobee(op.account_name))
+      .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
+
     return {
       cuenta1: totalCuenta1,
       cuenta2: totalCuenta2,
       total: totalCuenta1 + totalCuenta2,
       ingresos,
       gastos,
-      ahorroMes
+      ahorroMes,
+      cobeeComida,
+      cobeeTransporte,
+      cobeeTotal: cobeeComida + cobeeTransporte,
+      ingresosCobee,
+      gastosCobee
     };
   };
 
@@ -261,6 +312,7 @@ const UserAccount = () => {
     const saldos = {};
     let saldoCuenta1 = 0;
     let saldoCuenta2 = 0;
+    const saldosCobee = { [COBEE_COMIDA]: 0, [COBEE_TRANSPORTE]: 0 };
     
     opsOrdenadas.forEach(op => {
       // Calcular cambio para cada cuenta (excluyendo savings)
@@ -276,6 +328,8 @@ const UserAccount = () => {
         } else {
           saldoCuenta2 += parseFloat(op.amount || 0);
         }
+      } else if (esCobee(op.account_name)) {
+        saldosCobee[op.account_name] += (op.type === 'gasto' ? -1 : 1) * parseFloat(op.amount || 0);
       }
       
       // Guardar saldos para esta operación
@@ -283,7 +337,9 @@ const UserAccount = () => {
         cuenta1: saldoCuenta1,
         cuenta2: saldoCuenta2,
         total: saldoCuenta1 + saldoCuenta2,
-        cuenta: op.account_name === cuentasUsuario[0] ? saldoCuenta1 : op.account_name === cuentasUsuario[1] ? saldoCuenta2 : 0
+        cuenta: op.account_name === cuentasUsuario[0] ? saldoCuenta1
+          : op.account_name === cuentasUsuario[1] ? saldoCuenta2
+          : esCobee(op.account_name) ? saldosCobee[op.account_name] : 0
       };
     });
     
@@ -519,6 +575,27 @@ const UserAccount = () => {
       // Para traspasos (retiradas), construir descripción especial y usar cuenta destino
       let accountName = formNuevaOperacion.cuenta;
       let description = formNuevaOperacion.descripcion;
+      setErrorFormulario('');
+
+      // Ahorro y traspasos solo desde cuentas de dinero
+      if (formNuevaOperacion.tipo === 'hucha' && esCobee(accountName)) {
+        setErrorFormulario('El saldo Cobee no se puede pasar a ahorro. Elige una cuenta de dinero.');
+        return;
+      }
+
+      // Gastos con Cobee: comprobar saldo y categoría
+      if (formNuevaOperacion.tipo === 'gasto' && esCobee(accountName)) {
+        const saldo = accountName === COBEE_COMIDA ? totales.cobeeComida : totales.cobeeTransporte;
+        const cantidad = parseFloat(formNuevaOperacion.cantidad) || 0;
+        if (cantidad > saldo + 0.005) {
+          setErrorFormulario(`Saldo Cobee insuficiente (${formatAmount(saldo)} €). Registra la diferencia con ${cuentasDinero[0]}.`);
+          return;
+        }
+        if (!CATEGORIAS_COBEE[accountName].includes(formNuevaOperacion.categoria)) {
+          setErrorFormulario(`Categoría no permitida para ${cuentaLabel(accountName)}.`);
+          return;
+        }
+      }
       
       if (formNuevaOperacion.tipo === 'retirada-hucha') {
         accountName = formNuevaOperacion.cuentaDestino;
@@ -710,7 +787,16 @@ const UserAccount = () => {
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
-          <div className="hidden lg:block lg:order-3 lg:w-[120px]"></div>
+          <div className="lg:order-3 lg:w-[120px] flex lg:justify-end">
+            <button
+              onClick={() => navigate('/user-summary')}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors whitespace-nowrap"
+              title="Ver resumen anual personal"
+            >
+              <BarChart3 className="w-4 h-4" />
+              Resumen anual
+            </button>
+          </div>
         </div>
       </div>
 
@@ -723,6 +809,11 @@ const UserAccount = () => {
           <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
             {formatAmount(saldoMesAnterior.total || 0)} € de {saldoMesAnterior.nombreMes}
           </p>
+          {conCobee && (
+            <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 mt-1">
+              + {formatAmount(totales.cobeeTotal || 0)} € en Cobee <span className="font-normal text-slate-400">(no incluido)</span>
+            </p>
+          )}
         </div>
 
         {/* Card 2: Cuentas */}
@@ -738,13 +829,56 @@ const UserAccount = () => {
               )}
               <h3 className="text-base lg:text-lg font-bold">{formatAmount(totales.cuenta1 || 0)} €</h3>
             </div>
-            {/* Segunda Cuenta */}
-            <div className="flex items-center justify-between">
-              <div className="w-12 h-12 lg:w-14 lg:h-14 bg-purple-50 dark:bg-purple-900/20 rounded-xl flex items-center justify-center border border-purple-100 dark:border-purple-800/30">
-                <CreditCard className="w-6 h-6 lg:w-7 lg:h-7 text-purple-600" />
+            {/* Segunda Cuenta (Sonia: Virtual). Para Xurxo, Prepago ya no se usa: solo se muestra si le queda saldo */}
+            {(!conCobee || Math.abs(totales.cuenta2 || 0) > 0.005) && (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-12 h-12 lg:w-14 lg:h-14 bg-purple-50 dark:bg-purple-900/20 rounded-xl flex items-center justify-center border border-purple-100 dark:border-purple-800/30">
+                    <CreditCard className="w-6 h-6 lg:w-7 lg:h-7 text-purple-600" />
+                  </div>
+                  {conCobee && <span className="text-[10px] text-slate-400">{cuentasUsuario[1]} (sin uso)</span>}
+                </div>
+                <h3 className="text-base lg:text-lg font-bold">{formatAmount(totales.cuenta2 || 0)} €</h3>
               </div>
-              <h3 className="text-base lg:text-lg font-bold">{formatAmount(totales.cuenta2 || 0)} €</h3>
-            </div>
+            )}
+            {/* Cobee: saldo restringido */}
+            {conCobee && (
+              <div className="rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800/30 p-2">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500 to-violet-700 text-white text-xs font-extrabold flex items-center justify-center">C</div>
+                    <span className="text-sm font-bold">Cobee</span>
+                    <span className="text-[8px] font-extrabold tracking-wider px-1.5 py-0.5 rounded-full bg-purple-600 text-white">RESTRINGIDO</span>
+                  </div>
+                  <button
+                    onClick={() => setModalCobee(true)}
+                    className="p-1 rounded-md hover:bg-purple-100 dark:hover:bg-purple-800/40 transition-colors"
+                    title="Configurar carga mensual Cobee"
+                  >
+                    <Settings className="w-4 h-4 text-purple-600" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { cuenta: COBEE_COMIDA, label: 'Comida', Icon: UtensilsIcon, saldo: totales.cobeeComida, carga: cobeeConfig?.comida, color: '#f97316' },
+                    { cuenta: COBEE_TRANSPORTE, label: 'Transporte', Icon: Bus, saldo: totales.cobeeTransporte, carga: cobeeConfig?.transporte, color: '#0d9488' }
+                  ].map(({ cuenta, label, Icon, saldo, carga, color }) => (
+                    <button
+                      key={cuenta}
+                      onClick={() => setFiltros({ ...filtros, cuenta })}
+                      className="bg-white dark:bg-stone-900 rounded-lg px-2 py-1.5 text-left hover:ring-1 hover:ring-purple-300 transition-all"
+                      title={`Ver movimientos de ${cuentaLabel(cuenta)}`}
+                    >
+                      <span className="flex items-center gap-1 text-[10px] text-slate-500"><Icon className="w-3 h-3" />{label}</span>
+                      <span className="block text-sm font-bold">{formatAmount(saldo || 0)} €</span>
+                      <span className="block h-1 rounded-full bg-slate-100 dark:bg-stone-800 overflow-hidden mt-1">
+                        <span className="block h-full rounded-full" style={{ width: `${carga > 0 ? Math.max(0, Math.min(100, (saldo / carga) * 100)) : 0}%`, backgroundColor: color }} />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -757,11 +891,29 @@ const UserAccount = () => {
               <span className="text-xs lg:text-sm font-semibold text-emerald-600 dark:text-emerald-400">Ingresos</span>
               <span className="text-sm lg:text-base font-bold text-emerald-600 dark:text-emerald-400">+{formatAmount(totales.ingresos || 0)} €</span>
             </div>
+            {totales.ingresosCobee > 0 && (
+              <div className="pl-2 space-y-0.5">
+                <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                  <span>Dinero</span>
+                  <span>{formatAmount((totales.ingresos || 0) - (totales.ingresosCobee || 0))} €</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-purple-600 dark:text-purple-400 font-semibold">
+                  <span>Cobee (en especie)</span>
+                  <span>+{formatAmount(totales.ingresosCobee || 0)} €</span>
+                </div>
+              </div>
+            )}
             {/* Gastos */}
             <div className="flex items-center justify-between">
               <span className="text-xs lg:text-sm font-semibold text-red-600 dark:text-red-400">Gastos</span>
               <span className="text-sm lg:text-base font-bold text-red-600 dark:text-red-400">-{formatAmount(totales.gastos || 0)} €</span>
             </div>
+            {totales.gastosCobee > 0 && (
+              <div className="pl-2 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                <span>de ellos con Cobee</span>
+                <span>{formatAmount(totales.gastosCobee || 0)} €</span>
+              </div>
+            )}
             {/* Ahorro */}
             {totales.ahorroMes > 0 && (
               <div className="flex items-center justify-between">
@@ -1086,8 +1238,8 @@ const UserAccount = () => {
                       }`}
                     >
                       <option value="todas">Cuenta: Todas</option>
-                      {cuentasUsuario.map(cuenta => (
-                        <option key={cuenta} value={cuenta}>{cuenta}</option>
+                      {[...cuentasUsuario, ...(conCobee ? CUENTAS_COBEE : [])].map(cuenta => (
+                        <option key={cuenta} value={cuenta}>{cuentaLabel(cuenta)}</option>
                       ))}
                     </select>
                     {/* Botón limpiar filtros */}
@@ -1154,8 +1306,8 @@ const UserAccount = () => {
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-xs text-slate-500 dark:text-slate-400">{op.category}</span>
                           <span className="text-xs text-slate-300 dark:text-slate-600">•</span>
-                          <span className="text-xs text-slate-500 dark:text-slate-400">{op.account_name}</span>
-                          {(op.account_name === cuentasUsuario[0] || op.account_name === cuentasUsuario[1]) && op.type !== 'savings' && (
+                          <span className={`text-xs ${esCobee(op.account_name) ? 'text-purple-600 dark:text-purple-400 font-semibold' : 'text-slate-500 dark:text-slate-400'}`}>{cuentaLabel(op.account_name)}</span>
+                          {(op.account_name === cuentasUsuario[0] || op.account_name === cuentasUsuario[1] || esCobee(op.account_name)) && op.type !== 'savings' && (
                             <>
                               <span className="text-xs text-slate-300 dark:text-slate-600">•</span>
                               <span className="text-[11px] font-semibold text-slate-400">
@@ -1279,7 +1431,7 @@ const UserAccount = () => {
                       const mesNombre = fechaObj.toLocaleString('es-ES', { month: 'short' }).replace('.', '');
                       const anyoActual = new Date().getFullYear();
                       return (
-                      <tr key={op.id} className="group hover:bg-purple-50/30 dark:hover:bg-stone-800/40 transition-colors">
+                      <tr key={op.id} className={`group hover:bg-purple-50/30 dark:hover:bg-stone-800/40 transition-colors ${esCobee(op.account_name) ? 'bg-purple-50/40 dark:bg-purple-900/10' : ''}`}>
                         {/* Fecha */}
                         <td className="pl-5 pr-3 py-3 whitespace-nowrap">
                           <div className="flex items-baseline gap-1">
@@ -1327,13 +1479,19 @@ const UserAccount = () => {
                               <div className="w-6 h-6 bg-purple-50 dark:bg-purple-900/20 rounded flex items-center justify-center border border-purple-100 dark:border-purple-800/30" title="Prepago">
                                 <CreditCard className="w-3.5 h-3.5 text-purple-600" />
                               </div>
+                            ) : esCobee(op.account_name) ? (
+                              <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-violet-700 rounded flex items-center justify-center" title={cuentaLabel(op.account_name)}>
+                                {op.account_name === COBEE_COMIDA
+                                  ? <UtensilsIcon className="w-3.5 h-3.5 text-white" />
+                                  : <Bus className="w-3.5 h-3.5 text-white" />}
+                              </div>
                             ) : op.account_name === 'Ahorro' ? (
                               <div className="w-6 h-6 bg-emerald-50 dark:bg-emerald-900/20 rounded flex items-center justify-center border border-emerald-100 dark:border-emerald-800/30" title="Ahorro">
                                 <PiggyBank className="w-3.5 h-3.5 text-emerald-600" />
                               </div>
                             ) : null}
-                            {(op.account_name === cuentasUsuario[0] || op.account_name === cuentasUsuario[1]) && op.type !== 'savings' && (
-                              <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 tabular-nums">
+                            {(op.account_name === cuentasUsuario[0] || op.account_name === cuentasUsuario[1] || esCobee(op.account_name)) && op.type !== 'savings' && (
+                              <span className={`text-[10px] font-semibold tabular-nums ${esCobee(op.account_name) ? 'text-purple-500' : 'text-slate-400 dark:text-slate-500'}`}>
                                 {formatAmount(saldoInfo.cuenta || 0)}€
                               </span>
                             )}
@@ -1472,7 +1630,7 @@ const UserAccount = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setFormNuevaOperacion({...formNuevaOperacion, tipo: 'hucha'})}
+                    onClick={() => setFormNuevaOperacion({...formNuevaOperacion, tipo: 'hucha', cuenta: esCobee(formNuevaOperacion.cuenta) ? cuentasDinero[0] : formNuevaOperacion.cuenta})}
                     className={`py-1.5 px-2.5 rounded-lg text-[11px] font-bold transition-all ${
                       formNuevaOperacion.tipo === 'hucha'
                         ? 'bg-white text-purple-600 shadow-md'
@@ -1527,9 +1685,11 @@ const UserAccount = () => {
                     onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, categoria: e.target.value})}
                     className="w-full px-3 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-xs focus:ring-2 focus:ring-white/50 focus:border-white/50"
                   >
-                    {categorias.map(cat => (
-                      <option key={cat.nombre} value={cat.nombre} className="text-slate-900">{cat.nombre}</option>
-                    ))}
+                    {categorias
+                      .filter(cat => !esCobee(formNuevaOperacion.cuenta) || CATEGORIAS_COBEE[formNuevaOperacion.cuenta].includes(cat.nombre))
+                      .map(cat => (
+                        <option key={cat.nombre} value={cat.nombre} className="text-slate-900">{cat.nombre}</option>
+                      ))}
                   </select>
                 </div>
               )}
@@ -1544,7 +1704,7 @@ const UserAccount = () => {
                       className="w-full px-3 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-xs focus:ring-2 focus:ring-white/50 focus:border-white/50"
                     >
                       <option value="Ahorro" className="text-slate-900">Ahorro</option>
-                      {cuentasUsuario.map(cuenta => (
+                      {cuentasDinero.map(cuenta => (
                         <option key={cuenta} value={cuenta} className="text-slate-900">{cuenta}</option>
                       ))}
                     </select>
@@ -1556,7 +1716,7 @@ const UserAccount = () => {
                       onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, cuentaDestino: e.target.value})}
                       className="w-full px-3 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-xs focus:ring-2 focus:ring-white/50 focus:border-white/50"
                     >
-                      {cuentasUsuario.map(cuenta => (
+                      {cuentasDinero.map(cuenta => (
                         <option key={cuenta} value={cuenta} className="text-slate-900">{cuenta}</option>
                       ))}
                     </select>
@@ -1570,7 +1730,7 @@ const UserAccount = () => {
                     onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, cuenta: e.target.value})}
                     className="w-full px-3 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-xs focus:ring-2 focus:ring-white/50 focus:border-white/50"
                   >
-                    {cuentasUsuario.map(cuenta => (
+                    {cuentasDinero.map(cuenta => (
                       <option key={cuenta} value={cuenta} className="text-slate-900">{cuenta}</option>
                     ))}
                   </select>
@@ -1580,15 +1740,49 @@ const UserAccount = () => {
                   <label className="text-[10px] font-bold uppercase tracking-wider opacity-90 block mb-1.5">Cuenta</label>
                   <select
                     value={formNuevaOperacion.cuenta}
-                    onChange={(e) => setFormNuevaOperacion({...formNuevaOperacion, cuenta: e.target.value})}
+                    onChange={(e) => {
+                      const cuenta = e.target.value;
+                      const permitidas = CATEGORIAS_COBEE[cuenta];
+                      setErrorFormulario('');
+                      setFormNuevaOperacion({
+                        ...formNuevaOperacion,
+                        cuenta,
+                        categoria: permitidas && !permitidas.includes(formNuevaOperacion.categoria)
+                          ? permitidas[0]
+                          : formNuevaOperacion.categoria
+                      });
+                    }}
                     className="w-full px-3 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-xs focus:ring-2 focus:ring-white/50 focus:border-white/50"
                   >
-                    {cuentasUsuario.map(cuenta => (
-                      <option key={cuenta} value={cuenta} className="text-slate-900">{cuenta}</option>
-                    ))}
+                    <optgroup label="Dinero" className="text-slate-900">
+                      {cuentasDinero.map(cuenta => (
+                        <option key={cuenta} value={cuenta} className="text-slate-900">{cuenta}</option>
+                      ))}
+                    </optgroup>
+                    {conCobee && (
+                      <optgroup label="Cobee (saldo restringido)" className="text-slate-900">
+                        {CUENTAS_COBEE.map(cuenta => (
+                          <option key={cuenta} value={cuenta} className="text-slate-900">{cuentaLabel(cuenta)}</option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
               ) : null}
+
+              {esCobee(formNuevaOperacion.cuenta) && ['gasto', 'ingreso'].includes(formNuevaOperacion.tipo) && (
+                <div className="rounded-lg bg-white/15 px-3 py-2 text-[11px] leading-snug">
+                  Saldo disponible: <b>{formatAmount(formNuevaOperacion.cuenta === COBEE_COMIDA ? totales.cobeeComida : totales.cobeeTransporte)} €</b>
+                  <br />
+                  {formNuevaOperacion.cuenta === COBEE_COMIDA ? 'Solo restaurantes y comida (Ocio / Alimentación).' : 'Solo transporte público (Movilidad).'}
+                </div>
+              )}
+
+              {errorFormulario && (
+                <div className="rounded-lg bg-red-500/30 border border-red-200/40 px-3 py-2 text-[11px] font-semibold">
+                  {errorFormulario}
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -1859,9 +2053,13 @@ const UserAccount = () => {
                     })}
                     className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
                   >
-                    {categorias.map(cat => (
-                      <option key={cat.nombre} value={cat.nombre}>{cat.nombre}</option>
-                    ))}
+                    {categorias
+                      .filter(cat => !esCobee(modalEditarOperacion.operacion?.account_name)
+                        || CATEGORIAS_COBEE[modalEditarOperacion.operacion.account_name].includes(cat.nombre)
+                        || cat.nombre === modalEditarOperacion.operacion?.category)
+                      .map(cat => (
+                        <option key={cat.nombre} value={cat.nombre}>{cat.nombre}</option>
+                      ))}
                   </select>
                 </div>
               )}
@@ -1919,8 +2117,8 @@ const UserAccount = () => {
                     })}
                     className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-stone-800"
                   >
-                    {cuentasUsuario.map(cuenta => (
-                      <option key={cuenta} value={cuenta}>{cuenta}</option>
+                    {Array.from(new Set([...cuentasOperacion, modalEditarOperacion.operacion?.account_name].filter(Boolean))).map(cuenta => (
+                      <option key={cuenta} value={cuenta}>{cuentaLabel(cuenta)}</option>
                     ))}
                   </select>
                 </div>
@@ -2135,6 +2333,20 @@ const UserAccount = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Modal configuración Cobee */}
+      {conCobee && modalCobee && (
+        <CobeeConfigModal
+          config={cobeeConfig}
+          operaciones={todasLasOperaciones}
+          onClose={() => setModalCobee(false)}
+          onSaved={(cfg) => {
+            setCobeeConfig(cfg);
+            setModalCobee(false);
+            cargarDatos();
+          }}
+        />
       )}
     </div>
   );

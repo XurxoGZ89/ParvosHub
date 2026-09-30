@@ -7,6 +7,7 @@ import api from '../../lib/api';
 import useAuthStore from '../../stores/authStore';
 import { usePrivacyFormatter } from '../../utils/privacyFormatter';
 import { useCalendarEvents } from '../../contexts/CalendarEventsContext';
+import { getCuentasDinero, getCuentasOperacion, cuentaLabel } from '../../config/cuentasPersonales';
 
 const MobileHome = () => {
   const navigate = useNavigate();
@@ -26,7 +27,8 @@ const MobileHome = () => {
   });
   const [toast, setToast] = useState(null);
 
-  const cuentasPersonal = user?.username === 'xurxo' ? ['Santander', 'Prepago'] : ['BBVA', 'Virtual'];
+  const cuentasPersonal = getCuentasDinero(user?.username);
+  const cuentasPersonalOperacion = getCuentasOperacion(user?.username);
   const cuentasFamiliar = ['BBVA', 'Imagin'];
 
   const fetchData = async () => {
@@ -407,15 +409,15 @@ const MobileHome = () => {
               <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5 block">
                 {formData.tipo === 'ahorro' ? 'Cuenta de origen' : 'Cuenta'}
               </label>
-              <div className="flex gap-2">
-                {(modalType === 'personal' ? cuentasPersonal : cuentasFamiliar).map(c => (
+              <div className="flex flex-wrap gap-2">
+                {(modalType === 'personal' ? (formData.tipo === 'ahorro' ? cuentasPersonal : cuentasPersonalOperacion) : cuentasFamiliar).map(c => (
                   <button key={c} type="button"
                     onClick={() => setFormData({...formData, cuenta: c})}
-                    className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all ${
+                    className={`flex-1 min-w-[30%] py-3 rounded-xl text-sm font-semibold transition-all ${
                       formData.cuenta === c ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
                     }`}
                   >
-                    {c}
+                    {cuentaLabel(c)}
                   </button>
                 ))}
               </div>

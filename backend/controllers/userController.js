@@ -1,4 +1,14 @@
 const db = require('../db');
+const { ensureCobeeLoads } = require('./cobeeController');
+
+// Genera cargas Cobee pendientes sin bloquear la respuesta si algo falla
+const syncCobee = async (userId) => {
+  try {
+    await ensureCobeeLoads(userId);
+  } catch (err) {
+    console.error('Error generando cargas Cobee:', err.message);
+  }
+};
 
 /**
  * Obtener operaciones del usuario logueado
@@ -8,6 +18,7 @@ const db = require('../db');
 exports.getUserOperations = async (req, res) => {
   try {
     const userId = req.user.id; // Viene del middleware de autenticación
+    await syncCobee(userId);
     
     let query = 'SELECT * FROM user_operations WHERE user_id = $1';
     const params = [userId];
@@ -546,6 +557,7 @@ exports.getUserAnnualSummary = async (req, res) => {
 exports.getUserDashboardSummary = async (req, res) => {
   try {
     const userId = req.user.id;
+    await syncCobee(userId);
     
     // Obtener todas las cuentas del usuario con sus saldos (excluyendo ahorros)
     const accountsQuery = `

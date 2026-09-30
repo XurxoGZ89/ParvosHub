@@ -1,10 +1,24 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ShoppingCart, Home as HomeIcon, Car, Plus, PiggyBank, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, ChevronDown, Trash2, DollarSign, FileText, CreditCard, Utensils, Edit2 } from 'lucide-react';
+import { ShoppingCart, Home as HomeIcon, Car, Plus, PiggyBank, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, ChevronDown, Trash2, DollarSign, FileText, CreditCard, Utensils, Edit2, Settings, Bus, BarChart3 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import MobileHeader from './MobileHeader';
 import MobileSheet from './MobileSheet';
 import api from '../../lib/api';
 import useAuthStore from '../../stores/authStore';
 import { usePrivacyFormatter } from '../../utils/privacyFormatter';
+import CobeeConfigModal from '../user/CobeeConfigModal';
+import {
+  COBEE_COMIDA,
+  COBEE_TRANSPORTE,
+  CUENTAS_COBEE,
+  CATEGORIAS_COBEE,
+  esCobee,
+  cuentaLabel,
+  tieneCobee,
+  getCuentasSaldo,
+  getCuentasDinero,
+  calcularSaldoCuenta
+} from '../../config/cuentasPersonales';
 
 const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 
@@ -50,10 +64,14 @@ const MobilePersonalAccount = () => {
   const [categoryBudgets, setCategoryBudgets] = useState({});
   const [editBudgets, setEditBudgets] = useState({});
 
-  const cuentasUsuario = useMemo(
-    () => (user?.username === 'xurxo' ? ['Santander', 'Prepago'] : ['BBVA', 'Virtual']),
-    [user?.username]
-  );
+  // Cuentas de dinero para cálculos de saldo (incluye cuentas antiguas como Prepago)
+  const cuentasUsuario = useMemo(() => getCuentasSaldo(user?.username), [user?.username]);
+  // Cuentas de dinero seleccionables
+  const cuentasDinero = useMemo(() => getCuentasDinero(user?.username), [user?.username]);
+  const conCobee = tieneCobee(user?.username);
+  const navigate = useNavigate();
+  const [cobeeConfig, setCobeeConfig] = useState(null);
+  const [showCobeeConfig, setShowCobeeConfig] = useState(false);
 
   const [formData, setFormData] = useState({
     fecha: new Date().toISOString().split('T')[0], tipo: 'gasto', cantidad: '',
@@ -86,9 +104,15 @@ const MobilePersonalAccount = () => {
       if (budgetsRes.data?.presupuestos) {
         setCategoryBudgets(budgetsRes.data.presupuestos);
       }
+      if (conCobee) {
+        try {
+          const cobeeRes = await api.get('/api/user/cobee');
+          setCobeeConfig(cobeeRes.data?.enabled ? cobeeRes.data : null);
+        } catch (err) { console.error('Error Cobee:', err); }
+      }
     } catch (error) { console.error('Error:', error); }
     finally { setLoading(false); }
-  }, [mesSeleccionado, añoSeleccionado]);
+  }, [mesSeleccionado, añoSeleccionado, conCobee]);
 
   useEffect(() => { cargarDatos(); }, [cargarDatos]);
 
@@ -113,7 +137,11 @@ const MobilePersonalAccount = () => {
       .reduce((s, op) => s + parseFloat(op.amount || 0), 0);
     const gastos = operacionesDelMes.filter(op => op.type === 'gasto').reduce((s, op) => s + parseFloat(op.amount || 0), 0);
     const ahorroMes = operacionesDelMes.filter(op => (op.type === 'hucha' || op.type === 'savings') && (op.account_name === 'Ahorro' || op.account_name === null)).reduce((s, op) => s + parseFloat(op.amount || 0), 0);
-    return { cuenta1: c1, cuenta2: c2, total: c1 + c2, ingresos, gastos, ahorroMes };
+    const cobeeComida = calcularSaldoCuenta(todasLasOperaciones, COBEE_COMIDA);
+    const cobeeTransporte = calcularSaldoCuenta(todasLasOperaciones, COBEE_TRANSPORTE);
+    const ingresosCobee = operacionesDelMes.filter(op => op.type === 'ingreso' && esCobee(op.account_name)).reduce((s, op) => s + parseFloat(op.amount || 0), 0);
+    const gastosCobee = operacionesDelMes.filter(op => op.type === 'gasto' && esCobee(op.account_name)).reduce((s, op) => s + parseFloat(op.amount || 0), 0);
+    return { cuenta1: c1, cuenta2: c2, total: c1 + c2, ingresos, gastos, ahorroMes, cobeeComida, cobeeTransporte, cobeeTotal: cobeeComida + cobeeTransporte, ingresosCobee, gastosCobee };
   };
 
   // Ahorro
@@ -160,6 +188,7 @@ const MobilePersonalAccount = () => {
     const saldos = {};
     let saldoCuenta1 = 0;
     let saldoCuenta2 = 0;
+    const saldosCobee = { [COBEE_COMIDA]: 0, [COBEE_TRANSPORTE]: 0 };
     
     opsOrdenadas.forEach(op => {
       if (op.account_name === cuentasUsuario[0] && op.type !== 'savings') {
@@ -174,13 +203,17 @@ const MobilePersonalAccount = () => {
         } else {
           saldoCuenta2 += parseFloat(op.amount || 0);
         }
+      } else if (esCobee(op.account_name)) {
+        saldosCobee[op.account_name] += (op.type === 'gasto' ? -1 : 1) * parseFloat(op.amount || 0);
       }
       
       saldos[op.id] = {
         cuenta1: saldoCuenta1,
         cuenta2: saldoCuenta2,
         total: saldoCuenta1 + saldoCuenta2,
-        cuenta: op.account_name === cuentasUsuario[0] ? saldoCuenta1 : op.account_name === cuentasUsuario[1] ? saldoCuenta2 : 0
+        cuenta: op.account_name === cuentasUsuario[0] ? saldoCuenta1
+          : op.account_name === cuentasUsuario[1] ? saldoCuenta2
+          : esCobee(op.account_name) ? saldosCobee[op.account_name] : 0
       };
     });
     
@@ -196,6 +229,22 @@ const MobilePersonalAccount = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (esCobee(formData.cuenta) && formData.tipo === 'ahorro') {
+      setToast('El saldo Cobee no se puede pasar a ahorro'); setTimeout(() => setToast(null), 3000);
+      return;
+    }
+    if (esCobee(formData.cuenta) && formData.tipo === 'gasto') {
+      const saldo = (formData.cuenta === COBEE_COMIDA ? totales.cobeeComida : totales.cobeeTransporte)
+        + (editingOperacion?.id && editingOperacion.account_name === formData.cuenta ? parseFloat(editingOperacion.amount || 0) : 0);
+      if ((parseFloat(formData.cantidad) || 0) > saldo + 0.005) {
+        setToast(`Saldo Cobee insuficiente (${formatAmount(saldo)}€)`); setTimeout(() => setToast(null), 3500);
+        return;
+      }
+      if (!CATEGORIAS_COBEE[formData.cuenta].includes(formData.categoria)) {
+        setToast(`Categoría no permitida para ${cuentaLabel(formData.cuenta)}`); setTimeout(() => setToast(null), 3500);
+        return;
+      }
+    }
     try {
       let payload;
       if (formData.tipo === 'retirada-hucha') {
@@ -283,6 +332,11 @@ const MobilePersonalAccount = () => {
           <button onClick={() => cambiarMes(1)} className="p-2 text-slate-400 active:scale-90"><ChevronRight className="w-5 h-5" /></button>
         </div>
 
+        <button onClick={() => navigate('/user-summary')}
+          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-purple-600 bg-purple-50 dark:bg-purple-900/20 active:scale-[0.98]">
+          <BarChart3 className="w-4 h-4" /> Ver resumen anual personal
+        </button>
+
         {/* Saldo total */}
         <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Saldo Total</p>
@@ -321,22 +375,60 @@ const MobilePersonalAccount = () => {
               </p>
             );
           })()}
+          {conCobee && (
+            <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 mt-0.5">
+              + {formatAmount(totales.cobeeTotal)}€ en Cobee <span className="font-normal text-slate-400">(no incluido)</span>
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-2 mt-3">
-            {cuentasUsuario.map((c, i) => (
-              <div key={c} className="bg-slate-50 dark:bg-slate-800 px-3 py-2 rounded-lg flex justify-between">
-                <span className="text-xs font-medium text-slate-500">{c}</span>
-                <span className="text-xs font-bold text-slate-900 dark:text-white">{formatAmount(i === 0 ? totales.cuenta1 : totales.cuenta2)}€</span>
-              </div>
-            ))}
+            {cuentasUsuario
+              .map((c, i) => ({ c, saldo: i === 0 ? totales.cuenta1 : totales.cuenta2, i }))
+              .filter(({ saldo, i }) => !conCobee || i === 0 || Math.abs(saldo) > 0.005)
+              .map(({ c, saldo, i }) => (
+                <div key={c} className={`bg-slate-50 dark:bg-slate-800 px-3 py-2 rounded-lg flex justify-between ${conCobee && i === 0 ? 'col-span-2' : ''}`}>
+                  <span className="text-xs font-medium text-slate-500">{c}{conCobee && i > 0 ? ' (sin uso)' : ''}</span>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">{formatAmount(saldo)}€</span>
+                </div>
+              ))}
           </div>
+          {conCobee && (
+            <div className="mt-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800/40 p-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-6 h-6 rounded-md bg-gradient-to-br from-purple-500 to-violet-700 text-white text-[11px] font-extrabold flex items-center justify-center">C</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-white">Cobee</span>
+                  <span className="text-[8px] font-extrabold tracking-wider px-1.5 py-0.5 rounded-full bg-purple-600 text-white">RESTRINGIDO</span>
+                </div>
+                <button onClick={() => setShowCobeeConfig(true)} className="p-1.5 text-purple-600 active:scale-90" aria-label="Configurar Cobee">
+                  <Settings className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: 'Comida', Icon: Utensils, saldo: totales.cobeeComida, carga: cobeeConfig?.comida, color: '#f97316' },
+                  { label: 'Transporte', Icon: Bus, saldo: totales.cobeeTransporte, carga: cobeeConfig?.transporte, color: '#0d9488' }
+                ].map(({ label, Icon, saldo, carga, color }) => (
+                  <div key={label} className="bg-white dark:bg-slate-900 rounded-md px-2.5 py-1.5">
+                    <span className="flex items-center gap-1 text-[10px] text-slate-500"><Icon className="w-3 h-3" />{label}</span>
+                    <span className="block text-xs font-bold text-slate-900 dark:text-white">{formatAmount(saldo)}€</span>
+                    <span className="block h-1 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden mt-1">
+                      <span className="block h-full rounded-full" style={{ width: `${carga > 0 ? Math.max(0, Math.min(100, (saldo / carga) * 100)) : 0}%`, backgroundColor: color }} />
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className={`grid gap-2 mt-3 ${totales.ahorroMes > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <div className="bg-green-50 dark:bg-green-900/10 px-3 py-2 rounded-lg text-center">
               <span className="text-xs font-bold text-green-600 uppercase block">Ingresos</span>
               <span className="text-xs font-bold text-green-700">+{formatAmount(totales.ingresos)}€</span>
+              {totales.ingresosCobee > 0 && <span className="block text-[10px] text-purple-600">Cobee +{formatAmount(totales.ingresosCobee)}€</span>}
             </div>
             <div className="bg-red-50 dark:bg-red-900/10 px-3 py-2 rounded-lg text-center">
               <span className="text-xs font-bold text-red-600 uppercase block">Gastos</span>
               <span className="text-xs font-bold text-red-700">-{formatAmount(totales.gastos)}€</span>
+              {totales.gastosCobee > 0 && <span className="block text-[10px] text-purple-600">Cobee {formatAmount(totales.gastosCobee)}€</span>}
             </div>
             {totales.ahorroMes > 0 && (
               <div className="bg-teal-50 dark:bg-teal-900/10 px-3 py-2 rounded-lg text-center">
@@ -519,9 +611,9 @@ const MobilePersonalAccount = () => {
                   <p className="text-sm font-semibold text-slate-800 dark:text-white truncate">{op.description || op.category || op.type}</p>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <p className="text-[11px] text-slate-400">
-                      {new Date(op.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} · {op.account_name}
+                      {new Date(op.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} · <span className={esCobee(op.account_name) ? 'text-purple-600 font-semibold' : ''}>{cuentaLabel(op.account_name)}</span>
                     </p>
-                    {(op.account_name === cuentasUsuario[0] || op.account_name === cuentasUsuario[1]) && op.type !== 'savings' && (
+                    {(op.account_name === cuentasUsuario[0] || op.account_name === cuentasUsuario[1] || esCobee(op.account_name)) && op.type !== 'savings' && (
                       <>
                         <span className="text-[11px] text-slate-300 dark:text-slate-600">•</span>
                         <span className="text-[11px] font-semibold text-slate-400">
@@ -586,7 +678,7 @@ const MobilePersonalAccount = () => {
         <form onSubmit={handleSubmit} className="space-y-5 pb-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 gap-1">
             {['ingreso','gasto','ahorro','retirada-hucha'].map(t => (
-              <button key={t} type="button" onClick={() => setFormData({...formData, tipo: t})}
+              <button key={t} type="button" onClick={() => setFormData({...formData, tipo: t, cuenta: (t === 'ahorro' || t === 'retirada-hucha') && esCobee(formData.cuenta) ? cuentasDinero[0] : formData.cuenta})}
                 className={`py-2.5 rounded-lg text-xs font-semibold transition-all text-center ${formData.tipo === t ? 'bg-white dark:bg-slate-700 text-purple-600 shadow-sm' : 'text-slate-500'}`}>
                 {t === 'retirada-hucha' ? 'Retirada' : t === 'ahorro' ? 'Ahorro' : t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
@@ -613,7 +705,9 @@ const MobilePersonalAccount = () => {
             <div>
               <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2 block">Categoría</label>
               <div className="grid grid-cols-3 gap-2">
-                {categorias.map(cat => (
+                {categorias
+                  .filter(cat => !esCobee(formData.cuenta) || CATEGORIAS_COBEE[formData.cuenta].includes(cat.nombre))
+                  .map(cat => (
                   <button key={cat.nombre} type="button" onClick={() => setFormData({...formData, categoria: cat.nombre})}
                     className={`py-2.5 rounded-xl text-[11px] font-semibold ${formData.categoria === cat.nombre ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
                     {cat.nombre}
@@ -627,14 +721,26 @@ const MobilePersonalAccount = () => {
             <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5 block">
               {formData.tipo === 'ahorro' ? 'Cuenta de origen' : 'Cuenta'}
             </label>
-            <div className="flex gap-2">
-              {cuentasUsuario.map(c => (
-                <button key={c} type="button" onClick={() => setFormData({...formData, cuenta: c})}
-                  className={`flex-1 py-3 rounded-xl text-sm font-semibold ${formData.cuenta === c ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
-                  {c}
+            <div className="flex flex-wrap gap-2">
+              {[...cuentasDinero, ...(conCobee && formData.tipo !== 'ahorro' ? CUENTAS_COBEE : [])].map(c => (
+                <button key={c} type="button" onClick={() => {
+                    const permitidas = CATEGORIAS_COBEE[c];
+                    setFormData({
+                      ...formData,
+                      cuenta: c,
+                      categoria: permitidas && !permitidas.includes(formData.categoria) ? permitidas[0] : formData.categoria
+                    });
+                  }}
+                  className={`flex-1 min-w-[30%] py-3 rounded-xl text-sm font-semibold ${formData.cuenta === c ? 'bg-purple-600 text-white' : esCobee(c) ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
+                  {cuentaLabel(c)}
                 </button>
               ))}
             </div>
+            {esCobee(formData.cuenta) && ['gasto', 'ingreso'].includes(formData.tipo) && (
+              <p className="text-[11px] text-purple-600 dark:text-purple-400 mt-2">
+                Saldo disponible: <b>{formatAmount(formData.cuenta === COBEE_COMIDA ? totales.cobeeComida : totales.cobeeTransporte)}€</b> · {formData.cuenta === COBEE_COMIDA ? 'solo Ocio / Alimentación' : 'solo Movilidad'}
+              </p>
+            )}
           </div>
           )}
           {formData.tipo === 'retirada-hucha' && (
@@ -642,7 +748,7 @@ const MobilePersonalAccount = () => {
               <div>
                 <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5 block">Origen</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {['Ahorro', ...cuentasUsuario].map(c => (
+                  {['Ahorro', ...cuentasDinero].map(c => (
                     <button key={c} type="button" onClick={() => setFormData({...formData, cuentaOrigen: c})}
                       className={`py-3 rounded-xl text-sm font-semibold transition-all ${
                         formData.cuentaOrigen === c ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
@@ -653,7 +759,7 @@ const MobilePersonalAccount = () => {
               <div>
                 <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5 block">Destino</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {cuentasUsuario.map(c => (
+                  {cuentasDinero.map(c => (
                     <button key={c} type="button" onClick={() => setFormData({...formData, cuentaDestino: c})}
                       className={`py-3 rounded-xl text-sm font-semibold transition-all ${
                         formData.cuentaDestino === c ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
@@ -670,6 +776,15 @@ const MobilePersonalAccount = () => {
           </div>
         </form>
       </MobileSheet>
+
+      {conCobee && showCobeeConfig && (
+        <CobeeConfigModal
+          config={cobeeConfig}
+          operaciones={todasLasOperaciones}
+          onClose={() => setShowCobeeConfig(false)}
+          onSaved={(cfg) => { setCobeeConfig(cfg); setShowCobeeConfig(false); cargarDatos(); }}
+        />
+      )}
 
       {/* Edit Budget Sheet - por categoría */}
       <MobileSheet isOpen={showEditBudget} onClose={() => setShowEditBudget(false)} title="Presupuesto por Categoría" fullHeight>

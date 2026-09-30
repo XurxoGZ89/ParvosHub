@@ -14,6 +14,7 @@ import Home from './components/Home';
 import UserAccount from './components/user/UserAccount';
 import ParvosAccount from './components/parvos/ParvosAccountV3';
 import ResumenAnual from './components/parvos/ResumenAnual';
+import ResumenAnualUsuario from './components/user/ResumenAnualUsuario';
 import ExpensesCalendar from './components/calendar/ExpensesCalendar';
 import MealsCalendar from './components/calendar/MealsCalendar';
 import Cromos from './components/cromos/Cromos';
@@ -54,6 +55,7 @@ function AppRoutes() {
           <Route path="calendario-gastos" element={<MobileExpensesCalendar />} />
           <Route path="calendario-comidas" element={<MobileMealsCalendar />} />
           <Route path="resumen" element={<ResumenAnual />} />
+          <Route path="user-summary" element={<ResumenAnualUsuario />} />
           <Route path="cromos" element={<Cromos mobile />} />
           <Route path="mas" element={<MobileMoreMenu />} />
           {/* Rutas antiguas redirigen */}
@@ -83,7 +85,7 @@ function AppRoutes() {
         <Route index element={<Home />} />
         <Route path="user-account" element={<UserAccount />} />
         <Route path="gastos" element={<ParvosAccount />} />
-        <Route path="user-summary" element={<div className="text-center py-12"><h2 className="text-2xl font-semibold">Resumen Anual Usuario - En desarrollo</h2></div>} />
+        <Route path="user-summary" element={<ResumenAnualUsuario />} />
         <Route path="resumen" element={<ResumenAnual />} />
         <Route path="calendario-gastos" element={<ExpensesCalendar />} />
         <Route path="calendario-comidas" element={<MealsCalendar />} />

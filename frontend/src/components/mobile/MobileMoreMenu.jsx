@@ -55,7 +55,14 @@ const MobileMoreMenu = () => {
         },
         {
           icon: BarChart3,
-          label: t('resumenAnual') || 'Resumen Anual',
+          label: 'Resumen Personal',
+          sublabel: 'Tus ingresos y gastos del año',
+          color: 'text-violet-600 bg-violet-100 dark:bg-violet-900/30',
+          action: () => navigate('/user-summary'),
+        },
+        {
+          icon: BarChart3,
+          label: 'Resumen Familiar',
           sublabel: 'Gastos familiares por categoría',
           color: 'text-purple-600 bg-purple-100 dark:bg-purple-900/30',
           action: () => navigate('/resumen'),

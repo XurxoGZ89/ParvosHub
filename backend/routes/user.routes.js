@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
+const cobeeController = require('../controllers/cobeeController');
 const { authenticateToken } = require('../middleware/auth');
 
 // Todas las rutas requieren autenticación
@@ -14,6 +15,10 @@ router.delete('/operations/:id', userController.deleteUserOperation);
 
 // Cuentas de usuario
 router.get('/accounts', userController.getUserAccounts);
+
+// Cobee (retribución flexible)
+router.get('/cobee', cobeeController.getCobeeConfig);
+router.put('/cobee', cobeeController.updateCobeeConfig);
 
 // Presupuestos de usuario
 router.get('/budgets', userController.getUserBudgets);

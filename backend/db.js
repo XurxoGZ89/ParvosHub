@@ -228,6 +228,42 @@ async function initDatabase() {
       );
     `);
     console.log('Tabla cromos_coleccion lista');
+
+    // Cobee (retribución flexible): configuración de la carga mensual por usuario
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_cobee_config (
+        user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        comida REAL NOT NULL DEFAULT 0,
+        transporte REAL NOT NULL DEFAULT 0,
+        meses JSONB NOT NULL DEFAULT '[1,1,1,1,1,1,1,1,1,1,1,1]',
+        dia_carga INTEGER NOT NULL DEFAULT 1,
+        fecha_inicio DATE NOT NULL DEFAULT date_trunc('month', CURRENT_DATE),
+        activo BOOLEAN NOT NULL DEFAULT true,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Registro de cargas Cobee ya generadas (evita duplicados y no recrea las borradas)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_cobee_cargas (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        mes TEXT NOT NULL,
+        subcuenta TEXT NOT NULL,
+        operation_id INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, mes, subcuenta)
+      );
+    `);
+
+    // Configuración inicial de Cobee para Xurxo (FC Barcelona): 220 € comida + 133 € transporte
+    await pool.query(`
+      INSERT INTO user_cobee_config (user_id, comida, transporte, meses, fecha_inicio)
+      SELECT id, 220, 133, '[1,1,1,1,1,1,0,0,1,1,1,1]'::jsonb, DATE '2026-10-01'
+      FROM users WHERE username = 'xurxo'
+      ON CONFLICT (user_id) DO NOTHING;
+    `);
+    console.log('Tablas Cobee listas');
   } catch (err) {
     console.error('Error al crear tabla:', err.message);
   }
