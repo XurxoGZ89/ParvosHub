@@ -774,6 +774,7 @@ const UserAccount = () => {
 
   const totales = calcularTotales();
   const ahorro = calcularAhorro();
+  // eslint-disable-next-line no-unused-vars
   const saldoMesAnterior = calcularSaldoMesAnterior();
   // const ingresosGastosDelMes = calcularIngresosGastosDelMes();
   const gastosPorCategoria = calcularGastosPorCategoria();
@@ -823,7 +824,6 @@ const UserAccount = () => {
         const card = 'col-span-2 lg:col-span-3 bg-white dark:bg-stone-900 p-3 lg:p-4 rounded-2xl border border-slate-200 dark:border-stone-800 shadow-sm flex flex-col';
         const eyebrow = 'text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest';
         const row = 'flex items-center justify-between text-xs';
-        const variacionSaldo = (totales.total || 0) - (saldoMesAnterior.total || 0);
         const resultadoMes = (totales.ingresos || 0) - (totales.gastos || 0) - (totales.ahorroMes || 0);
         const ahorroDelMes = (totales.ingresos || 0) - (totales.gastos || 0);
         const tasaAhorro = totales.ingresos > 0 ? (ahorroDelMes / totales.ingresos) * 100 : 0;
@@ -839,11 +839,6 @@ const UserAccount = () => {
           <p className={eyebrow}>Saldo Actual</p>
           <h2 className="text-2xl lg:text-3xl font-extrabold text-emerald-500 mt-1 tabular-nums">{formatAmount(totales.total || 0)} €</h2>
           <p className="text-[11px] text-slate-400 mt-0.5">Dinero disponible</p>
-          <div className={`flex items-center gap-1 text-xs font-semibold mt-2 ${variacionSaldo >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
-            {variacionSaldo >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-            <span>{variacionSaldo >= 0 ? '+' : ''}{formatAmount(variacionSaldo)} €</span>
-            <span className="font-normal text-slate-400">vs {saldoMesAnterior.nombreMes.toLowerCase()} ({formatAmount(saldoMesAnterior.total || 0)} €)</span>
-          </div>
           <div className="mt-auto pt-3 space-y-1.5">
             <div className="border-t border-slate-100 dark:border-stone-800" />
             <div className={row}>
