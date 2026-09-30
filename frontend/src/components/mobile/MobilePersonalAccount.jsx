@@ -386,6 +386,16 @@ const MobilePersonalAccount = () => {
               </p>
             );
           })()}
+          {(() => {
+            const huchaTotal = todasLasOperaciones
+              .filter(op => op.account_name === 'Ahorro' && ['hucha', 'savings', 'retirada-hucha', 'savings_withdrawal'].includes(op.type))
+              .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
+            return (
+              <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 mt-0.5">
+                Patrimonio neto (dinero + hucha): {formatAmount(totales.total + huchaTotal)}€
+              </p>
+            );
+          })()}
           {conCobee && (
             <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 mt-0.5">
               + {formatAmount(totales.cobeeTotal)}€ en Cobee · <span className="text-slate-700 dark:text-slate-200">Total con Cobee {formatAmount(totales.total + totales.cobeeTotal)}€</span>

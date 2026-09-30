@@ -827,6 +827,11 @@ const UserAccount = () => {
         const resultadoMes = (totales.ingresos || 0) - (totales.gastos || 0) - (totales.ahorroMes || 0);
         const ahorroDelMes = (totales.ingresos || 0) - (totales.gastos || 0);
         const tasaAhorro = totales.ingresos > 0 ? (ahorroDelMes / totales.ingresos) * 100 : 0;
+        // Hucha total (todas las operaciones de la cuenta Ahorro) y patrimonio neto = dinero + hucha
+        const huchaTotal = todasLasOperaciones
+          .filter(op => op.account_name === 'Ahorro' && ['hucha', 'savings', 'retirada-hucha', 'savings_withdrawal'].includes(op.type))
+          .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
+        const patrimonio = (totales.total || 0) + huchaTotal;
         return (
       <div className="grid grid-cols-2 lg:grid-cols-12 gap-3 lg:gap-6 p-4 lg:p-0">
         {/* Card 1: Saldo actual (dinero) + total con Cobee */}
@@ -839,19 +844,30 @@ const UserAccount = () => {
             <span>{variacionSaldo >= 0 ? '+' : ''}{formatAmount(variacionSaldo)} €</span>
             <span className="font-normal text-slate-400">vs {saldoMesAnterior.nombreMes.toLowerCase()} ({formatAmount(saldoMesAnterior.total || 0)} €)</span>
           </div>
+          <div className="mt-auto pt-3 space-y-1.5">
+            <div className="border-t border-slate-100 dark:border-stone-800" />
+            <div className={row}>
+              <span className="text-slate-500 dark:text-slate-400">+ Hucha</span>
+              <span className="text-slate-600 dark:text-slate-300 tabular-nums">{formatAmount(huchaTotal)} €</span>
+            </div>
+            <div className={row}>
+              <span className="font-bold text-slate-700 dark:text-slate-200">Patrimonio neto</span>
+              <span className="text-sm font-extrabold text-slate-900 dark:text-white tabular-nums">{formatAmount(patrimonio)} €</span>
+            </div>
           {conCobee && (
-            <div className="mt-auto pt-3 space-y-1.5">
-              <div className="border-t border-slate-100 dark:border-stone-800" />
+            <div className="space-y-1.5 pt-1.5">
+              <div className="border-t border-dashed border-slate-100 dark:border-stone-800" />
               <div className={row}>
                 <span className="text-purple-600 dark:text-purple-400 font-semibold">+ Cobee disponible</span>
                 <span className="text-purple-600 dark:text-purple-400 font-semibold tabular-nums">{formatAmount(totales.cobeeTotal || 0)} €</span>
               </div>
               <div className={row}>
-                <span className="font-bold text-slate-700 dark:text-slate-200">Total con Cobee</span>
-                <span className="text-sm font-extrabold text-slate-900 dark:text-white tabular-nums">{formatAmount((totales.total || 0) + (totales.cobeeTotal || 0))} €</span>
+                <span className="text-slate-600 dark:text-slate-300">Dinero + Cobee</span>
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 tabular-nums">{formatAmount((totales.total || 0) + (totales.cobeeTotal || 0))} €</span>
               </div>
             </div>
           )}
+          </div>
         </div>
 
         {/* Card 2: Cuentas */}
