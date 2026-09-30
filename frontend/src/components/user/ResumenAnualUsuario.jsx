@@ -300,7 +300,7 @@ const ResumenAnualUsuario = () => {
             <div className="grid grid-cols-3 gap-3 flex-1 text-sm">
               <div><p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Cargado</p><p className="font-extrabold">{money(totalIngresosCobee)} €</p></div>
               <div><p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Usado</p><p className="font-extrabold">{money(totalGastosCobee)} €</p></div>
-              <div><p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Sin usar</p><p className="font-extrabold text-purple-600">{money(totalIngresosCobee - totalGastosCobee)} €</p></div>
+              <div><p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">No usado (se pierde)</p><p className="font-extrabold text-purple-600">{money(totalIngresosCobee - totalGastosCobee)} €</p></div>
             </div>
             <div className="lg:w-56">
               <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1">

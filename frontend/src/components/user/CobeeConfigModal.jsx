@@ -1,7 +1,15 @@
 import React, { useMemo, useState } from 'react';
 import { X, Utensils, Bus, Lightbulb } from 'lucide-react';
 import api from '../../lib/api';
-import { COBEE_COMIDA, COBEE_TRANSPORTE } from '../../config/cuentasPersonales';
+import {
+  COBEE_COMIDA,
+  COBEE_TRANSPORTE,
+  DIA_CARGA_COBEE,
+  periodoCobee,
+  resumenCobeePeriodo,
+  fechaCorta,
+  hoyISO
+} from '../../config/cuentasPersonales';
 import { usePrivacyFormatter } from '../../utils/privacyFormatter';
 
 const MESES_CORTOS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -21,6 +29,10 @@ const CobeeConfigModal = ({ config, operaciones = [], onClose, onSaved }) => {
   const [transporte, setTransporte] = useState(config?.transporte ?? 0);
   const [meses, setMeses] = useState(config?.meses ?? [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
   const [fechaInicio, setFechaInicio] = useState(config?.fecha_inicio ?? mesActualKey());
+  const [diaCarga, setDiaCarga] = useState(config?.dia_carga ?? DIA_CARGA_COBEE);
+  // Ajuste opcional al saldo real que marca la app de Cobee
+  const [saldoRealComida, setSaldoRealComida] = useState('');
+  const [saldoRealTransporte, setSaldoRealTransporte] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
 
@@ -34,16 +46,40 @@ const CobeeConfigModal = ({ config, operaciones = [], onClose, onSaved }) => {
       operaciones
         .filter(op => op.account_name === cuenta && (op.type === 'gasto' || op.type === 'expense'))
         .forEach(op => {
-          const key = String(op.date).slice(0, 7);
+          const key = periodoCobee(op.date, parseInt(diaCarga, 10) || DIA_CARGA_COBEE).inicio;
           porMes[key] = (porMes[key] || 0) + parseFloat(op.amount || 0);
         });
       const valores = Object.values(porMes);
       return valores.length ? valores.reduce((a, b) => a + b, 0) / valores.length : null;
     };
     return { comida: calc(COBEE_COMIDA), transporte: calc(COBEE_TRANSPORTE) };
-  }, [operaciones]);
+  }, [operaciones, diaCarga]);
 
   const sobranteTransporte = usoMedio.transporte !== null ? (parseFloat(transporte) || 0) - usoMedio.transporte : null;
+
+  const dia = parseInt(diaCarga, 10) || DIA_CARGA_COBEE;
+  const periodoHoy = periodoCobee(new Date(), dia);
+  const saldoApp = {
+    comida: resumenCobeePeriodo(operaciones, COBEE_COMIDA, new Date(), dia).saldo,
+    transporte: resumenCobeePeriodo(operaciones, COBEE_TRANSPORTE, new Date(), dia).saldo
+  };
+
+  // Crea un movimiento de ajuste para que el saldo del periodo coincida con el real
+  const ajustarSaldo = async (cuenta, saldoActual, saldoReal, categoria) => {
+    if (saldoReal === '' || saldoReal === null) return;
+    const real = parseFloat(String(saldoReal).replace(',', '.'));
+    if (isNaN(real)) return;
+    const diferencia = Math.round((real - saldoActual) * 100) / 100;
+    if (Math.abs(diferencia) < 0.005) return;
+    await api.post('/api/user/operations', {
+      account_name: cuenta,
+      date: hoyISO(),
+      type: diferencia < 0 ? 'expense' : 'income',
+      amount: Math.abs(diferencia),
+      description: 'Ajuste saldo Cobee',
+      category: diferencia < 0 ? categoria : ''
+    });
+  };
 
   const guardar = async () => {
     setError('');
@@ -54,8 +90,16 @@ const CobeeConfigModal = ({ config, operaciones = [], onClose, onSaved }) => {
         transporte: parseFloat(transporte) || 0,
         meses,
         fecha_inicio: fechaInicio,
+        dia_carga: dia,
         activo: true
       });
+      // Recalcular saldos con las cargas que se acaban de generar antes de ajustar
+      if (saldoRealComida !== '' || saldoRealTransporte !== '') {
+        const opsRes = await api.get('/api/user/operations');
+        const ops = (opsRes.data || []).map(op => ({ ...op, type: op.type === 'expense' ? 'gasto' : op.type }));
+        await ajustarSaldo(COBEE_COMIDA, resumenCobeePeriodo(ops, COBEE_COMIDA, new Date(), dia).saldo, saldoRealComida, 'Ocio');
+        await ajustarSaldo(COBEE_TRANSPORTE, resumenCobeePeriodo(ops, COBEE_TRANSPORTE, new Date(), dia).saldo, saldoRealTransporte, 'Movilidad');
+      }
       onSaved(res.data);
     } catch (e) {
       setError(e.response?.data?.error || 'No se pudo guardar la configuración');
@@ -76,7 +120,7 @@ const CobeeConfigModal = ({ config, operaciones = [], onClose, onSaved }) => {
         <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-stone-800">
           <div>
             <h2 className="text-xl font-bold">Cobee · carga mensual</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Se registra sola como ingreso el día 1 de cada mes marcado.</p>
+            <p className="text-xs text-slate-500 mt-0.5">Se registra sola como ingreso el día {dia} de cada mes marcado. Lo que no se usa en el periodo se pierde.</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-stone-800 rounded-lg">
             <X className="w-5 h-5" />
@@ -95,6 +139,7 @@ const CobeeConfigModal = ({ config, operaciones = [], onClose, onSaved }) => {
             <div>
               <label className={labelCls}><Bus className="w-3 h-3 inline mr-1" />Transporte (€/mes)</label>
               <input type="number" step="0.01" min="0" value={transporte} onChange={(e) => setTransporte(e.target.value)} className={inputCls} />
+              <p className="text-[11px] text-slate-400 mt-1">Lo que cuentas como ingreso (p. ej. 2 T-usual = 45,60 €), aunque Cobee cargue más.</p>
               {usoMedio.transporte !== null && (
                 <p className="text-[11px] text-slate-400 mt-1">Uso medio: {formatAmount(usoMedio.transporte)} €/mes</p>
               )}
@@ -122,10 +167,33 @@ const CobeeConfigModal = ({ config, operaciones = [], onClose, onSaved }) => {
             <p className="text-[11px] text-slate-400 mt-1.5">Desmarca los meses sin carga (vacaciones). {numMeses} meses marcados.</p>
           </div>
 
-          <div>
-            <label className={labelCls}>Primer mes de carga</label>
-            <input type="month" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} className={inputCls} />
-            <p className="text-[11px] text-slate-400 mt-1">Se crean las cargas desde este mes hasta hoy (las que falten).</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Día de carga</label>
+              <input type="number" min="1" max="28" value={diaCarga} onChange={(e) => setDiaCarga(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Primer mes</label>
+              <input type="month" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} className={inputCls} />
+            </div>
+          </div>
+          <p className="text-[11px] text-slate-400 -mt-2">
+            Periodo actual: {fechaCorta(periodoHoy.inicio)} – {fechaCorta(periodoHoy.fin)}. Se crean las cargas que falten desde el primer mes hasta hoy.
+          </p>
+
+          <div className="rounded-xl border border-purple-100 dark:border-purple-800/40 p-3 space-y-2">
+            <p className="text-xs font-bold text-slate-600 dark:text-slate-300">Ajustar al saldo real de la app de Cobee (opcional)</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] text-slate-500 block mb-1">Comida real hoy (ParvosHub: {formatAmount(saldoApp.comida)} €)</label>
+                <input type="text" inputMode="decimal" placeholder="p. ej. 69,70" value={saldoRealComida} onChange={(e) => setSaldoRealComida(e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className="text-[11px] text-slate-500 block mb-1">Transporte real hoy (ParvosHub: {formatAmount(saldoApp.transporte)} €)</label>
+                <input type="text" inputMode="decimal" placeholder="—" value={saldoRealTransporte} onChange={(e) => setSaldoRealTransporte(e.target.value)} className={inputCls} />
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-400">Se crea un movimiento «Ajuste saldo Cobee» por la diferencia (gasto en Ocio o Movilidad si tienes menos).</p>
           </div>
 
           <div className="rounded-xl bg-slate-50 dark:bg-stone-800 p-3 space-y-1 text-sm">

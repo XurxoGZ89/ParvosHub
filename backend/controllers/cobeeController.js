@@ -4,7 +4,9 @@ const db = require('../db');
  * Cobee (retribución flexible)
  * - Dos subcuentas de saldo restringido: "Cobee Comida" y "Cobee Transporte".
  * - La carga mensual se registra automáticamente como ingreso en cada subcuenta
- *   los meses marcados en la configuración.
+ *   el día de carga (por defecto el 15) de los meses marcados.
+ * - El periodo va del día de carga al día anterior del mes siguiente; el saldo
+ *   que no se usa se pierde (el saldo se calcula por periodo en el frontend).
  * - Cada carga generada se anota en user_cobee_cargas para no duplicarla y para
  *   no volver a crearla si el usuario la borra a mano.
  */
@@ -130,26 +132,31 @@ exports.updateCobeeConfig = async (req, res) => {
     const meses = parseMeses(req.body.meses);
     const activo = req.body.activo !== false;
     const fechaInicio = req.body.fecha_inicio;
+    const diaCarga = parseInt(req.body.dia_carga, 10) || 15;
 
     if (isNaN(comida) || comida < 0 || isNaN(transporte) || transporte < 0) {
       return res.status(400).json({ error: 'Los importes deben ser números positivos' });
+    }
+    if (diaCarga < 1 || diaCarga > 28) {
+      return res.status(400).json({ error: 'El día de carga debe estar entre 1 y 28' });
     }
     if (!/^\d{4}-\d{2}$/.test(fechaInicio || '')) {
       return res.status(400).json({ error: 'fecha_inicio debe tener formato YYYY-MM' });
     }
 
     const result = await db.query(
-      `INSERT INTO user_cobee_config (user_id, comida, transporte, meses, fecha_inicio, activo, updated_at)
-       VALUES ($1, $2, $3, $4::jsonb, $5, $6, CURRENT_TIMESTAMP)
+      `INSERT INTO user_cobee_config (user_id, comida, transporte, meses, fecha_inicio, activo, dia_carga, updated_at)
+       VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, CURRENT_TIMESTAMP)
        ON CONFLICT (user_id) DO UPDATE SET
          comida = EXCLUDED.comida,
          transporte = EXCLUDED.transporte,
          meses = EXCLUDED.meses,
          fecha_inicio = EXCLUDED.fecha_inicio,
          activo = EXCLUDED.activo,
+         dia_carga = EXCLUDED.dia_carga,
          updated_at = CURRENT_TIMESTAMP
        RETURNING *`,
-      [userId, comida, transporte, JSON.stringify(meses), `${fechaInicio}-01`, activo]
+      [userId, comida, transporte, JSON.stringify(meses), `${fechaInicio}-01`, activo, diaCarga]
     );
 
     await ensureCobeeLoads(userId);

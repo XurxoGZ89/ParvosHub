@@ -256,13 +256,44 @@ async function initDatabase() {
       );
     `);
 
-    // Configuración inicial de Cobee para Xurxo (FC Barcelona): 220 € comida + 133 € transporte
+    // Configuración inicial de Cobee para Xurxo (FC Barcelona):
+    // carga el día 15 · 220 € comida · transporte contado como 2 T-usual (2 x 22,80 €)
     await pool.query(`
-      INSERT INTO user_cobee_config (user_id, comida, transporte, meses, fecha_inicio)
-      SELECT id, 220, 133, '[1,1,1,1,1,1,0,0,1,1,1,1]'::jsonb, DATE '2026-10-01'
+      INSERT INTO user_cobee_config (user_id, comida, transporte, meses, dia_carga, fecha_inicio)
+      SELECT id, 220, 45.60, '[1,1,1,1,1,1,0,0,1,1,1,1]'::jsonb, 15, DATE '2026-09-01'
       FROM users WHERE username = 'xurxo'
       ON CONFLICT (user_id) DO NOTHING;
     `);
+
+    // Migración única: periodo Cobee del 15 al 14 (antes se cargaba el día 1)
+    await pool.query(`ALTER TABLE user_cobee_config ADD COLUMN IF NOT EXISTS periodo_v2 BOOLEAN NOT NULL DEFAULT false;`);
+    const pendientes = await pool.query(`
+      SELECT c.user_id, c.transporte, c.fecha_inicio
+      FROM user_cobee_config c JOIN users u ON u.id = c.user_id
+      WHERE u.username = 'xurxo' AND c.periodo_v2 = false AND c.dia_carga = 1
+    `);
+    for (const row of pendientes.rows) {
+      // Quitar cargas automáticas creadas con el día 1 para regenerarlas el día 15
+      await pool.query(
+        `DELETE FROM user_operations WHERE id IN (
+           SELECT operation_id FROM user_cobee_cargas WHERE user_id = $1 AND operation_id IS NOT NULL
+         )`,
+        [row.user_id]
+      );
+      await pool.query('DELETE FROM user_cobee_cargas WHERE user_id = $1', [row.user_id]);
+      await pool.query(
+        `UPDATE user_cobee_config SET
+           dia_carga = 15,
+           transporte = CASE WHEN transporte = 133 THEN 45.60 ELSE transporte END,
+           fecha_inicio = CASE WHEN fecha_inicio = DATE '2026-10-01' THEN DATE '2026-09-01' ELSE fecha_inicio END,
+           periodo_v2 = true,
+           updated_at = CURRENT_TIMESTAMP
+         WHERE user_id = $1`,
+        [row.user_id]
+      );
+      console.log('Cobee: configuración migrada a periodo 15→14');
+    }
+    await pool.query(`UPDATE user_cobee_config SET periodo_v2 = true WHERE periodo_v2 = false AND dia_carga <> 1`);
     console.log('Tablas Cobee listas');
   } catch (err) {
     console.error('Error al crear tabla:', err.message);

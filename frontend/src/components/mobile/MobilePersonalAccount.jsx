@@ -17,7 +17,11 @@ import {
   tieneCobee,
   getCuentasSaldo,
   getCuentasDinero,
-  calcularSaldoCuenta
+  DIA_CARGA_COBEE,
+  periodoCobee,
+  resumenCobeePeriodo,
+  diasRestantesPeriodo,
+  fechaCorta
 } from '../../config/cuentasPersonales';
 
 const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
@@ -72,6 +76,7 @@ const MobilePersonalAccount = () => {
   const navigate = useNavigate();
   const [cobeeConfig, setCobeeConfig] = useState(null);
   const [showCobeeConfig, setShowCobeeConfig] = useState(false);
+  const diaCarga = cobeeConfig?.dia_carga || DIA_CARGA_COBEE;
 
   const [formData, setFormData] = useState({
     fecha: new Date().toISOString().split('T')[0], tipo: 'gasto', cantidad: '',
@@ -137,11 +142,13 @@ const MobilePersonalAccount = () => {
       .reduce((s, op) => s + parseFloat(op.amount || 0), 0);
     const gastos = operacionesDelMes.filter(op => op.type === 'gasto').reduce((s, op) => s + parseFloat(op.amount || 0), 0);
     const ahorroMes = operacionesDelMes.filter(op => (op.type === 'hucha' || op.type === 'savings') && (op.account_name === 'Ahorro' || op.account_name === null)).reduce((s, op) => s + parseFloat(op.amount || 0), 0);
-    const cobeeComida = calcularSaldoCuenta(todasLasOperaciones, COBEE_COMIDA);
-    const cobeeTransporte = calcularSaldoCuenta(todasLasOperaciones, COBEE_TRANSPORTE);
+    const periodoComida = resumenCobeePeriodo(todasLasOperaciones, COBEE_COMIDA, new Date(), diaCarga);
+    const periodoTransporte = resumenCobeePeriodo(todasLasOperaciones, COBEE_TRANSPORTE, new Date(), diaCarga);
+    const cobeeComida = periodoComida.saldo;
+    const cobeeTransporte = periodoTransporte.saldo;
     const ingresosCobee = operacionesDelMes.filter(op => op.type === 'ingreso' && esCobee(op.account_name)).reduce((s, op) => s + parseFloat(op.amount || 0), 0);
     const gastosCobee = operacionesDelMes.filter(op => op.type === 'gasto' && esCobee(op.account_name)).reduce((s, op) => s + parseFloat(op.amount || 0), 0);
-    return { cuenta1: c1, cuenta2: c2, total: c1 + c2, ingresos, gastos, ahorroMes, cobeeComida, cobeeTransporte, cobeeTotal: cobeeComida + cobeeTransporte, ingresosCobee, gastosCobee };
+    return { cuenta1: c1, cuenta2: c2, total: c1 + c2, ingresos, gastos, ahorroMes, cobeeComida, cobeeTransporte, periodoComida, periodoTransporte, cobeeTotal: cobeeComida + cobeeTransporte, ingresosCobee, gastosCobee };
   };
 
   // Ahorro
@@ -188,7 +195,7 @@ const MobilePersonalAccount = () => {
     const saldos = {};
     let saldoCuenta1 = 0;
     let saldoCuenta2 = 0;
-    const saldosCobee = { [COBEE_COMIDA]: 0, [COBEE_TRANSPORTE]: 0 };
+    const saldosCobee = {}; // por subcuenta y periodo (lo no usado se pierde)
     
     opsOrdenadas.forEach(op => {
       if (op.account_name === cuentasUsuario[0] && op.type !== 'savings') {
@@ -204,7 +211,8 @@ const MobilePersonalAccount = () => {
           saldoCuenta2 += parseFloat(op.amount || 0);
         }
       } else if (esCobee(op.account_name)) {
-        saldosCobee[op.account_name] += (op.type === 'gasto' ? -1 : 1) * parseFloat(op.amount || 0);
+        const clave = `${op.account_name}|${periodoCobee(op.date, diaCarga).inicio}`;
+        saldosCobee[clave] = (saldosCobee[clave] || 0) + (op.type === 'gasto' ? -1 : 1) * parseFloat(op.amount || 0);
       }
       
       saldos[op.id] = {
@@ -213,7 +221,7 @@ const MobilePersonalAccount = () => {
         total: saldoCuenta1 + saldoCuenta2,
         cuenta: op.account_name === cuentasUsuario[0] ? saldoCuenta1
           : op.account_name === cuentasUsuario[1] ? saldoCuenta2
-          : esCobee(op.account_name) ? saldosCobee[op.account_name] : 0
+          : esCobee(op.account_name) ? saldosCobee[`${op.account_name}|${periodoCobee(op.date, diaCarga).inicio}`] : 0
       };
     });
     
@@ -234,7 +242,7 @@ const MobilePersonalAccount = () => {
       return;
     }
     if (esCobee(formData.cuenta) && formData.tipo === 'gasto') {
-      const saldo = (formData.cuenta === COBEE_COMIDA ? totales.cobeeComida : totales.cobeeTransporte)
+      const saldo = resumenCobeePeriodo(todasLasOperaciones, formData.cuenta, formData.fecha, diaCarga).saldo
         + (editingOperacion?.id && editingOperacion.account_name === formData.cuenta ? parseFloat(editingOperacion.amount || 0) : 0);
       if ((parseFloat(formData.cantidad) || 0) > saldo + 0.005) {
         setToast(`Saldo Cobee insuficiente (${formatAmount(saldo)}€)`); setTimeout(() => setToast(null), 3500);
@@ -405,18 +413,21 @@ const MobilePersonalAccount = () => {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { label: 'Comida', Icon: Utensils, saldo: totales.cobeeComida, carga: cobeeConfig?.comida, color: '#f97316' },
-                  { label: 'Transporte', Icon: Bus, saldo: totales.cobeeTransporte, carga: cobeeConfig?.transporte, color: '#0d9488' }
+                  { label: 'Comida', Icon: Utensils, saldo: totales.cobeeComida, carga: totales.periodoComida.cargado, color: '#f97316' },
+                  { label: 'Transporte', Icon: Bus, saldo: totales.cobeeTransporte, carga: totales.periodoTransporte.cargado, color: '#0d9488' }
                 ].map(({ label, Icon, saldo, carga, color }) => (
                   <div key={label} className="bg-white dark:bg-slate-900 rounded-md px-2.5 py-1.5">
                     <span className="flex items-center gap-1 text-[10px] text-slate-500"><Icon className="w-3 h-3" />{label}</span>
-                    <span className="block text-xs font-bold text-slate-900 dark:text-white">{formatAmount(saldo)}€</span>
+                    <span className="block text-xs font-bold text-slate-900 dark:text-white">{formatAmount(saldo)}€ <span className="font-normal text-[10px] text-slate-400">de {formatAmount(carga)}€</span></span>
                     <span className="block h-1 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden mt-1">
                       <span className="block h-full rounded-full" style={{ width: `${carga > 0 ? Math.max(0, Math.min(100, (saldo / carga) * 100)) : 0}%`, backgroundColor: color }} />
                     </span>
                   </div>
                 ))}
               </div>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5">
+                Periodo {fechaCorta(totales.periodoComida.inicio)} – {fechaCorta(totales.periodoComida.fin)} · quedan {diasRestantesPeriodo(totales.periodoComida)} días · lo no usado se pierde
+              </p>
             </div>
           )}
           <div className={`grid gap-2 mt-3 ${totales.ahorroMes > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
@@ -738,7 +749,7 @@ const MobilePersonalAccount = () => {
             </div>
             {esCobee(formData.cuenta) && ['gasto', 'ingreso'].includes(formData.tipo) && (
               <p className="text-[11px] text-purple-600 dark:text-purple-400 mt-2">
-                Saldo disponible: <b>{formatAmount(formData.cuenta === COBEE_COMIDA ? totales.cobeeComida : totales.cobeeTransporte)}€</b> · {formData.cuenta === COBEE_COMIDA ? 'solo Ocio / Alimentación' : 'solo Movilidad'}
+                Saldo disponible: <b>{formatAmount(resumenCobeePeriodo(todasLasOperaciones, formData.cuenta, formData.fecha, diaCarga).saldo)}€</b> (hasta el {fechaCorta(periodoCobee(formData.fecha, diaCarga).fin)}) · {formData.cuenta === COBEE_COMIDA ? 'solo Ocio / Alimentación' : 'solo Movilidad'}
               </p>
             )}
           </div>
