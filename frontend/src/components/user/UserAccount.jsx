@@ -53,6 +53,7 @@ import {
   fechaCorta
 } from '../../config/cuentasPersonales';
 import CobeeConfigModal from './CobeeConfigModal';
+import { getMesRecordado, guardarMesRecordado } from '../../utils/mesRecordado';
 
 const meses = [
   'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
@@ -69,11 +70,10 @@ const UserAccount = () => {
     cuenta: 'todas'
   });
   
-  const mesActual = new Date().getMonth();
-  const añoActual = new Date().getFullYear();
 
-  const [mesSeleccionado, setMesSeleccionado] = useState(meses[mesActual]);
-  const [añoSeleccionado, setAñoSeleccionado] = useState(añoActual);
+  const [mesSeleccionado, setMesSeleccionado] = useState(() => meses[getMesRecordado().mesIdx]);
+  const [añoSeleccionado, setAñoSeleccionado] = useState(() => getMesRecordado().año);
+  useEffect(() => { guardarMesRecordado(meses.indexOf(mesSeleccionado), añoSeleccionado); }, [mesSeleccionado, añoSeleccionado]);
   const [paginaActual, setPaginaActual] = useState(0);
   const [itemsPorPagina, setItemsPorPagina] = useState(10);
   const [busqueda, setBusqueda] = useState('');
@@ -813,52 +813,75 @@ const UserAccount = () => {
       </div>
 
       {/* Tarjetas de Balance */}
+      {(() => {
+        const card = 'col-span-2 lg:col-span-3 bg-white dark:bg-stone-900 p-3 lg:p-4 rounded-2xl border border-slate-200 dark:border-stone-800 shadow-sm flex flex-col';
+        const eyebrow = 'text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest';
+        const row = 'flex items-center justify-between text-xs';
+        const variacionSaldo = (totales.total || 0) - (saldoMesAnterior.total || 0);
+        const resultadoMes = (totales.ingresos || 0) - (totales.gastos || 0) - (totales.ahorroMes || 0);
+        const ahorroDelMes = (totales.ingresos || 0) - (totales.gastos || 0);
+        const tasaAhorro = totales.ingresos > 0 ? (ahorroDelMes / totales.ingresos) * 100 : 0;
+        return (
       <div className="grid grid-cols-2 lg:grid-cols-12 gap-3 lg:gap-6 p-4 lg:p-0">
-        {/* Saldo Actual */}
-        <div className="col-span-2 lg:col-span-3 bg-white dark:bg-stone-900 p-2.5 lg:p-3 rounded-2xl lg:rounded-3xl border border-slate-200 dark:border-stone-800 shadow-sm flex flex-col justify-between">
-          <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Saldo Actual</p>
-          <h2 className="text-xl lg:text-4xl font-extrabold text-emerald-500">{formatAmount(totales.total || 0)} €</h2>
-          <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
-            {formatAmount(saldoMesAnterior.total || 0)} € de {saldoMesAnterior.nombreMes}
-          </p>
+        {/* Card 1: Saldo actual (dinero) + total con Cobee */}
+        <div className={card}>
+          <p className={eyebrow}>Saldo Actual</p>
+          <h2 className="text-2xl lg:text-3xl font-extrabold text-emerald-500 mt-1 tabular-nums">{formatAmount(totales.total || 0)} €</h2>
+          <p className="text-[11px] text-slate-400 mt-0.5">Dinero disponible</p>
+          <div className={`flex items-center gap-1 text-xs font-semibold mt-2 ${variacionSaldo >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
+            {variacionSaldo >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+            <span>{variacionSaldo >= 0 ? '+' : ''}{formatAmount(variacionSaldo)} €</span>
+            <span className="font-normal text-slate-400">vs {saldoMesAnterior.nombreMes.toLowerCase()} ({formatAmount(saldoMesAnterior.total || 0)} €)</span>
+          </div>
           {conCobee && (
-            <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 mt-1">
-              + {formatAmount(totales.cobeeTotal || 0)} € en Cobee <span className="font-normal text-slate-400">(no incluido)</span>
-            </p>
+            <div className="mt-auto pt-3 space-y-1.5">
+              <div className="border-t border-slate-100 dark:border-stone-800" />
+              <div className={row}>
+                <span className="text-purple-600 dark:text-purple-400 font-semibold">+ Cobee disponible</span>
+                <span className="text-purple-600 dark:text-purple-400 font-semibold tabular-nums">{formatAmount(totales.cobeeTotal || 0)} €</span>
+              </div>
+              <div className={row}>
+                <span className="font-bold text-slate-700 dark:text-slate-200">Total con Cobee</span>
+                <span className="text-sm font-extrabold text-slate-900 dark:text-white tabular-nums">{formatAmount((totales.total || 0) + (totales.cobeeTotal || 0))} €</span>
+              </div>
+            </div>
           )}
         </div>
 
         {/* Card 2: Cuentas */}
-        <div className="col-span-2 lg:col-span-3 bg-white dark:bg-stone-900 p-2.5 lg:p-3 rounded-2xl border border-slate-200 dark:border-stone-800 shadow-sm">
-          <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Cuentas</p>
-          <div className="space-y-1.5">
+        <div className={card}>
+          <p className={`${eyebrow} mb-2`}>Cuentas</p>
+          <div className="space-y-2 flex-1 flex flex-col">
             {/* Cuenta Principal */}
             <div className="flex items-center justify-between">
-              {user?.username === 'xurxo' ? (
-                <img src={santanderLogo} alt="Santander" className="w-12 h-12 lg:w-14 lg:h-14 object-contain" />
-              ) : (
-                <img src={bbvaLogo} alt="BBVA" className="w-12 h-12 lg:w-14 lg:h-14 object-contain" />
-              )}
-              <h3 className="text-base lg:text-lg font-bold">{formatAmount(totales.cuenta1 || 0)} €</h3>
+              <div className="flex items-center gap-2">
+                {user?.username === 'xurxo' ? (
+                  <img src={santanderLogo} alt="Santander" className="w-8 h-8 object-contain" />
+                ) : (
+                  <img src={bbvaLogo} alt="BBVA" className="w-8 h-8 object-contain" />
+                )}
+                <span className="text-xs font-semibold text-slate-500">{cuentasUsuario[0]}</span>
+              </div>
+              <h3 className="text-base lg:text-lg font-bold tabular-nums">{formatAmount(totales.cuenta1 || 0)} €</h3>
             </div>
             {/* Segunda Cuenta (Sonia: Virtual). Para Xurxo, Prepago ya no se usa: solo se muestra si le queda saldo */}
             {(!conCobee || Math.abs(totales.cuenta2 || 0) > 0.005) && (
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-12 h-12 lg:w-14 lg:h-14 bg-purple-50 dark:bg-purple-900/20 rounded-xl flex items-center justify-center border border-purple-100 dark:border-purple-800/30">
-                    <CreditCard className="w-6 h-6 lg:w-7 lg:h-7 text-purple-600" />
+                  <div className="w-8 h-8 bg-purple-50 dark:bg-purple-900/20 rounded-lg flex items-center justify-center border border-purple-100 dark:border-purple-800/30">
+                    <CreditCard className="w-4 h-4 text-purple-600" />
                   </div>
-                  {conCobee && <span className="text-[10px] text-slate-400">{cuentasUsuario[1]} (sin uso)</span>}
+                  <span className="text-xs font-semibold text-slate-500">{cuentasUsuario[1]}{conCobee ? ' (sin uso)' : ''}</span>
                 </div>
-                <h3 className="text-base lg:text-lg font-bold">{formatAmount(totales.cuenta2 || 0)} €</h3>
+                <h3 className="text-base lg:text-lg font-bold tabular-nums">{formatAmount(totales.cuenta2 || 0)} €</h3>
               </div>
             )}
             {/* Cobee: saldo restringido */}
             {conCobee && (
-              <div className="rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800/30 p-2">
+              <div className="mt-auto rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800/30 p-2">
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500 to-violet-700 text-white text-xs font-extrabold flex items-center justify-center">C</div>
+                    <div className="w-6 h-6 rounded-md bg-gradient-to-br from-purple-500 to-violet-700 text-white text-[11px] font-extrabold flex items-center justify-center">C</div>
                     <span className="text-sm font-bold">Cobee</span>
                     <span className="text-[8px] font-extrabold tracking-wider px-1.5 py-0.5 rounded-full bg-purple-600 text-white">RESTRINGIDO</span>
                   </div>
@@ -882,8 +905,8 @@ const UserAccount = () => {
                       title={`Ver movimientos de ${cuentaLabel(cuenta)}`}
                     >
                       <span className="flex items-center gap-1 text-[10px] text-slate-500"><Icon className="w-3 h-3" />{label}</span>
-                      <span className="block text-sm font-bold">{formatAmount(saldo || 0)} €</span>
-                      <span className="block text-[9px] text-slate-400">de {formatAmount(carga || 0)} €</span>
+                      <span className="block text-sm font-bold tabular-nums whitespace-nowrap">{formatAmount(saldo || 0)} €</span>
+                      <span className="block text-[9px] text-slate-400 tabular-nums">de {formatAmount(carga || 0)} €</span>
                       <span className="block h-1 rounded-full bg-slate-100 dark:bg-stone-800 overflow-hidden mt-1">
                         <span className="block h-full rounded-full" style={{ width: `${carga > 0 ? Math.max(0, Math.min(100, (saldo / carga) * 100)) : 0}%`, backgroundColor: color }} />
                       </span>
@@ -891,65 +914,56 @@ const UserAccount = () => {
                   ))}
                 </div>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5">
-                  Periodo {fechaCorta(totales.periodoComida.inicio)} – {fechaCorta(totales.periodoComida.fin)} · quedan {diasRestantesPeriodo(totales.periodoComida)} días · lo no usado se pierde
+                  {fechaCorta(totales.periodoComida.inicio)} – {fechaCorta(totales.periodoComida.fin)} · quedan {diasRestantesPeriodo(totales.periodoComida)} días · lo no usado se pierde
                 </p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Card 3: Balance del Mes (Ingresos/Gastos/Resultado) */}
-        <div className="col-span-2 lg:col-span-3 bg-white dark:bg-stone-900 p-2.5 lg:p-3 rounded-2xl border border-slate-200 dark:border-stone-800 shadow-sm">
-          <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Balance del Mes</p>
-          <div className="space-y-1.5">
-            {/* Ingresos */}
+        {/* Card 3: Balance del Mes */}
+        <div className={card}>
+          <p className={`${eyebrow} mb-2`}>Balance del Mes</p>
+          <div className="space-y-1.5 flex-1 flex flex-col">
             <div className="flex items-center justify-between">
               <span className="text-xs lg:text-sm font-semibold text-emerald-600 dark:text-emerald-400">Ingresos</span>
-              <span className="text-sm lg:text-base font-bold text-emerald-600 dark:text-emerald-400">+{formatAmount(totales.ingresos || 0)} €</span>
+              <span className="text-sm lg:text-base font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">+{formatAmount(totales.ingresos || 0)} €</span>
             </div>
             {totales.ingresosCobee > 0 && (
               <div className="pl-2 space-y-0.5">
                 <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
                   <span>Dinero</span>
-                  <span>{formatAmount((totales.ingresos || 0) - (totales.ingresosCobee || 0))} €</span>
+                  <span className="tabular-nums">{formatAmount((totales.ingresos || 0) - (totales.ingresosCobee || 0))} €</span>
                 </div>
                 <div className="flex items-center justify-between text-[11px] text-purple-600 dark:text-purple-400 font-semibold">
                   <span>Cobee (en especie)</span>
-                  <span>+{formatAmount(totales.ingresosCobee || 0)} €</span>
+                  <span className="tabular-nums">+{formatAmount(totales.ingresosCobee || 0)} €</span>
                 </div>
               </div>
             )}
-            {/* Gastos */}
             <div className="flex items-center justify-between">
               <span className="text-xs lg:text-sm font-semibold text-red-600 dark:text-red-400">Gastos</span>
-              <span className="text-sm lg:text-base font-bold text-red-600 dark:text-red-400">-{formatAmount(totales.gastos || 0)} €</span>
+              <span className="text-sm lg:text-base font-bold text-red-600 dark:text-red-400 tabular-nums">-{formatAmount(totales.gastos || 0)} €</span>
             </div>
             {totales.gastosCobee > 0 && (
               <div className="pl-2 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
                 <span>de ellos con Cobee</span>
-                <span>{formatAmount(totales.gastosCobee || 0)} €</span>
+                <span className="tabular-nums">{formatAmount(totales.gastosCobee || 0)} €</span>
               </div>
             )}
-            {/* Ahorro */}
             {totales.ahorroMes > 0 && (
               <div className="flex items-center justify-between">
-                <span className="text-xs lg:text-sm font-semibold text-emerald-500 dark:text-emerald-400">Ahorro</span>
-                <span className="text-sm lg:text-base font-bold text-emerald-500 dark:text-emerald-400">-{formatAmount(totales.ahorroMes || 0)} €</span>
+                <span className="text-xs lg:text-sm font-semibold text-emerald-500 dark:text-emerald-400">A la hucha</span>
+                <span className="text-sm lg:text-base font-bold text-emerald-500 dark:text-emerald-400 tabular-nums">-{formatAmount(totales.ahorroMes || 0)} €</span>
               </div>
             )}
-            {/* Separador */}
-            <div className="border-t border-slate-200 dark:border-stone-700 pt-1.5">
-              {/* Resultado */}
+            <div className="mt-auto border-t border-slate-200 dark:border-stone-700 pt-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs lg:text-sm font-bold text-slate-700 dark:text-slate-300">Resultado</span>
-                <span className={`text-base lg:text-lg font-extrabold ${
-                  (totales.ingresos - totales.gastos - totales.ahorroMes) > 0 
-                    ? 'text-teal-500 dark:text-teal-400' 
-                    : (totales.ingresos - totales.gastos - totales.ahorroMes) === 0
-                    ? 'text-amber-500 dark:text-amber-400'
-                    : 'text-orange-500 dark:text-orange-400'
+                <span className={`text-base lg:text-lg font-extrabold tabular-nums ${
+                  resultadoMes > 0 ? 'text-teal-500 dark:text-teal-400' : resultadoMes === 0 ? 'text-amber-500 dark:text-amber-400' : 'text-orange-500 dark:text-orange-400'
                 }`}>
-                  {(totales.ingresos - totales.gastos - totales.ahorroMes) > 0 ? '+' : ''}{formatAmount((totales.ingresos - totales.gastos - totales.ahorroMes) || 0)} €
+                  {resultadoMes > 0 ? '+' : ''}{formatAmount(resultadoMes)} €
                 </span>
               </div>
             </div>
@@ -957,28 +971,33 @@ const UserAccount = () => {
         </div>
 
         {/* Card 4: Ahorro Total */}
-        <div className="col-span-2 lg:col-span-3 bg-gradient-to-br from-emerald-500 to-teal-600 p-2.5 lg:p-3 rounded-2xl shadow-sm flex flex-col justify-between text-white">
-          <div className="flex items-center justify-between mb-0.5">
+        <div className="col-span-2 lg:col-span-3 bg-gradient-to-br from-emerald-500 to-teal-600 p-3 lg:p-4 rounded-2xl shadow-sm flex flex-col text-white">
+          <div className="flex items-center justify-between">
             <p className="text-[9px] lg:text-[10px] font-bold uppercase tracking-widest opacity-90">Ahorro Total</p>
             <PiggyBank className="w-4 h-4 lg:w-5 lg:h-5 opacity-80" />
           </div>
-          <h3 className="text-xl lg:text-4xl font-extrabold">{formatAmount(ahorro.actual || 0)} €</h3>
-          <div className="flex items-center gap-2 text-xs">
-            {ahorro.diferencia >= 0 ? (
-              <>
-                <TrendingUp className="w-3 h-3" />
-                <span className="font-semibold">+{formatAmount(ahorro.diferencia || 0)} € ({ahorro.porcentaje.toFixed(1)}%)</span>
-              </>
-            ) : (
-              <>
-                <TrendingDown className="w-3 h-3" />
-                <span className="font-semibold">{formatAmount(ahorro.diferencia || 0)} € ({ahorro.porcentaje.toFixed(1)}%)</span>
-              </>
-            )}
-            <span className="opacity-75 hidden lg:inline">vs mes anterior</span>
+          <h3 className="text-2xl lg:text-3xl font-extrabold mt-1 tabular-nums">{formatAmount(ahorro.actual || 0)} €</h3>
+          <p className="text-[11px] opacity-80 mt-0.5">En la hucha</p>
+          <div className="flex items-center gap-1 text-xs font-semibold mt-2">
+            {ahorro.diferencia >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+            <span>{ahorro.diferencia >= 0 ? '+' : ''}{formatAmount(ahorro.diferencia || 0)} € ({ahorro.porcentaje.toFixed(1).replace('.', ',')}%)</span>
+            <span className="font-normal opacity-75">vs mes anterior</span>
+          </div>
+          <div className="mt-auto pt-3 space-y-1.5">
+            <div className="border-t border-white/25" />
+            <div className={row}>
+              <span className="opacity-90">Ahorro del mes</span>
+              <span className="font-bold tabular-nums">{ahorroDelMes >= 0 ? '+' : ''}{formatAmount(ahorroDelMes)} €</span>
+            </div>
+            <div className={row}>
+              <span className="opacity-90">Tasa de ahorro</span>
+              <span className="font-bold tabular-nums">{tasaAhorro.toFixed(1).replace('.', ',')}%</span>
+            </div>
           </div>
         </div>
       </div>
+        );
+      })()}
 
       <div className="grid grid-cols-12 gap-4 lg:gap-6 p-4 lg:p-0">
         {/* Columna Principal */}

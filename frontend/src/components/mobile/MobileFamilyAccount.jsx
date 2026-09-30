@@ -5,6 +5,7 @@ import MobileSheet from './MobileSheet';
 import api from '../../lib/api';
 import useAuthStore from '../../stores/authStore';
 import { usePrivacyFormatter } from '../../utils/privacyFormatter';
+import { getMesRecordado, guardarMesRecordado } from '../../utils/mesRecordado';
 
 const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 
@@ -29,8 +30,9 @@ const MobileFamilyAccount = () => {
   const { user } = useAuthStore();
   const formatAmount = usePrivacyFormatter();
   const [operaciones, setOperaciones] = useState([]);
-  const [mesSeleccionado, setMesSeleccionado] = useState(meses[new Date().getMonth()]);
-  const [añoSeleccionado, setAñoSeleccionado] = useState(new Date().getFullYear());
+  const [mesSeleccionado, setMesSeleccionado] = useState(() => meses[getMesRecordado().mesIdx]);
+  const [añoSeleccionado, setAñoSeleccionado] = useState(() => getMesRecordado().año);
+  useEffect(() => { guardarMesRecordado(meses.indexOf(mesSeleccionado), añoSeleccionado); }, [mesSeleccionado, añoSeleccionado]);
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [editingOperacion, setEditingOperacion] = useState(null);

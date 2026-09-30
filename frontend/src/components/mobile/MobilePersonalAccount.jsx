@@ -23,6 +23,7 @@ import {
   diasRestantesPeriodo,
   fechaCorta
 } from '../../config/cuentasPersonales';
+import { getMesRecordado, guardarMesRecordado } from '../../utils/mesRecordado';
 
 const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 
@@ -53,8 +54,9 @@ const MobilePersonalAccount = () => {
   const formatAmount = usePrivacyFormatter();
   const [operaciones, setOperaciones] = useState([]);
   const [todasLasOperaciones, setTodasLasOperaciones] = useState([]);
-  const [mesSeleccionado, setMesSeleccionado] = useState(meses[new Date().getMonth()]);
-  const [añoSeleccionado, setAñoSeleccionado] = useState(new Date().getFullYear());
+  const [mesSeleccionado, setMesSeleccionado] = useState(() => meses[getMesRecordado().mesIdx]);
+  const [añoSeleccionado, setAñoSeleccionado] = useState(() => getMesRecordado().año);
+  useEffect(() => { guardarMesRecordado(meses.indexOf(mesSeleccionado), añoSeleccionado); }, [mesSeleccionado, añoSeleccionado]);
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [editingOperacion, setEditingOperacion] = useState(null);
@@ -385,7 +387,7 @@ const MobilePersonalAccount = () => {
           })()}
           {conCobee && (
             <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 mt-0.5">
-              + {formatAmount(totales.cobeeTotal)}€ en Cobee <span className="font-normal text-slate-400">(no incluido)</span>
+              + {formatAmount(totales.cobeeTotal)}€ en Cobee · <span className="text-slate-700 dark:text-slate-200">Total con Cobee {formatAmount(totales.total + totales.cobeeTotal)}€</span>
             </p>
           )}
           <div className="grid grid-cols-2 gap-2 mt-3">

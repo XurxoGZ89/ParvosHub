@@ -15,8 +15,12 @@ export const formatAmount = (amount, hiddenNumbers) => {
     return '•••';
   }
   
-  // Cuando está visible, devolver con 2 decimales
-  return parseFloat(amount).toFixed(2);
+  // Cuando está visible: formato español con 2 decimales y separador de miles (2.293,75)
+  const num = parseFloat(amount);
+  if (isNaN(num)) return '0,00';
+  const [entero, decimales] = Math.abs(num).toFixed(2).split('.');
+  const conMiles = entero.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${num < 0 && Number(Math.abs(num).toFixed(2)) !== 0 ? '-' : ''}${conMiles},${decimales}`;
 };
 
 // Hook que retorna ambas funciones de forma simple

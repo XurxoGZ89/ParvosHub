@@ -44,6 +44,7 @@ import bbvaLogo from '../../assets/BBVA_2019.svg.png';
 import imaginLogo from '../../assets/imagin.webp';
 import { usePrivacyFormatter } from '../../utils/privacyFormatter';
 import { useCalendarEvents } from '../../contexts/CalendarEventsContext';
+import { getMesRecordado, guardarMesRecordado } from '../../utils/mesRecordado';
 
 const ParvosAccount = () => {
   const { user } = useAuthStore();
@@ -64,11 +65,10 @@ const ParvosAccount = () => {
     'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
   ];
   
-  const mesActual = new Date().getMonth();
-  const añoActual = new Date().getFullYear();
 
-  const [mesSeleccionado, setMesSeleccionado] = useState(meses[mesActual]);
-  const [añoSeleccionado, setAñoSeleccionado] = useState(añoActual);
+  const [mesSeleccionado, setMesSeleccionado] = useState(() => meses[getMesRecordado().mesIdx]);
+  const [añoSeleccionado, setAñoSeleccionado] = useState(() => getMesRecordado().año);
+  useEffect(() => { guardarMesRecordado(meses.indexOf(mesSeleccionado), añoSeleccionado); }, [mesSeleccionado, añoSeleccionado]); // eslint-disable-line react-hooks/exhaustive-deps
   const [paginaActual, setPaginaActual] = useState(0);
   const [itemsPorPagina, setItemsPorPagina] = useState(10);
   const [busqueda, setBusqueda] = useState('');
