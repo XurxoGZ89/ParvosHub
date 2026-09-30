@@ -351,7 +351,10 @@ const MobilePersonalAccount = () => {
         {/* Saldo total */}
         <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Saldo Total</p>
-          <p className="text-2xl font-extrabold text-slate-900 dark:text-white">{formatAmount(totales.total)}€</p>
+          <p className="text-2xl font-extrabold text-slate-900 dark:text-white">{formatAmount(totales.total + (conCobee ? totales.cobeeTotal : 0))}€</p>
+          {conCobee && (
+            <p className="text-[11px] text-slate-400">{cuentasUsuario[0]} {formatAmount(totales.total)}€ + <span className="text-purple-600 font-semibold">Cobee {formatAmount(totales.cobeeTotal)}€</span></p>
+          )}
           {(() => {
             const mesIdx = meses.indexOf(mesSeleccionado);
             const mesAnteriorIdx = mesIdx === 0 ? 11 : mesIdx - 1;
@@ -392,15 +395,11 @@ const MobilePersonalAccount = () => {
               .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
             return (
               <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 mt-0.5">
-                Patrimonio neto (dinero + hucha): {formatAmount(totales.total + huchaTotal)}€
+                Patrimonio neto (dinero + hucha, sin Cobee): {formatAmount(totales.total + huchaTotal)}€
               </p>
             );
           })()}
-          {conCobee && (
-            <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 mt-0.5">
-              + {formatAmount(totales.cobeeTotal)}€ en Cobee · <span className="text-slate-700 dark:text-slate-200">Total con Cobee {formatAmount(totales.total + totales.cobeeTotal)}€</span>
-            </p>
-          )}
+
           <div className="grid grid-cols-2 gap-2 mt-3">
             {cuentasUsuario
               .map((c, i) => ({ c, saldo: i === 0 ? totales.cuenta1 : totales.cuenta2, i }))

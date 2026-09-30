@@ -834,34 +834,28 @@ const UserAccount = () => {
         const patrimonio = (totales.total || 0) + huchaTotal;
         return (
       <div className="grid grid-cols-2 lg:grid-cols-12 gap-3 lg:gap-6 p-4 lg:p-0">
-        {/* Card 1: Saldo actual (dinero) + total con Cobee */}
+        {/* Card 1: Saldo actual = dinero + Cobee disponible */}
         <div className={card}>
           <p className={eyebrow}>Saldo Actual</p>
-          <h2 className="text-2xl lg:text-3xl font-extrabold text-emerald-500 mt-1 tabular-nums">{formatAmount(totales.total || 0)} €</h2>
-          <p className="text-[11px] text-slate-400 mt-0.5">Dinero disponible</p>
+          <h2 className="text-2xl lg:text-3xl font-extrabold text-emerald-500 mt-1 tabular-nums">
+            {formatAmount((totales.total || 0) + (conCobee ? (totales.cobeeTotal || 0) : 0))} €
+          </h2>
+          <p className="text-[11px] text-slate-400 mt-0.5">
+            {conCobee
+              ? <>{cuentasUsuario[0]} {formatAmount(totales.total || 0)} € + <span className="text-purple-600 dark:text-purple-400 font-semibold">Cobee {formatAmount(totales.cobeeTotal || 0)} €</span></>
+              : 'Dinero disponible'}
+          </p>
           <div className="mt-auto pt-3 space-y-1.5">
             <div className="border-t border-slate-100 dark:border-stone-800" />
             <div className={row}>
-              <span className="text-slate-500 dark:text-slate-400">+ Hucha</span>
+              <span className="text-slate-500 dark:text-slate-400">Hucha</span>
               <span className="text-slate-600 dark:text-slate-300 tabular-nums">{formatAmount(huchaTotal)} €</span>
             </div>
             <div className={row}>
               <span className="font-bold text-slate-700 dark:text-slate-200">Patrimonio neto</span>
-              <span className="text-sm font-extrabold text-slate-900 dark:text-white tabular-nums">{formatAmount(patrimonio)} €</span>
+              <span className="text-sm font-extrabold text-slate-900 dark:text-white tabular-nums whitespace-nowrap">{formatAmount(patrimonio)} €</span>
             </div>
-          {conCobee && (
-            <div className="space-y-1.5 pt-1.5">
-              <div className="border-t border-dashed border-slate-100 dark:border-stone-800" />
-              <div className={row}>
-                <span className="text-purple-600 dark:text-purple-400 font-semibold">+ Cobee disponible</span>
-                <span className="text-purple-600 dark:text-purple-400 font-semibold tabular-nums">{formatAmount(totales.cobeeTotal || 0)} €</span>
-              </div>
-              <div className={row}>
-                <span className="text-slate-600 dark:text-slate-300">Dinero + Cobee</span>
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 tabular-nums">{formatAmount((totales.total || 0) + (totales.cobeeTotal || 0))} €</span>
-              </div>
-            </div>
-          )}
+            <p className="text-[10px] text-slate-400 -mt-1">{conCobee ? cuentasUsuario[0] : 'Dinero'} + hucha, sin Cobee</p>
           </div>
         </div>
 
