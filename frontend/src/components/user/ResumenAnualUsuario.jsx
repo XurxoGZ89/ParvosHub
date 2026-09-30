@@ -6,7 +6,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import usePrivacyStore from '../../stores/privacyStore';
 import useAuthStore from '../../stores/authStore';
 import api from '../../lib/api';
-import { esCobee, tieneCobee, getCuentasSaldo } from '../../config/cuentasPersonales';
+import { esCobee, tieneCobee, getCuentasSaldo, estiloCobee } from '../../config/cuentasPersonales';
 
 const mesKeys = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
@@ -48,26 +48,29 @@ const parseFecha = (date) => {
 
 const CustomTooltip = ({ active, payload, label, hiddenNumbers }) => {
   if (!active || !payload || !payload.length) return null;
-  const total = payload.reduce((sum, p) => sum + (p.value || 0), 0);
+  const fila = payload[0].payload;
+  const fmt = (v) => (hiddenNumbers ? '•••' : `${formatearMoneda(v)} €`);
+  const lineas = categorias.filter(cat => fila[cat] > 0);
   return (
-    <div className="bg-white dark:bg-stone-800 rounded-xl border border-slate-200 dark:border-stone-700 shadow-lg p-3 min-w-[160px]">
+    <div className="bg-white dark:bg-stone-800 rounded-xl border border-slate-200 dark:border-stone-700 shadow-lg p-3 min-w-[180px]">
       <p className="text-xs font-bold text-slate-700 dark:text-slate-200 mb-2 border-b border-slate-100 dark:border-stone-700 pb-1.5">{label}</p>
-      {payload.filter(p => p.value > 0).map((p, i) => (
-        <div key={i} className="flex items-center justify-between gap-4 py-0.5">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
-            <span className="text-[11px] text-slate-600 dark:text-slate-400">{p.name}</span>
+      {lineas.map(cat => (
+        <div key={cat} className="py-0.5">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colorsPorCategoria[cat] }} />
+              <span className="text-[11px] text-slate-600 dark:text-slate-400">{cat}</span>
+            </div>
+            <span className="text-[11px] font-semibold text-slate-800 dark:text-slate-200">{fmt(fila[cat])}</span>
           </div>
-          <span className="text-[11px] font-semibold text-slate-800 dark:text-slate-200">
-            {hiddenNumbers ? '•••' : `${formatearMoneda(p.value)} €`}
-          </span>
+          {fila[`${cat}__cobee`] > 0 && (
+            <div className="text-[10px] text-purple-600 dark:text-purple-400 pl-3.5">de ellos Cobee: {fmt(fila[`${cat}__cobee`])}</div>
+          )}
         </div>
       ))}
       <div className="flex items-center justify-between gap-4 pt-1.5 mt-1 border-t border-slate-100 dark:border-stone-700">
         <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Total</span>
-        <span className="text-[11px] font-bold text-slate-900 dark:text-white">
-          {hiddenNumbers ? '•••' : `${formatearMoneda(total)} €`}
-        </span>
+        <span className="text-[11px] font-bold text-slate-900 dark:text-white">{fmt(fila.Total)}</span>
       </div>
     </div>
   );
@@ -115,6 +118,7 @@ const ResumenAnualUsuario = () => {
       mes: mesKey,
       mesNum: i + 1,
       ...Object.fromEntries(categorias.map(c => [c, 0])),
+      ...Object.fromEntries(categorias.map(c => [`${c}__cobee`, 0])),
       ingreso: 0,
       ingresoCobee: 0,
       gastoCobee: 0,
@@ -140,7 +144,10 @@ const ResumenAnualUsuario = () => {
         const cat = categorias.includes(op.category) ? op.category : 'Extra';
         fila[cat] += cantidad;
         fila.Total += cantidad;
-        if (esCobee(op.account_name)) fila.gastoCobee += cantidad;
+        if (esCobee(op.account_name)) {
+          fila.gastoCobee += cantidad;
+          fila[`${cat}__cobee`] += cantidad;
+        }
       } else if (op.type === 'hucha' && (op.account_name === 'Ahorro' || op.account_name === null)) {
         fila.ahorro += cantidad;
       }
@@ -157,6 +164,8 @@ const ResumenAnualUsuario = () => {
   const totalAhorro = sum('ahorro');
   const diferencia = totalIngresos - totalGastos;
   const totalesPorCategoria = Object.fromEntries(categorias.map(c => [c, sum(c)]));
+  const cobeePorCategoria = Object.fromEntries(categorias.map(c => [c, sum(`${c}__cobee`)]));
+  const hayGastosCobee = totalGastosCobee > 0;
 
   const mesesConDatos = datos.filter(m => m.Total > 0).length;
   const mediaMensual = mesesConDatos > 0 ? totalGastos / mesesConDatos : 0;
@@ -333,7 +342,12 @@ const ResumenAnualUsuario = () => {
             <>
               <ResponsiveContainer width="100%" height={340}>
                 <BarChart
-                  data={datos.map(d => ({ ...d, mesLabel: (t(d.mes) || d.mes).substring(0, 3) }))}
+                  data={datos.map(d => ({
+                    ...d,
+                    mesLabel: (t(d.mes) || d.mes).substring(0, 3),
+                    // Para el gráfico: parte pagada con dinero y parte con Cobee (rayada)
+                    ...Object.fromEntries(categorias.flatMap(c => [[`${c}__dinero`, d[c] - d[`${c}__cobee`]], [`${c}__cobeeBar`, d[`${c}__cobee`]]]))
+                  }))}
                   margin={{ top: 10, right: 10, bottom: 10, left: -10 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-slate-200 dark:text-stone-800" />
@@ -341,18 +355,26 @@ const ResumenAnualUsuario = () => {
                   <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => (hiddenNumbers ? '•••' : `${v}€`)} />
                   <Tooltip content={<CustomTooltip hiddenNumbers={hiddenNumbers} />} cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
                   <Legend wrapperStyle={{ fontSize: 11, fontWeight: 600 }} iconType="circle" iconSize={8} />
-                  {categorias.map((cat, i) => (
-                    <Bar
-                      key={cat}
-                      dataKey={cat}
-                      stackId="a"
-                      fill={colorsPorCategoria[cat]}
-                      name={cat}
-                      radius={i === categorias.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
-                    />
-                  ))}
+                  <defs>
+                    {categorias.map((cat, i) => (
+                      <pattern key={cat} id={`rayado-cobee-${i}`} patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+                        <rect width="6" height="6" fill={colorsPorCategoria[cat]} />
+                        <rect width="3" height="6" fill="rgba(255,255,255,0.6)" />
+                      </pattern>
+                    ))}
+                  </defs>
+                  {categorias.flatMap((cat, i) => [
+                    <Bar key={cat} dataKey={`${cat}__dinero`} stackId="a" fill={colorsPorCategoria[cat]} name={cat} />,
+                    <Bar key={`${cat}-cobee`} dataKey={`${cat}__cobeeBar`} stackId="a" fill={`url(#rayado-cobee-${i})`} name={`${cat} (Cobee)`} legendType="none" />
+                  ])}
                 </BarChart>
               </ResponsiveContainer>
+              {hayGastosCobee && (
+                <p className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400 mt-1">
+                  <span className="inline-block w-5 h-2.5 rounded-sm" style={estiloCobee('#94a3b8')} />
+                  Parte rayada: pagado con Cobee
+                </p>
+              )}
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2 lg:gap-3 mt-6">
                 {categorias.map(cat => {
@@ -367,6 +389,9 @@ const ResumenAnualUsuario = () => {
                       <div className="text-[9px] lg:text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1.5 tracking-wide uppercase">{cat}</div>
                       <div className="text-base lg:text-lg font-extrabold mb-0.5" style={{ color: colorsPorCategoria[cat] }}>{money(total)} €</div>
                       <div className="text-[9px] lg:text-[10px] font-semibold text-slate-400 dark:text-slate-500">{pct}%</div>
+                      {cobeePorCategoria[cat] > 0 && (
+                        <div className="text-[9px] lg:text-[10px] font-semibold text-purple-600 dark:text-purple-400 mt-0.5">Cobee {money(cobeePorCategoria[cat])} €</div>
+                      )}
                     </div>
                   );
                 })}

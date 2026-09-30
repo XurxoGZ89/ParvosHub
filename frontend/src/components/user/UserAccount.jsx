@@ -50,7 +50,8 @@ import {
   periodoCobee,
   resumenCobeePeriodo,
   diasRestantesPeriodo,
-  fechaCorta
+  fechaCorta,
+  estiloCobee
 } from '../../config/cuentasPersonales';
 import CobeeConfigModal from './CobeeConfigModal';
 import { getMesRecordado, guardarMesRecordado } from '../../utils/mesRecordado';
@@ -483,9 +484,14 @@ const UserAccount = () => {
         .filter(op => op.type === 'gasto' && op.category === cat.nombre)
         .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
 
+      const cobee = operacionesDelMes
+        .filter(op => op.type === 'gasto' && op.category === cat.nombre && esCobee(op.account_name))
+        .reduce((sum, op) => sum + parseFloat(op.amount || 0), 0);
+
       return {
         categoria: cat.nombre,
         cantidad: gastos,
+        cobee,
         icon: cat.icon,
         color: cat.color
       };
@@ -1087,29 +1093,43 @@ const UserAccount = () => {
                           .filter(op => op.type === 'gasto' && op.category === cat.nombre)
                           .reduce((s, op) => s + parseFloat(op.amount || 0), 0);
                         if (budget === 0 && spent === 0) return null;
+                        const spentCobee = operacionesDelMes
+                          .filter(op => op.type === 'gasto' && op.category === cat.nombre && esCobee(op.account_name))
+                          .reduce((s, op) => s + parseFloat(op.amount || 0), 0);
                         const remaining = budget - spent;
                         const pct = budget > 0 ? (spent / budget) * 100 : (spent > 0 ? 100 : 0);
+                        const escala = budget > 0 ? budget : spent;
+                        const pctDinero = escala > 0 ? ((spent - spentCobee) / escala) * 100 : 0;
+                        const pctCobee = escala > 0 ? (spentCobee / escala) * 100 : 0;
                         const over = spent > budget;
+                        const colorCat = catColorHex[cat.color] || '#8b5cf6';
                         return (
                           <div key={cat.nombre}>
                             <div className="flex items-center justify-between mb-1.5">
                               <div className="flex items-center gap-2">
                                 <CatIcon className="w-4 h-4 text-slate-400" />
                                 <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{cat.nombre}</span>
+                                {spentCobee > 0 && (
+                                  <span className="text-[9px] font-semibold text-purple-600 dark:text-purple-400">incl. {formatAmount(spentCobee)}€ Cobee</span>
+                                )}
                               </div>
                               <div className="flex items-center gap-2">
                                 <span className={`text-xs font-bold ${over ? 'text-red-600' : 'text-slate-900 dark:text-white'}`}>{formatAmount(spent)}€</span>
                                 <span className="text-[10px] text-slate-400">/ {formatAmount(budget)}€</span>
                               </div>
                             </div>
-                            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden flex">
                               <div
-                                className="h-2 rounded-full transition-all duration-500"
-                                style={{
-                                  width: `${Math.min(pct, 100)}%`,
-                                  backgroundColor: catColorHex[cat.color] || '#8b5cf6'
-                                }}
+                                className="h-2 transition-all duration-500"
+                                style={{ width: `${Math.min(pctDinero, 100)}%`, backgroundColor: colorCat }}
                               />
+                              {pctCobee > 0 && (
+                                <div
+                                  className="h-2 transition-all duration-500"
+                                  style={{ width: `${Math.max(0, Math.min(pctCobee, 100 - Math.min(pctDinero, 100)))}%`, ...estiloCobee(colorCat) }}
+                                  title={`Pagado con Cobee: ${formatAmount(spentCobee)}€`}
+                                />
+                              )}
                             </div>
                             <div className="flex justify-between mt-0.5">
                               <span className="text-[10px] text-slate-400">{Math.round(pct)}%</span>
@@ -1121,6 +1141,12 @@ const UserAccount = () => {
                         );
                       }).filter(Boolean)}
                     </div>
+                    {conCobee && operacionesDelMes.some(op => op.type === 'gasto' && esCobee(op.account_name)) && (
+                      <p className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-3">
+                        <span className="inline-block w-5 h-2 rounded-sm" style={estiloCobee('#94a3b8')} />
+                        Parte rayada: pagado con Cobee
+                      </p>
+                    )}
                   </>
                 );
               })()}
@@ -1172,8 +1198,14 @@ const UserAccount = () => {
                             backgroundColor: catColorHex[g.color] || '#8b5cf6'
                           }}
                         >
+                          {g.cobee > 0 && (
+                            <div
+                              className={`absolute top-0 right-0 h-full ${isLast ? 'rounded-r-xl' : ''}`}
+                              style={{ width: `${(g.cobee / g.cantidad) * 100}%`, ...estiloCobee(catColorHex[g.color] || '#8b5cf6') }}
+                            />
+                          )}
                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-800 text-white text-[10px] font-semibold px-2.5 py-1.5 rounded-lg opacity-0 group-hover/seg:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-lg">
-                            {g.categoria}: {formatAmount(g.cantidad)}€ ({pct}%)
+                            {g.categoria}: {formatAmount(g.cantidad)}€ ({pct}%){g.cobee > 0 ? ` · Cobee ${formatAmount(g.cobee)}€` : ''}
                             <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-transparent border-t-slate-800"></div>
                           </div>
                         </div>
@@ -1202,6 +1234,12 @@ const UserAccount = () => {
                             </span>
                             <span className="text-[10px] font-bold text-slate-400">{pct}%</span>
                           </div>
+                          {g.cobee > 0 && (
+                            <div className="flex items-center gap-1 mt-1 text-[10px] font-semibold text-purple-600 dark:text-purple-400">
+                              <span className="inline-block w-3 h-1.5 rounded-sm" style={estiloCobee(catColorHex[g.color] || '#8b5cf6')} />
+                              Cobee {formatAmount(g.cobee)}€
+                            </div>
+                          )}
                         </div>
                       );
                     })}

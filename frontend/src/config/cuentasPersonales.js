@@ -110,3 +110,11 @@ export const fechaCorta = (iso) => {
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' }).replace('.', '');
 };
+
+// Estilo de la parte pagada con Cobee en barras por categoría:
+// mismo color de la categoría, rayado, para distinguirla del gasto con dinero.
+export const COLOR_COBEE = '#9333ea';
+export const estiloCobee = (color) => ({
+  backgroundColor: color,
+  backgroundImage: 'repeating-linear-gradient(135deg, rgba(255,255,255,0.6) 0 3px, transparent 3px 6px)'
+});

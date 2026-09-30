@@ -21,7 +21,8 @@ import {
   periodoCobee,
   resumenCobeePeriodo,
   diasRestantesPeriodo,
-  fechaCorta
+  fechaCorta,
+  estiloCobee
 } from '../../config/cuentasPersonales';
 import { getMesRecordado, guardarMesRecordado } from '../../utils/mesRecordado';
 
@@ -548,8 +549,14 @@ const MobilePersonalAccount = () => {
                     const spent = operacionesDelMes.filter(op => op.type === 'gasto' && op.category === cat.nombre)
                       .reduce((s, op) => s + parseFloat(op.amount || 0), 0);
                     if (budget === 0 && spent === 0) return null;
+                    const spentCobee = operacionesDelMes.filter(op => op.type === 'gasto' && op.category === cat.nombre && esCobee(op.account_name))
+                      .reduce((s, op) => s + parseFloat(op.amount || 0), 0);
                     const remaining = budget - spent;
                     const pct = budget > 0 ? (spent / budget) * 100 : (spent > 0 ? 100 : 0);
+                    const escala = budget > 0 ? budget : spent;
+                    const pctDinero = escala > 0 ? ((spent - spentCobee) / escala) * 100 : 0;
+                    const pctCobee = escala > 0 ? (spentCobee / escala) * 100 : 0;
+                    const colorCat = catColorHex[cat.color] || '#8b5cf6';
                     const over = spent > budget;
                     return (
                       <div key={cat.nombre}>
@@ -559,20 +566,18 @@ const MobilePersonalAccount = () => {
                               <CatIcon className="w-3 h-3" />
                             </div>
                             <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{cat.nombre}</span>
+                            {spentCobee > 0 && <span className="text-[9px] font-semibold text-purple-600">incl. {formatAmount(spentCobee)}€ Cobee</span>}
                           </div>
                           <div className="flex items-center gap-2">
                             <span className={`text-xs font-bold ${over ? 'text-red-600' : 'text-slate-900 dark:text-white'}`}>{formatAmount(spent)}€</span>
                             <span className="text-[10px] text-slate-400">/ {formatAmount(budget)}€</span>
                           </div>
                         </div>
-                        <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
-                          <div
-                            className="h-2 rounded-full transition-all duration-500"
-                            style={{
-                              width: `${Math.min(pct, 100)}%`,
-                              backgroundColor: catColorHex[cat.color] || '#8b5cf6'
-                            }}
-                          />
+                        <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden flex">
+                          <div className="h-2 transition-all duration-500" style={{ width: `${Math.min(pctDinero, 100)}%`, backgroundColor: colorCat }} />
+                          {pctCobee > 0 && (
+                            <div className="h-2 transition-all duration-500" style={{ width: `${Math.max(0, Math.min(pctCobee, 100 - Math.min(pctDinero, 100)))}%`, ...estiloCobee(colorCat) }} />
+                          )}
                         </div>
                         <div className="flex justify-between mt-0.5">
                           <span className="text-[10px] text-slate-400">{Math.round(pct)}%</span>
@@ -589,6 +594,12 @@ const MobilePersonalAccount = () => {
                       .reduce((s, op) => s + parseFloat(op.amount || 0), 0);
                     return budget === 0 && spent === 0;
                   }) && <p className="text-xs text-slate-400 text-center py-2">Sin gastos este mes</p>}
+                  {conCobee && operacionesDelMes.some(op => op.type === 'gasto' && esCobee(op.account_name)) && (
+                    <p className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                      <span className="inline-block w-5 h-2 rounded-sm" style={estiloCobee('#94a3b8')} />
+                      Parte rayada: pagado con Cobee
+                    </p>
+                  )}
                 </div>
               )}
             </div>
