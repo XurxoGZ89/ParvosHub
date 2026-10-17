@@ -229,6 +229,26 @@ async function initDatabase() {
     `);
     console.log('Tabla cromos_coleccion lista');
 
+    // Nombres de cromo editados a mano (correcciones menores del checklist), compartidos por toda la casa
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cromos_nombres (
+        coleccion VARCHAR(40) NOT NULL,
+        cromo_id VARCHAR(40) NOT NULL,
+        nombre VARCHAR(80) NOT NULL,
+        updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (coleccion, cromo_id)
+      );
+    `);
+    console.log('Tabla cromos_nombres lista');
+
+    // Checklist 3ª edición: el álbum empieza de cero con una colección nueva ('liga-2026-27-3ed').
+    // Se borran los checks de la colección anterior ('liga-2026-27'). Es idempotente: si ya no hay filas, no hace nada.
+    const limpieza = await pool.query("DELETE FROM cromos_coleccion WHERE coleccion = 'liga-2026-27'");
+    if (limpieza.rowCount > 0) {
+      console.log(`Cromos: eliminados ${limpieza.rowCount} checks de la colección anterior`);
+    }
+
     // Cobee (retribución flexible): configuración de la carga mensual por usuario
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_cobee_config (

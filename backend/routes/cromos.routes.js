@@ -22,10 +22,52 @@ router.get('/', async (req, res) => {
     );
     const cromos = {};
     result.rows.forEach((r) => { cromos[r.cromo_id] = r.cantidad; });
-    res.json({ coleccion, cromos });
+    const nombresDb = await db.query(
+      'SELECT cromo_id, nombre FROM cromos_nombres WHERE coleccion = $1',
+      [coleccion]
+    );
+    const nombres = {};
+    nombresDb.rows.forEach((r) => { nombres[r.cromo_id] = r.nombre; });
+    res.json({ coleccion, cromos, nombres });
   } catch (err) {
     console.error('Error al obtener cromos:', err);
     res.status(500).json({ error: 'Error al obtener los cromos' });
+  }
+});
+
+// PUT /api/cromos/:cromoId/nombre  body: { nombre, coleccion? }
+// Cambia el nombre que se muestra de un cromo. Un nombre vacío restaura el original del checklist.
+router.put('/:cromoId/nombre', async (req, res) => {
+  const { cromoId } = req.params;
+  const coleccion = req.body.coleccion || COLECCION_POR_DEFECTO;
+  const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : '';
+
+  if (!ID_VALIDO.test(cromoId) || !ID_VALIDO.test(coleccion)) {
+    return res.status(400).json({ error: 'Identificador de cromo no válido' });
+  }
+  if (nombre.length > 80) {
+    return res.status(400).json({ error: 'El nombre es demasiado largo (máx. 80)' });
+  }
+
+  try {
+    if (!nombre) {
+      await db.query(
+        'DELETE FROM cromos_nombres WHERE coleccion = $1 AND cromo_id = $2',
+        [coleccion, cromoId]
+      );
+    } else {
+      await db.query(
+        `INSERT INTO cromos_nombres (coleccion, cromo_id, nombre, updated_by, updated_at)
+         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+         ON CONFLICT (coleccion, cromo_id)
+         DO UPDATE SET nombre = EXCLUDED.nombre, updated_by = EXCLUDED.updated_by, updated_at = CURRENT_TIMESTAMP`,
+        [coleccion, cromoId, nombre, req.user?.id || null]
+      );
+    }
+    res.json({ cromoId, nombre });
+  } catch (err) {
+    console.error('Error al guardar nombre de cromo:', err);
+    res.status(500).json({ error: 'Error al guardar el nombre' });
   }
 });
 
