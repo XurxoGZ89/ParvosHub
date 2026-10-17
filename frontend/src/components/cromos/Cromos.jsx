@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowLeftRight, Check, ChevronDown, ChevronsDownUp, ChevronsUpDown, Copy, Minus, Pencil, Plus, Search, Sticker, X,
+  ArrowLeftRight, Ban, Check, ChevronDown, ChevronsDownUp, ChevronsUpDown, Copy, Minus, Pencil, Plus, Search, Sticker, Undo2, X,
 } from 'lucide-react';
 import api from '../../lib/api';
 import MobileHeader from '../mobile/MobileHeader';
-import { GRUPOS, SECCIONES, TOTAL_CROMOS } from '../../data/cromosLiga2026';
+import { GRUPOS, calcularSecciones } from '../../data/cromosLiga2026';
 
 // Colección 3ª edición: id nuevo para empezar de cero (los checks de la lista anterior ya no se usan).
 const COLECCION = 'liga-2026-27-3ed';
@@ -98,7 +98,7 @@ const BADGES_EDICION = {
   3: { texto: '3ª ed', clase: 'text-cyan-700 bg-cyan-100 dark:bg-cyan-900/40 dark:text-cyan-300' },
 };
 
-const FilaCromo = ({ cromo, nombre, editado, cantidad, descartado, onCambiar, onElegir, onRenombrar }) => {
+const FilaCromo = ({ cromo, nombre, editado, cantidad, descartado, onCambiar, onElegir, onRenombrar, onRetirar }) => {
   const [editando, setEditando] = useState(false);
   const [valor, setValor] = useState('');
   const tengo = cantidad > 0;
@@ -128,35 +128,52 @@ const FilaCromo = ({ cromo, nombre, editado, cantidad, descartado, onCambiar, on
 
   if (editando) {
     return (
-      <div className="flex items-center gap-2 rounded-xl border border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-900 px-2.5 py-2">
-        <span className="w-9 sm:w-11 shrink-0 text-xs font-bold tabular-nums text-slate-500 dark:text-slate-400">{cromo.numero}</span>
-        <input
-          autoFocus
-          value={valor}
-          maxLength={80}
-          onChange={(e) => setValor(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') guardar();
-            if (e.key === 'Escape') setEditando(false);
+      <div className="rounded-xl border border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-900 px-2.5 py-2 space-y-2">
+        <div className="flex items-center gap-2">
+          <span className="w-9 sm:w-11 shrink-0 text-xs font-bold tabular-nums text-slate-500 dark:text-slate-400">{cromo.numero}</span>
+          <input
+            autoFocus
+            value={valor}
+            maxLength={80}
+            onChange={(e) => setValor(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') guardar();
+              if (e.key === 'Escape') setEditando(false);
+            }}
+            placeholder={cromo.sinNombre ? 'Nombre del cromo' : 'Vacío = nombre original'}
+            className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+          <button
+            type="button"
+            onClick={guardar}
+            className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center bg-purple-600 text-white hover:bg-purple-700"
+            aria-label="Guardar nombre"
+          >
+            <Check className="w-4 h-4" strokeWidth={3} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditando(false)}
+            className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            aria-label="Cancelar"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setEditando(false);
+            onRetirar(cromo, !cromo.retirado);
           }}
-          placeholder={cromo.sinNombre ? 'Nombre del cromo' : 'Vacío = nombre original'}
-          className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-        />
-        <button
-          type="button"
-          onClick={guardar}
-          className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center bg-purple-600 text-white hover:bg-purple-700"
-          aria-label="Guardar nombre"
+          className={`flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-lg ${
+            cromo.retirado
+              ? 'text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-900/20'
+              : 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20'
+          }`}
         >
-          <Check className="w-4 h-4" strokeWidth={3} />
-        </button>
-        <button
-          type="button"
-          onClick={() => setEditando(false)}
-          className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-          aria-label="Cancelar"
-        >
-          <X className="w-4 h-4" />
+          {cromo.retirado ? <Undo2 className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
+          {cromo.retirado ? 'Restaurar cromo' : 'Retirar cromo del álbum'}
         </button>
       </div>
     );
@@ -308,7 +325,7 @@ const FilaCromo = ({ cromo, nombre, editado, cantidad, descartado, onCambiar, on
 };
 
 // ─── Sección (equipo / especial) ────────────────────────────────────
-const Seccion = ({ seccion, cromosVisibles, coleccion, abierta, forzarAbierta, onToggle, onCambiar, onElegir, nombres, onRenombrar }) => {
+const Seccion = ({ seccion, cromosVisibles, coleccion, abierta, forzarAbierta, onToggle, onCambiar, onElegir, nombres, onRenombrar, onRetirar }) => {
   const total = seccion.total;
   const { tengo, repes } = resumenSeccion(seccion, coleccion);
   const completa = tengo === total;
@@ -356,6 +373,7 @@ const Seccion = ({ seccion, cromosVisibles, coleccion, abierta, forzarAbierta, o
               nombre={nombres[c.id] || c.nombre}
               editado={Boolean(nombres[c.id])}
               onRenombrar={onRenombrar}
+              onRetirar={onRetirar}
               cantidad={coleccion[c.id] || 0}
               descartado={estaDescartado(c, coleccion)}
               onCambiar={onCambiar}
@@ -372,6 +390,7 @@ const Seccion = ({ seccion, cromosVisibles, coleccion, abierta, forzarAbierta, o
 const Cromos = ({ mobile = false }) => {
   const [coleccion, setColeccion] = useState({});
   const [nombres, setNombres] = useState({}); // nombres editados a mano: { cromoId: nombre }
+  const [retiradosManual, setRetiradosManual] = useState({}); // retirados/restaurados a mano: { cromoId: bool }
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [aviso, setAviso] = useState(null);
@@ -381,6 +400,10 @@ const Cromos = ({ mobile = false }) => {
   const pendientes = useRef({});
   const confirmado = useRef({}); // último estado guardado en el servidor
   const avisoTimer = useRef(null);
+
+  // Secciones con los retirados manuales aplicados (recalcula totales y alternativas A/B)
+  const secciones = useMemo(() => calcularSecciones(retiradosManual), [retiradosManual]);
+  const totalCromos = useMemo(() => secciones.reduce((acc, s) => acc + s.total, 0), [secciones]);
 
   const mostrarAviso = useCallback((texto, tipo = 'ok') => {
     setAviso({ texto, tipo });
@@ -396,6 +419,7 @@ const Cromos = ({ mobile = false }) => {
       confirmado.current = { ...(data.cromos || {}) };
       setColeccion(data.cromos || {});
       setNombres(data.nombres || {});
+      setRetiradosManual(data.retirados || {});
     } catch (err) {
       console.error('Error cargando cromos:', err);
       setError('No se pudo cargar la colección. Puede que el servidor esté despertando: prueba de nuevo en unos segundos.');
@@ -461,6 +485,28 @@ const Cromos = ({ mobile = false }) => {
     }
   }, [nombres, mostrarAviso]);
 
+  // Retirar un cromo del álbum o restaurarlo. Si coincide con lo que dice el checklist, se quita el cambio manual.
+  const retirar = useCallback(async (cromo, retirado) => {
+    const anterior = cromo.id in retiradosManual ? retiradosManual[cromo.id] : undefined;
+    const valorFinal = retirado === cromo.retiradoChecklist ? null : retirado;
+    const aplicar = (v) =>
+      setRetiradosManual((prev) => {
+        const next = { ...prev };
+        if (v === null || v === undefined) delete next[cromo.id];
+        else next[cromo.id] = v;
+        return next;
+      });
+    aplicar(valorFinal);
+    try {
+      await api.put(`/api/cromos/${cromo.id}/retirado`, { retirado: valorFinal, coleccion: COLECCION });
+      mostrarAviso(retirado ? 'Cromo retirado del álbum' : 'Cromo restaurado');
+    } catch (err) {
+      console.error('Error guardando cromo retirado:', err);
+      aplicar(anterior);
+      mostrarAviso('No se pudo guardar el cambio. Inténtalo de nuevo.', 'error');
+    }
+  }, [retiradosManual, mostrarAviso]);
+
   const toggleSeccion = useCallback((id) => {
     setAbiertas((prev) => {
       const next = new Set(prev);
@@ -472,7 +518,7 @@ const Cromos = ({ mobile = false }) => {
   }, []);
 
   const expandirTodo = (abrir) => {
-    const next = abrir ? new Set(SECCIONES.map((s) => s.id)) : new Set();
+    const next = abrir ? new Set(secciones.map((s) => s.id)) : new Set();
     guardarAbiertas(next);
     setAbiertas(next);
   };
@@ -481,20 +527,20 @@ const Cromos = ({ mobile = false }) => {
   const stats = useMemo(() => {
     let tengo = 0;
     let repes = 0;
-    SECCIONES.forEach((s) => {
+    secciones.forEach((s) => {
       const r = resumenSeccion(s, coleccion);
       tengo += r.tengo;
       repes += r.repes;
     });
-    return { tengo, repes, faltan: TOTAL_CROMOS - tengo };
-  }, [coleccion]);
+    return { tengo, repes, faltan: totalCromos - tengo };
+  }, [coleccion, secciones, totalCromos]);
 
   // Filtro + búsqueda
   const termino = normalizar(busqueda.trim());
   const filtrando = filtro !== 'todos' || termino.length > 0;
 
   const seccionesVisibles = useMemo(() => {
-    return SECCIONES.map((s) => {
+    return secciones.map((s) => {
       const coincideSeccion = termino && normalizar(s.nombre).includes(termino);
       const cromos = s.cromos.filter((c) => {
         const n = coleccion[c.id] || 0;
@@ -508,7 +554,7 @@ const Cromos = ({ mobile = false }) => {
       });
       return { seccion: s, cromos };
     }).filter((x) => !filtrando || x.cromos.length > 0);
-  }, [coleccion, nombres, filtro, termino, filtrando]);
+  }, [secciones, coleccion, nombres, filtro, termino, filtrando]);
 
   // Elegir la alternativa A/B descartada: pasa a ser la marcada y la otra queda descartada
   const elegirAlternativa = useCallback((cromo) => {
@@ -524,7 +570,7 @@ const Cromos = ({ mobile = false }) => {
   // Copiar lista (faltan o repes) para intercambiar
   const copiarLista = async (tipo) => {
     const lineas = [];
-    SECCIONES.forEach((s) => {
+    secciones.forEach((s) => {
       const vistos = new Set();
       const items = [];
       s.cromos.forEach((c) => {
@@ -558,7 +604,7 @@ const Cromos = ({ mobile = false }) => {
     }
   };
 
-  const todasAbiertas = abiertas.size === SECCIONES.length;
+  const todasAbiertas = abiertas.size === secciones.length;
 
   return (
     <div className={mobile ? 'min-h-full bg-slate-50 dark:bg-slate-950' : ''}>
@@ -590,15 +636,15 @@ const Cromos = ({ mobile = false }) => {
             </div>
             <div className="text-right shrink-0">
               <p className="text-3xl sm:text-4xl font-extrabold tabular-nums leading-none">
-                {pct(stats.tengo, TOTAL_CROMOS)}%
+                {pct(stats.tengo, totalCromos)}%
               </p>
             </div>
           </div>
-          <Barra valor={stats.tengo} total={TOTAL_CROMOS} grande clara />
+          <Barra valor={stats.tengo} total={totalCromos} grande clara />
           <div className="grid grid-cols-3 gap-2 mt-4 text-center">
             <div className="bg-white/15 rounded-xl py-2">
               <p className="text-lg sm:text-xl font-bold tabular-nums">{stats.tengo}</p>
-              <p className="text-[11px] sm:text-xs text-white/80">de {TOTAL_CROMOS} tengo</p>
+              <p className="text-[11px] sm:text-xs text-white/80">de {totalCromos} tengo</p>
             </div>
             <div className="bg-white/15 rounded-xl py-2">
               <p className="text-lg sm:text-xl font-bold tabular-nums">{stats.faltan}</p>
@@ -721,6 +767,7 @@ const Cromos = ({ mobile = false }) => {
                     onElegir={elegirAlternativa}
                     nombres={nombres}
                     onRenombrar={renombrar}
+                    onRetirar={retirar}
                   />
                 ))}
               </div>
@@ -729,7 +776,7 @@ const Cromos = ({ mobile = false }) => {
         )}
 
         <p className="text-center text-[11px] text-slate-400 pt-2 pb-6">
-          Toca un cromo para marcarlo. Con + y − apuntas los repetidos. El lápiz edita el nombre. En los cromos A/B solo cuenta uno:
+          Toca un cromo para marcarlo. Con + y − apuntas los repetidos. El lápiz edita el nombre o retira el cromo. En los cromos A/B solo cuenta uno:
           al marcar uno, el otro queda descartado (puedes cambiarlo con «Usar este»).
         </p>
       </div>

@@ -10,6 +10,7 @@
 // Cromos A/B (p. ej. 6A y 6B): son alternativas del mismo hueco, solo cuenta UNO por equipo.
 // Se calculan solos a partir de los números (ver `alternativas` más abajo); si uno de los dos
 // está retirado, el otro pasa a ser un cromo normal.
+// Desde la app también se puede retirar/restaurar un cromo a mano (se guarda en la base de datos).
 //
 // El id de cada cromo es `${seccion.id}-${numero}` y es lo que se guarda en la base de datos:
 // NO cambies ids ni números de cromos existentes o se perderá lo marcado.
@@ -350,48 +351,56 @@ export const GRUPOS = [
   { id: 'especiales', nombre: 'Especiales' },
 ];
 
-export const SECCIONES = RAW.map((s) => {
-  const cromos = s.cromos.map((linea) => {
-    const [numero, nombre, posicion, ed, estado] = linea.split('|');
+// Calcula las secciones aplicando los cambios manuales de "retirado".
+// `retiradosManual` = { [cromoId]: true | false }: true retira un cromo, false restaura uno que el checklist daba por retirado.
+export const calcularSecciones = (retiradosManual = {}) =>
+  RAW.map((s) => {
+    const cromos = s.cromos.map((linea) => {
+      const [numero, nombre, posicion, ed, estado] = linea.split('|');
+      const id = `${s.id}-${numero}`;
+      const retiradoChecklist = estado === 'x';
+      return {
+        id,
+        numero,
+        nombre: nombre || 'Sin nombre',
+        sinNombre: !nombre,
+        posicion: posicion || '',
+        edicion: ed === '2' ? 2 : ed === '3' ? 3 : 0,
+        retirado: id in retiradosManual ? Boolean(retiradosManual[id]) : retiradoChecklist,
+        retiradoChecklist, // estado original según el PDF
+        alternativas: [], // ids de los cromos A/B que compiten por el mismo hueco
+        grupoAB: '', // identificador del hueco A/B (vacío si el cromo no tiene alternativa)
+      };
+    });
+
+    // Agrupa A/B por número. Los retirados no cuentan como alternativa.
+    const porHueco = {};
+    cromos.forEach((c) => {
+      if (c.retirado) return;
+      const m = c.numero.match(/^(\d+)[AB]$/);
+      if (m) (porHueco[m[1]] = porHueco[m[1]] || []).push(c);
+    });
+    let huecosExtra = 0; // cromos que sobran por ser alternativas (cuenta solo 1 por hueco)
+    Object.entries(porHueco).forEach(([hueco, grupo]) => {
+      if (grupo.length < 2) return;
+      huecosExtra += grupo.length - 1;
+      grupo.forEach((c) => {
+        c.grupoAB = `${s.id}-${hueco}`;
+        c.alternativas = grupo.filter((o) => o !== c).map((o) => o.id);
+      });
+    });
+
     return {
-      id: `${s.id}-${numero}`,
-      numero,
-      nombre: nombre || 'Sin nombre',
-      sinNombre: !nombre,
-      posicion: posicion || '',
-      edicion: ed === '2' ? 2 : ed === '3' ? 3 : 0,
-      retirado: estado === 'x',
-      alternativas: [], // ids de los cromos A/B que compiten por el mismo hueco
-      grupoAB: '', // identificador del hueco A/B (vacío si el cromo no tiene alternativa)
+      id: s.id,
+      nombre: s.nombre,
+      grupo: s.grupo,
+      cromos,
+      // Total real de la sección: sin retirados y con cada hueco A/B contado una sola vez
+      total: cromos.filter((c) => !c.retirado).length - huecosExtra,
     };
   });
 
-  // Agrupa A/B por número. Los retirados no cuentan como alternativa.
-  const porHueco = {};
-  cromos.forEach((c) => {
-    if (c.retirado) return;
-    const m = c.numero.match(/^(\d+)[AB]$/);
-    if (m) (porHueco[m[1]] = porHueco[m[1]] || []).push(c);
-  });
-  let huecosExtra = 0; // cromos que sobran por ser alternativas (cuenta solo 1 por hueco)
-  Object.entries(porHueco).forEach(([hueco, grupo]) => {
-    if (grupo.length < 2) return;
-    huecosExtra += grupo.length - 1;
-    grupo.forEach((c) => {
-      c.grupoAB = `${s.id}-${hueco}`;
-      c.alternativas = grupo.filter((o) => o !== c).map((o) => o.id);
-    });
-  });
-
-  return {
-    id: s.id,
-    nombre: s.nombre,
-    grupo: s.grupo,
-    cromos,
-    // Total real de la sección: sin retirados y con cada hueco A/B contado una sola vez
-    total: cromos.filter((c) => !c.retirado).length - huecosExtra,
-  };
-});
+export const SECCIONES = calcularSecciones();
 
 export const TODOS_LOS_CROMOS = SECCIONES.flatMap((s) => s.cromos);
 export const TOTAL_CROMOS = SECCIONES.reduce((acc, s) => acc + s.total, 0);
