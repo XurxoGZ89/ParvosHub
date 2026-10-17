@@ -28,10 +28,53 @@ router.get('/', async (req, res) => {
     );
     const nombres = {};
     nombresDb.rows.forEach((r) => { nombres[r.cromo_id] = r.nombre; });
-    res.json({ coleccion, cromos, nombres });
+    const retiradosDb = await db.query(
+      'SELECT cromo_id, retirado FROM cromos_retirados WHERE coleccion = $1',
+      [coleccion]
+    );
+    const retirados = {};
+    retiradosDb.rows.forEach((r) => { retirados[r.cromo_id] = r.retirado; });
+    res.json({ coleccion, cromos, nombres, retirados });
   } catch (err) {
     console.error('Error al obtener cromos:', err);
     res.status(500).json({ error: 'Error al obtener los cromos' });
+  }
+});
+
+// PUT /api/cromos/:cromoId/retirado  body: { retirado: true | false | null, coleccion? }
+// true = retirar el cromo, false = restaurarlo (aunque el checklist lo dé por retirado),
+// null = volver al estado que marca el checklist.
+router.put('/:cromoId/retirado', async (req, res) => {
+  const { cromoId } = req.params;
+  const coleccion = req.body.coleccion || COLECCION_POR_DEFECTO;
+  const { retirado } = req.body;
+
+  if (!ID_VALIDO.test(cromoId) || !ID_VALIDO.test(coleccion)) {
+    return res.status(400).json({ error: 'Identificador de cromo no válido' });
+  }
+  if (retirado !== true && retirado !== false && retirado !== null) {
+    return res.status(400).json({ error: 'Valor de retirado no válido' });
+  }
+
+  try {
+    if (retirado === null) {
+      await db.query(
+        'DELETE FROM cromos_retirados WHERE coleccion = $1 AND cromo_id = $2',
+        [coleccion, cromoId]
+      );
+    } else {
+      await db.query(
+        `INSERT INTO cromos_retirados (coleccion, cromo_id, retirado, updated_by, updated_at)
+         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+         ON CONFLICT (coleccion, cromo_id)
+         DO UPDATE SET retirado = EXCLUDED.retirado, updated_by = EXCLUDED.updated_by, updated_at = CURRENT_TIMESTAMP`,
+        [coleccion, cromoId, retirado, req.user?.id || null]
+      );
+    }
+    res.json({ cromoId, retirado });
+  } catch (err) {
+    console.error('Error al guardar cromo retirado:', err);
+    res.status(500).json({ error: 'Error al guardar el cambio' });
   }
 });
 
