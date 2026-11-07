@@ -96,6 +96,7 @@ const Barra = ({ valor, total, grande = false, clara = false }) => {
 const BADGES_EDICION = {
   2: { texto: '2ª ed', clase: 'text-purple-600 bg-purple-100 dark:bg-purple-900/40 dark:text-purple-300' },
   3: { texto: '3ª ed', clase: 'text-cyan-700 bg-cyan-100 dark:bg-cyan-900/40 dark:text-cyan-300' },
+  4: { texto: '4ª ed', clase: 'text-lime-700 bg-lime-100 dark:bg-lime-900/40 dark:text-lime-300' },
 };
 
 const FilaCromo = ({ cromo, nombre, editado, cantidad, descartado, onCambiar, onElegir, onRenombrar, onRetirar }) => {
