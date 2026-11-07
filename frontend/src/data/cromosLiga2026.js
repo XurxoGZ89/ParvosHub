@@ -1,10 +1,12 @@
-// Colección oficial de cromos LALIGA 2026-27 (Panini) — Checklist 3ª edición.
-// Transcrito del PDF oficial «Checklist LALIGA 2026-27 3ED», en el mismo orden que el listado.
+// Colección oficial de cromos LALIGA 2026-27 (Panini) — Checklist 4ª edición.
+// Transcrito del PDF oficial «Checklist LALIGA 2026-27 4ªED», en el mismo orden que el listado.
 //
-// Formato de cada línea: "número|nombre|posición|edición|estado"
-//   · edición: "2" (cromo añadido en la 2ª edición) o "3" (añadido en la 3ª). Vacío = edición original.
+// Formato de cada línea: "número|nombre|posición|edición|estado|variante"
+//   · edición: "2", "3" o "4" (edición en la que se añadió el cromo). Vacío = edición original.
 //   · estado:  "x" = cromo RETIRADO (en rojo en el checklist: el jugador desaparece del álbum).
 //              Se muestra tachado, no se puede marcar y no cuenta en el total.
+//   · variante: solo cuando un mismo número aparece dos veces en un equipo (p. ej. dos «14BIS»).
+//              El segundo lleva "v2" y su id es `${seccion.id}-${numero}-v2`, para no pisar los checks del primero.
 // Los huecos sin nombre en el listado oficial se muestran como "Sin nombre".
 //
 // Cromos A/B (p. ej. 6A y 6B): son alternativas del mismo hueco, solo cuenta UNO por equipo.
@@ -31,24 +33,24 @@ const RAW = [
     id: 'athletic', nombre: 'Athletic Club de Bilbao', grupo: 'equipos',
     cromos: [
       '1|Escudo', '2|Edin Terzic|entrenador', '3|Unai Simón|portero', '4|Padilla|portero',
-      '5|Areso|defensa', '6A|Paredes|defensa', '6B|Yeray|defensa', '7|Vivian|defensa', '8|Laporte|defensa',
-      '9A|Yuri|defensa', '9B|Adama Boiro|defensa', '10|Jauregizar|medio', '11|Ruiz de Galarreta|medio',
-      '12|Rego|medio', '13|Unai Gómez|medio||x', '13BIS|Prados|medio|2', '14|Sancet|medio',
-      '15|Nico Serrano|medio', '16|Berenguer|delantero', '17A|Robert Navarro|delantero',
-      '17B|Maroan|delantero', '18|Nico Williams|delantero', '19|Williams|delantero',
-      '20|Guruzeta|delantero',
+      '5|Areso|defensa', '5BIS|Hugo Rincón|defensa|4', '6A|Paredes|defensa', '6B|Yeray|defensa',
+      '7|Vivian|defensa', '8|Laporte|defensa', '9A|Yuri|defensa', '9B|Adama Boiro|defensa',
+      '10|Jauregizar|medio', '11|Ruiz de Galarreta|medio', '12|Rego|medio', '12BIS|Gerenabarrena|medio|4',
+      '13|Unai Gómez|medio||x', '13BIS|Prados|medio|2', '14|Sancet|medio', '15|Nico Serrano|medio',
+      '16|Berenguer|delantero', '17A|Robert Navarro|delantero', '17B|Maroan|delantero',
+      '18|Nico Williams|delantero', '19|Williams|delantero', '20|Guruzeta|delantero',
     ],
   },
   {
     id: 'atletico', nombre: 'Atlético de Madrid', grupo: 'equipos',
     cromos: [
       '1|Escudo', '2|Cholo Simeone|entrenador', '3|Oblak|portero', '4|Musso|portero',
-      '5|Marcos Llorente|defensa', '6|Nahuel Molina|defensa||x', '7|Pubill|defensa',
-      '8A|Le Normand|defensa', '8B|Giménez|defensa', '9|Hancko|defensa', '10|Ruggeri|defensa||x',
-      '10BIS|Grimaldo|defensa|3', '11|Koke|medio', '12|Barrios|medio', '13|Johnny Cardoso|medio',
-      '14A|Rodri Mendoza|medio', '14B|Obed Vargas|medio', '15|Álex Baena|medio', '16|Almada|medio||x',
-      '16BIS|Arnau Ortiz|delantero|3', '17|Giuliano|delantero', '18|Lookman|delantero',
-      '19|Sorloth|delantero', '20|Julián Alvarez|delantero',
+      '5|Marcos Llorente|defensa', '6|Nahuel Molina|defensa||x', '6BIS|Dani Martínez|defensa|4',
+      '7|Pubill|defensa', '8A|Le Normand|defensa', '8B|Giménez|defensa', '9|Hancko|defensa',
+      '10|Ruggeri|defensa||x', '10BIS|Grimaldo|defensa|3', '11|Koke|medio', '12|Barrios|medio',
+      '13|Johnny Cardoso|medio', '14A|Rodri Mendoza|medio', '14B|Obed Vargas|medio', '15|Álex Baena|medio',
+      '16|Almada|medio||x', '16BIS|Arnau Ortiz|delantero|3', '17|Giuliano|delantero',
+      '18|Lookman|delantero', '19|Sorloth|delantero', '20|Julián Alvarez|delantero',
     ],
   },
   {
@@ -56,10 +58,11 @@ const RAW = [
     cromos: [
       '1|Escudo', '2|Hansi Flick|entrenador', '3|Joan García|portero', '4|Szczesny|portero',
       '5|Koundé|defensa', '6A|Araujo|defensa||x', '6B|Christensen|defensa', '7|Cubarsí|defensa',
-      '8|Gerard Martín|defensa', '9|Joao Cancelo|defensa', '10|Balde|defensa', '11|Eric García|defensa',
-      '12|De Jong|medio', '13|Gavi|medio', '14|Bernal|medio', '15|Pedri|medio', '16|Fermín|medio',
-      '17|Dani Olmo|delantero', '18|Ferran Torres|delantero||x', '18BIS|Abdelkarim|delantero|3',
-      '19|Raphinha|delantero', '20|Lamine Yamal|delantero',
+      '8|Gerard Martín|defensa', '9|Joao Cancelo|defensa', '10|Balde|defensa',
+      '10BIS|Xavi Espart|defensa|4', '11|Eric García|defensa', '12|De Jong|medio', '13|Gavi|medio',
+      '14|Bernal|medio', '15|Pedri|medio', '16|Fermín|medio', '17|Dani Olmo|delantero',
+      '18|Ferran Torres|delantero||x', '18BIS|Abdelkarim|delantero|3', '19|Raphinha|delantero',
+      '20|Lamine Yamal|delantero',
     ],
   },
   {
@@ -68,21 +71,23 @@ const RAW = [
       '1|Escudo', '2|Manuel Pellegrini|entrenador', '3|Valles|portero', '4|Pau López|portero||x',
       '4BIS|Diego Conde|portero|2', '5A|Aitor Ruibal|defensa', '5B|Bellerín|defensa',
       '6|Diego Llorente|defensa', '7|Bartra|defensa', '8|Natan|defensa', '9|Valentín Gómez|defensa',
-      '10|Marc Roca|medio', '11|Amrabat|medio||x', '11BIS|Deossa|medio|3', '12|Fidalgo|medio',
-      '13|Facundo Bernal|medio|2', '14|Lo Celso|medio', '15|Pablo Fornals|medio', '16|Isco|medio',
-      '17|Riquelme|delantero', '18|Antony|delantero', '19|Cucho Hernández|delantero', '20|Abde|delantero',
+      '9BIS|Junior|defensa|4', '10|Marc Roca|medio', '11|Amrabat|medio||x', '11BIS|Deossa|medio|3',
+      '12|Fidalgo|medio', '13|Facundo Bernal|medio|2', '14|Lo Celso|medio', '15|Pablo Fornals|medio',
+      '16|Isco|medio', '17|Riquelme|delantero', '18|Antony|delantero', '19|Cucho Hernández|delantero',
+      '20|Abde|delantero',
     ],
   },
   {
     id: 'celta', nombre: 'RC Celta de Vigo', grupo: 'equipos',
     cromos: [
       '1|Escudo', '2|Claudio Giráldez|entrenador', '3|Radu|portero', '4|Iván Villar|portero',
-      '5|Álvaro Núñez|defensa', '6|Javi Rueda|defensa', '7|Javi Rodríguez|defensa', '8|Starfelt|defensa',
-      '9A|Marcos Alonso|defensa', '9B|Yoel Lago|defensa', '10|Carreira|defensa', '11|Ilaix Moriba|medio',
-      '12|Miguel Román|medio', '13|Hugo Álvarez|medio', '14|Sotelo|medio||x', '14BIS|Vecino|medio|2|x',
-      '15|Fer López|medio||x', '16|Swedberg|medio', '17|Iago Aspas|delantero', '18A|Pablo Durán|delantero',
-      '18B|El-Abdellaoui|delantero', '19|Jutglà|delantero', '19BIS|Hugo González|delantero|3',
-      '20|Borja Iglesias|delantero',
+      '4BIS|Bayindir|portero|4', '5|Álvaro Núñez|defensa', '6|Javi Rueda|defensa',
+      '7|Javi Rodríguez|defensa', '8|Starfelt|defensa', '9A|Marcos Alonso|defensa', '9B|Yoel Lago|defensa',
+      '10|Carreira|defensa', '11|Ilaix Moriba|medio', '12|Miguel Román|medio', '13|Hugo Álvarez|medio',
+      '14|Sotelo|medio||x', '14BIS|Vecino|medio|2|x', '14BIS|Burcio|medio|4||v2', '15|Fer López|medio||x',
+      '15BIS|Driouech|delantero|4', '16|Swedberg|medio', '17|Iago Aspas|delantero',
+      '18A|Pablo Durán|delantero', '18B|El-Abdellaoui|delantero', '19|Jutglà|delantero',
+      '19BIS|Hugo González|delantero|3', '20|Borja Iglesias|delantero',
     ],
   },
   {
@@ -92,8 +97,8 @@ const RAW = [
       '5|Adrià Altimira|defensa', '6|Loureiro|defensa', '7|Noubi|defensa', '8|Dani Barcia|defensa',
       '8BIS|Bright Ede|defensa|3', '9A|Ximo Navarro|defensa', '9B|Arnau Comas|defensa',
       '10|Quagliata|defensa', '11|Villares|medio', '12|Riki|medio', '13|Mario Soriano|medio',
-      '14|José Ángel|medio', '14BIS|Gijselhat|medio|3', '15|Luismi Cruz|medio', '16|Mella|medio',
-      '17|Asp Jensen|delantero|3', '18|Yeremay|delantero', '19|Eddahchouri|delantero',
+      '14|José Ángel|medio', '14BIS|Gijselhat|medio|3', '14BIS|Casadó|medio|4||v2', '15|Luismi Cruz|medio',
+      '16|Mella|medio', '17|Asp Jensen|delantero|3', '18|Yeremay|delantero', '19|Eddahchouri|delantero',
       '20|Nsongo|delantero',
     ],
   },
@@ -101,11 +106,12 @@ const RAW = [
     id: 'elche', nombre: 'Elche CF', grupo: 'equipos',
     cromos: [
       '1|Escudo', '2|Martín Anselmi|entrenador|2', '3|Dituro|portero', '4|Iturbe|portero|2',
-      '5|Pétrot|defensa||x', '6|Chust|defensa', '7|Bigas|defensa', '8|Affengruber|defensa',
-      '9A|Pedrosa|defensa||x', '9B|Sangaré|defensa', '10|Germán Valera|medio', '11|Martim Neto|medio',
-      '12|Gonzalo Villar|medio', '13A|Fede Redondo|medio', '13B|Jon Chetauya|medio||x',
-      '14|Marc Aguado|medio', '15|Josan|medio', '16|Morente|medio', '17|Ali Houary|delantero|2',
-      '18|Cepeda|delantero', '19|Diangana|delantero', '20|Yago Santiago|delantero',
+      '5|Pétrot|defensa||x', '5BIS|Rubén Sánchez|defensa|4', '6|Chust|defensa', '7|Bigas|defensa',
+      '8|Affengruber|defensa', '8BIS|Revivo|defensa|4', '9A|Pedrosa|defensa||x', '9B|Sangaré|defensa',
+      '10|Germán Valera|medio', '11|Martim Neto|medio', '12|Gonzalo Villar|medio',
+      '13A|Fede Redondo|medio', '13B|Jon Chetauya|medio||x', '14|Marc Aguado|medio', '15|Josan|medio',
+      '15BIS|Lemar|medio|4', '16|Morente|medio', '17|Ali Houary|delantero|2', '18|Cepeda|delantero',
+      '19|Diangana|delantero', '20|Yago Santiago|delantero',
     ],
   },
   {
@@ -126,9 +132,10 @@ const RAW = [
       '1|Escudo', '2|Jose Bordalás|entrenador', '3|David Soria|portero', '4|Letacek|portero',
       '5|Kiko Femenía|defensa', '6|Djené|defensa', '7|Boselli|defensa', '8|Abqar|defensa',
       '9|Zaid Romero|defensa', '10|Davinchi|defensa', '11|Mario Martín|medio', '12|Javi Muñoz|medio||x',
-      '13|Francho|medio|3', '14|Terrats|medio|2', '15|Mangala|medio|3', '16|Juanmi|delantero|2',
-      '17|Álex Sancris|delantero||x', '18|Borja Mayoral|delantero', '19|Luis Vázquez|delantero||x',
-      '19BIS|Ünal|delantero|3', '20|Satriano|delantero',
+      '12BIS|Uche|delantero|4', '13|Francho|medio|3', '14|Terrats|medio|2', '15|Mangala|medio|3',
+      '16|Juanmi|delantero|2', '17|Álex Sancris|delantero||x', '17BIS|Iván Azón|delantero|4',
+      '18|Borja Mayoral|delantero', '19|Luis Vázquez|delantero||x', '19BIS|Ünal|delantero|3',
+      '20|Satriano|delantero',
     ],
   },
   {
@@ -136,11 +143,12 @@ const RAW = [
     cromos: [
       '1|Escudo', '2|Luís Castro|entrenador', '3|Ryan|portero', '4|Pablo Campos|portero',
       '5|Toljan|defensa', '6|Elgezabal|defensa||x', '6BIS|Nacho Pérez|defensa|3', '7|Dela|defensa',
-      '8|Mandi|defensa|2', '9|Manu Sánchez|defensa', '10|Arriaga|medio||x', '11|Oriol Rey|medio',
-      '12|Olasagasti|medio', '13|Dani Requena|medio|2', '14A|Victor García|medio', '14B|Paco Cortés|medio',
-      '15|Carlos Álvarez|medio', '16|Tunde|delantero||x', '16BIS|Thiago Fernández|delantero|3',
-      '17|Brugué|delantero', '18|Iván Romero|delantero', '19|Etta Eyong|delantero',
-      '20|Carlos Espí|delantero||x', '20BIS|Musuayi|delantero|2',
+      '8|Mandi|defensa|2', '9|Manu Sánchez|defensa', '10|Arriaga|medio||x', '10BIS|Ndukwe|defensa|4',
+      '11|Oriol Rey|medio', '12|Olasagasti|medio', '13|Dani Requena|medio|2', '14A|Victor García|medio',
+      '14B|Paco Cortés|medio', '15|Carlos Álvarez|medio', '15BIS|Ratkov|delantero|4',
+      '16|Tunde|delantero||x', '16BIS|Thiago Fernández|delantero|3', '17|Brugué|delantero',
+      '18|Iván Romero|delantero', '19|Etta Eyong|delantero', '20|Carlos Espí|delantero||x',
+      '20BIS|Musuayi|delantero|2',
     ],
   },
   {
@@ -152,7 +160,7 @@ const RAW = [
       '12|Fede Valverde|medio', '13|Camavinga|medio', '14|Bellingham|medio', '15A|Güler|medio',
       '15B|Thiago Pitarch|medio', '16A|Mastantuono|medio||x', '16B|Brahim Díaz|delantero',
       '17|Gonzalo|delantero||x', '17BIS|Carlos Espí|delantero|2', '18|Rodrygo|delantero',
-      '19|Vinícius|delantero', '20|Mbappé|delantero',
+      '18BIS|Endrick|delantero|4', '19|Vinícius|delantero', '20|Mbappé|delantero',
     ],
   },
   {
@@ -160,10 +168,11 @@ const RAW = [
     cromos: [
       '1|Escudo', '2|Juan Francisco Funes|entrenador', '3|Alfonso Herrero|portero',
       '4|Carlos López|portero', '5|Puga|defensa', '6|Murillo|defensa', '6BIS|Recio|defensa|3',
-      '7|Calero|defensa|2', '8|Einar Galilea|defensa', '9|Rafita|defensa', '10|Salinas|defensa|2',
-      '11|Izan Mérino|medio', '12|Dani Lorenzo|medio', '13A|Rafa Rodríguez|medio', '13B|Juanpe|medio||x',
-      '14|Dotor|medio', '15|Aarón Ochoa|medio', '16|Larrubia|delantero', '17|Lobete|delantero',
-      '18|Adrián Niño|delantero', '19|Joaquín|delantero', '20|Chupe|delantero',
+      '7|Calero|defensa|2', '8|Einar Galilea|defensa', '8BIS|Berrocal|defensa|4', '9|Rafita|defensa',
+      '10|Salinas|defensa|2', '11|Izan Mérino|medio', '12|Dani Lorenzo|medio', '13A|Rafa Rodríguez|medio',
+      '13B|Juanpe|medio||x', '14|Dotor|medio', '15|Aarón Ochoa|medio', '15BIS|Cajuste|medio|4',
+      '16|Larrubia|delantero', '17|Lobete|delantero', '18|Adrián Niño|delantero', '19|Joaquín|delantero',
+      '20|Chupe|delantero',
     ],
   },
   {
@@ -171,11 +180,11 @@ const RAW = [
     cromos: [
       '1|Escudo', '2|Luis Miguel Ramis|entrenador', '3|Sergio Herrera|portero',
       '4|Aitor Fernández|portero', '5A|Rosier|defensa', '5B|Arguibide|defensa', '6|Boyomo|defensa',
-      '7|Herrando|defensa', '8|Catena|defensa', '9|Abel Bretones|defensa', '10|Osambela|medio',
-      '11|Torró|medio', '12|Moncayola|medio', '13A|Moi Gómez|medio', '13B|Iker Muñoz|medio',
-      '14|Rubén García|medio', '15|Aimar Oroz|medio', '16|Iker Benito|medio', '16BIS|Dubasin|delantero|3',
-      '17|Raúl Moro|delantero', '18|Raúl García|delantero', '19|Kike Barja|delantero',
-      '20|Budimir|delantero',
+      '7|Herrando|defensa', '7BIS|Yeboah|defensa|4', '8|Catena|defensa', '9|Abel Bretones|defensa',
+      '9BIS|Diego Rico|defensa|4', '10|Osambela|medio', '11|Torró|medio', '12|Moncayola|medio',
+      '13A|Moi Gómez|medio', '13B|Iker Muñoz|medio', '14|Rubén García|medio', '15|Aimar Oroz|medio',
+      '16|Iker Benito|medio', '16BIS|Dubasin|delantero|3', '17|Raúl Moro|delantero',
+      '18|Raúl García|delantero', '19|Kike Barja|delantero', '20|Budimir|delantero',
     ],
   },
   {
@@ -185,21 +194,23 @@ const RAW = [
       '5|Mantilla|defensa', '6|Sangalli|defensa||x', '6BIS|Pablo Ramón|defensa|2',
       '7|Facu González|defensa', '8|Javi Castro|defensa||x', '8BIS|Pedro Felipe|defensa|3',
       '9A|Manu Hernando|defensa', '9B|Mario García|defensa||x', '10|Jorge Salinas|defensa',
-      '11|Maguette|medio', '12|Gustavo Puerta|medio', '13|Íñigo|medio', '13BIS|Sergio Martínez|medio|3',
-      '14|Aldasoro|medio||x', '15|Suleiman|delantero||x', '15BIS|Zabiri|delantero|3',
+      '10BIS|Aarón Martín|defensa|4', '11|Maguette|medio', '12|Gustavo Puerta|medio',
+      '12BIS|Prati|medio|4', '13|Íñigo|medio', '13BIS|Sergio Martínez|medio|3', '14|Aldasoro|medio||x',
+      '14BIS|André Almeida|medio|4', '15|Suleiman|delantero||x', '15BIS|Zabiri|delantero|3',
       '16|Andrés Martín|delantero', '17|Guliashvili|delantero', '18|Íñigo Vicente|delantero',
-      '19|Arana|delantero', '20|Villalibre|delantero',
+      '19|Arana|delantero', '19BIS|Iker Luque|delantero|4', '20|Villalibre|delantero',
     ],
   },
   {
     id: 'rayo', nombre: 'Rayo Vallecano', grupo: 'equipos',
     cromos: [
       '1|Escudo', '2|Beñat San José|entrenador', '3|Batalla|portero', '4|Cárdenas|portero',
-      '5|Ratiu|defensa', '6|Balliu|defensa', '7|Nobel Mendy|defensa||x', '7BIS|Vertrouwd|defensa|3',
-      '8|Lejeune|defensa', '9|Luiz Felipe|defensa', '10|Pep Chavarría|defensa||x',
-      '10BIS|Pelayo|defensa|3', '11A|Pedro Díaz|medio', '11B|Nteka|medio', '12|Pathé Ciss|medio',
-      '13|Óscar Valentín|medio', '14|Unai López|medio', '15|Isi|medio', '16|De Frutos|delantero',
-      '17|Fran Pérez|delantero', '18|Álvaro García|delantero', '19|Camello|delantero',
+      '4BIS|Audero|portero|4', '5|Ratiu|defensa', '6|Balliu|defensa', '7|Nobel Mendy|defensa||x',
+      '7BIS|Vertrouwd|defensa|3', '8|Lejeune|defensa', '9|Luiz Felipe|defensa',
+      '10|Pep Chavarría|defensa||x', '10BIS|Pelayo|defensa|3', '11A|Pedro Díaz|medio', '11B|Nteka|medio',
+      '12|Pathé Ciss|medio', '12BIS|Bouare|medio|4', '13|Óscar Valentín|medio', '14|Unai López|medio',
+      '15|Isi|medio', '16|De Frutos|delantero', '17|Fran Pérez|delantero',
+      '17BIS|Tsitaishvili|delantero|4', '18|Álvaro García|delantero', '19|Camello|delantero',
       '20|Alemao|delantero',
     ],
   },
@@ -210,8 +221,8 @@ const RAW = [
       '5|Aramburu|defensa', '6|Zubeldia|defensa', '7|Jon Martín|defensa', '8|Sergio Gómez|defensa',
       '9|Aihen Muñoz|defensa', '10|Gorrotxategi|medio', '11|Pablo Marín|medio', '12|Turrientes|medio',
       '13A|Yangel Herrera|medio', '13B|Zakharyan|medio|2', '14|Carlos Soler|medio', '15|Sucic|medio',
-      '16|Barrenetxea|delantero', '17|Kubo|delantero', '18|Guedes|delantero', '19|Oskarsson|delantero',
-      '20|Oyarzabal|delantero',
+      '15BIS|Ochieng|delantero|4', '16|Barrenetxea|delantero', '17|Kubo|delantero', '18|Guedes|delantero',
+      '19|Oskarsson|delantero', '20|Oyarzabal|delantero',
     ],
   },
   {
@@ -220,20 +231,22 @@ const RAW = [
       '1|Escudo', '2|Luis García|entrenador', '3|Vlachodimos|portero', '4|Fran González|portero|3',
       '5|Carmona|defensa', '6|Juanlu|defensa||x', '6BIS|Iglesias|defensa|2', '7|Kike Salas|defensa',
       '8|Nianzou|defensa||x', '8BIS|Julio Díaz|defensa|3', '9A|Castrín|defensa', '9B|Marcao|defensa',
-      '10|Suazo|defensa', '11|Oso|medio||x', '12|Agoumé|medio', '13|Guridi|medio|2', '14|Sow|medio||x',
-      '15|Vargas|medio', '16|Manu Bueno|medio', '17|Peque|delantero', '18|Ejuke|delantero',
+      '10|Suazo|defensa', '11|Oso|medio||x', '11BIS|Fofana|medio|4', '12|Agoumé|medio',
+      '13|Guridi|medio|2', '14|Sow|medio||x', '14BIS|Nico Guillén|medio|4', '15|Vargas|medio',
+      '16|Manu Bueno|medio', '16BIS|Alfon|delantero|4', '17|Peque|delantero', '18|Ejuke|delantero',
       '19|Akor Adams|delantero||x', '19BIS|Miguel Sierra|delantero|3', '20|Isaac Romero|delantero',
     ],
   },
   {
     id: 'valencia', nombre: 'Valencia', grupo: 'equipos',
     cromos: [
-      '1|Escudo', '2|Carlos Corberán|entrenador', '3|Dimitrievski|portero', '4|Rivero|portero',
-      '5|Foulquier|defensa', '6|Copete|defensa', '7|Tárrega|defensa', '8A|Cömert|defensa||x',
-      '8B|Diakhaby|defensa', '9|Gayà|defensa', '10|Jesús Vázquez|defensa', '11|Pepelu|medio',
-      '12|Guido Rodríguez|medio', '13|Javi Guerra|medio', '14|Luis Rioja|medio', '15|Ugrinic|medio',
-      '16|André Almeida|medio', '16BIS|Dieng|medio|2', '17|Hugo Duro|delantero',
-      '18|Diego López|delantero', '19|Ramazani|delantero||x', '19BIS|Danjuma|delantero|2',
+      '1|Escudo', '2|Carlos Corberán|entrenador', '2BIS|Javier Aguirre|entrenador|4',
+      '3|Dimitrievski|portero', '4|Rivero|portero', '4BIS|Van Oevelen|portero|4', '5|Foulquier|defensa',
+      '6|Copete|defensa', '7|Tárrega|defensa', '8A|Cömert|defensa||x', '8B|Diakhaby|defensa',
+      '9|Gayà|defensa', '10|Jesús Vázquez|defensa', '11|Pepelu|medio', '12|Guido Rodríguez|medio',
+      '13|Javi Guerra|medio', '14|Luis Rioja|medio', '15|Ugrinic|medio', '16|André Almeida|medio',
+      '16BIS|Dieng|medio|2', '17|Hugo Duro|delantero', '18|Diego López|delantero',
+      '18BIS|Otorbi|delantero|4', '19|Ramazani|delantero||x', '19BIS|Danjuma|delantero|2',
       '20A|Sadiq|delantero', '20B|Lucas Beltrán|delantero||x',
     ],
   },
@@ -242,11 +255,11 @@ const RAW = [
     cromos: [
       '1|Escudo', '2|Íñigo Pérez|entrenador', '3|Luiz Júnior|portero', '4|Arnau Tenas|portero||x',
       '4BIS|Gulácsi|portero|2', '5|Mouriño|defensa', '6A|Pau Navarro|defensa', '6B|Logan Costa|defensa',
-      '7A|Foyth|defensa', '7B|Freeman|defensa', '8A|Kambwala|defensa||x', '8B|Rafa Marín|defensa||x',
-      '9|Renato Veiga|defensa', '10|Sergi Cardona|defensa', '11|Pape Gueye|medio',
-      '12|Santi Comesaña|medio', '13|Maciá|medio', '14|Moleiro|medio', '15|Buchanan|delantero',
-      '16|Oluwaseyi|delantero', '17|Ayoze|delantero', '18|Pépé|delantero', '19|Mikautadze|delantero',
-      '20|Gerard Moreno|delantero',
+      '7A|Foyth|defensa', '7B|Freeman|defensa', '8A|Kambwala|defensa||x', '8BIS|Diatta|defensa|4',
+      '8B|Rafa Marín|defensa||x', '9|Renato Veiga|defensa', '10|Sergi Cardona|defensa',
+      '11|Pape Gueye|medio', '12|Santi Comesaña|medio', '13|Maciá|medio', '14|Moleiro|medio',
+      '15|Buchanan|delantero', '16|Oluwaseyi|delantero', '16BIS|Ilias|delantero|4', '17|Ayoze|delantero',
+      '18|Pépé|delantero', '19|Mikautadze|delantero', '20|Gerard Moreno|delantero',
     ],
   },
   {
@@ -272,6 +285,21 @@ const RAW = [
       'UF35|Peio Canales (Athletic)|medio|3', 'UF36|Kochorashvili (Sevilla)|medio|3',
       'UF37|Galán (Celta)|defensa|3', 'UF38|Parrott (Betis)|delantero|3',
       'UF39|Diomande (Real Madrid)|delantero|3', 'UF40|Rodri (Barcelona)|medio|3',
+      'UF41|Ezequiel Ponce|delantero|4', 'UF42|Gudelj|medio|4', 'UF43|Sarr|defensa|4',
+      'UF44|Miguel Rodríguez|delantero|4', 'UF45|Pablo Martínez|medio|4', 'UF46|Del Castillo|delantero|4',
+      'UF47|Belocian|defensa|4', 'UF48|Stassin|delantero|4', 'UF49|Sadick|defensa|4',
+      'UF50|Bryan Zaragoza|delantero|4', 'UF51|Saliba|medio|4', 'UF52|Giménez|defensa|4',
+      'UF53|Pedrosa|defensa|4', 'UF54|Cáceres|defensa|4', 'UF55|Livakovic|portero|4',
+      'UF56|Pablo García|delantero|4', 'UF57|Arnau|defensa|4', 'UF58|Osorio|delantero|4',
+      'UF59|Héctor Fort|defensa|4', 'UF60|Romero|defensa|4', 'UF61|Félix Correia|delantero|4',
+      'UF62|Adama Traoré|delantero|4', 'UF63|Gabriel Jesus|delantero|4', 'UF64|Elliott|medio|4',
+      'UF65|Dani Ceballos|medio|4', 'UF66|Jonathan David|delantero|4',
+    ],
+  },
+  {
+    id: 'topfichajes', nombre: '3 Top Fichajes', grupo: 'especiales',
+    cromos: [
+      '67|Rodri|medio|4', '68|Cucurella|defensa|4', '69|Kang-in Lee|medio|4',
     ],
   },
   {
@@ -328,6 +356,7 @@ const RAW = [
     cromos: [
       'B1|Lamine Yamal (Barcelona)|delantero', 'B2|Mbappé (Real Madrid)|delantero',
       'B3|Nico Williams (Athletic)|delantero', 'B4|Pedri (Barcelona)|medio', 'B5|Oblak (Atlético de Madrid)|portero',
+      'B6|Rodri (Barcelona)|medio|4', 'B7|Bellingham (Real Madrid)|medio|4',
     ],
   },
   {
@@ -335,6 +364,7 @@ const RAW = [
     cromos: [
       'P1|Lamine Yamal (Barcelona)|delantero', 'P2|Mbappé (Real Madrid)|delantero',
       'P3|Nico Williams (Athletic)|delantero', 'P4|Pedri (Barcelona)|medio', 'P5|Oblak (Atlético de Madrid)|portero',
+      'P6|Rodri (Barcelona)|medio|4', 'P7|Bellingham (Real Madrid)|medio|4',
     ],
   },
   {
@@ -342,6 +372,7 @@ const RAW = [
     cromos: [
       'O1|Lamine Yamal (Barcelona)|delantero', 'O2|Mbappé (Real Madrid)|delantero',
       'O3|Nico Williams (Athletic)|delantero', 'O4|Pedri (Barcelona)|medio', 'O5|Oblak (Atlético de Madrid)|portero',
+      'O6|Rodri (Barcelona)|medio|4', 'O7|Bellingham (Real Madrid)|medio|4',
     ],
   },
 ];
@@ -356,8 +387,8 @@ export const GRUPOS = [
 export const calcularSecciones = (retiradosManual = {}) =>
   RAW.map((s) => {
     const cromos = s.cromos.map((linea) => {
-      const [numero, nombre, posicion, ed, estado] = linea.split('|');
-      const id = `${s.id}-${numero}`;
+      const [numero, nombre, posicion, ed, estado, variante] = linea.split('|');
+      const id = variante ? `${s.id}-${numero}-${variante}` : `${s.id}-${numero}`;
       const retiradoChecklist = estado === 'x';
       return {
         id,
@@ -365,7 +396,7 @@ export const calcularSecciones = (retiradosManual = {}) =>
         nombre: nombre || 'Sin nombre',
         sinNombre: !nombre,
         posicion: posicion || '',
-        edicion: ed === '2' ? 2 : ed === '3' ? 3 : 0,
+        edicion: ed === '2' ? 2 : ed === '3' ? 3 : ed === '4' ? 4 : 0,
         retirado: id in retiradosManual ? Boolean(retiradosManual[id]) : retiradoChecklist,
         retiradoChecklist, // estado original según el PDF
         alternativas: [], // ids de los cromos A/B que compiten por el mismo hueco
